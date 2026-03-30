@@ -44,7 +44,7 @@ start_service() {
 
   ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
   ASPNETCORE_URLS="http://localhost:${port}" \
-    dotnet run --project "$project" -c "$CONFIGURATION" --no-build >"$log_file" 2>&1 &
+    dotnet run --no-launch-profile --project "$project" -c "$CONFIGURATION" --no-build >"$log_file" 2>&1 &
 
   PIDS+=("$!")
 }
@@ -58,7 +58,7 @@ if [[ "${INCLUDE_WEB:-0}" == "1" ]]; then
   echo "Starting web on http://localhost:5200 (log: ${LOG_DIR}/web.log)"
   ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
   ASPNETCORE_URLS="http://localhost:5200" \
-    dotnet run --project "src/WebApps/Shopping.Web/Shopping.Web.csproj" -c "$CONFIGURATION" --no-build >"$LOG_DIR/web.log" 2>&1 &
+    dotnet run --no-launch-profile --project "src/WebApps/Shopping.Web/Shopping.Web.csproj" -c "$CONFIGURATION" --no-build >"$LOG_DIR/web.log" 2>&1 &
   PIDS+=("$!")
 fi
 
