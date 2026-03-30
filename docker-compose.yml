@@ -1,0 +1,82 @@
+services:
+  apigateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/WebShop.ApiGateway/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5100:8080"
+    depends_on:
+      - catalog-api
+      - basket-api
+      - ordering-api
+
+  catalog-api:
+    build:
+      context: .
+      dockerfile: src/Services/Catalog.API/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5101:8080"
+
+  basket-api:
+    build:
+      context: .
+      dockerfile: src/Services/Basket.API/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5102:8080"
+
+  ordering-api:
+    build:
+      context: .
+      dockerfile: src/Services/Ordering/Ordering.API/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://+:8080
+    ports:
+      - "5103:8080"
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  mongodb:
+    image: mongo:7
+    ports:
+      - "27017:27017"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: webshop
+      POSTGRES_PASSWORD: webshop
+      POSTGRES_DB: ordering
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    command: start-dev
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8080:8080"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    ports:
+      - "16686:16686"
+      - "4317:4317"
+
