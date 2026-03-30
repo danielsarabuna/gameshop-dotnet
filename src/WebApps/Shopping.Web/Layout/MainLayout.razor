@@ -1,16 +1,89 @@
 ﻿@inherits LayoutComponentBase
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
+@implements IDisposable
+@inject CartState Cart
+
+<header class="header">
+    <div class="container header-inner">
+        <a class="logo" href="/">GameShop</a>
+
+        <nav class="nav" aria-label="Primary">
+            <NavLink href="/" Match="NavLinkMatch.All">Главная</NavLink>
+            <NavLink href="/about">Об игре</NavLink>
+            <NavLink href="/diamonds">Алмазы</NavLink>
+            <NavLink href="/subscription">Подписка</NavLink>
+            <NavLink href="/help">Помощь</NavLink>
+        </nav>
+
+        <div class="header-right">
+            <button class="icon-btn desktop-only" type="button" aria-label="Language">
+                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
+                <span>RU</span>
+                <span class="icon" aria-hidden="true">@((MarkupString)Icons.ChevronDown)</span>
+            </button>
+
+            <button class="icon-btn mobile-only" type="button" aria-label="Language">
+                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
+            </button>
+
+            <button class="icon-btn cart" type="button" aria-label="Cart">
+                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
+                @if (Cart.Count > 0)
+                {
+                    <span class="cart-badge">@Cart.Count</span>
+                }
+            </button>
+
+            <button class="icon-btn mobile-only" type="button" aria-label="Menu" @onclick="ToggleMobileNav">
+                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Hamburger)</span>
+            </button>
+        </div>
     </div>
 
-    <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+    <div class="mobile-nav @(MobileNavOpen ? "open" : "")" @onclick="CloseMobileNav">
+        <NavLink href="/" Match="NavLinkMatch.All">Главная</NavLink>
+        <NavLink href="/about">Об игре</NavLink>
+        <NavLink href="/diamonds">Алмазы</NavLink>
+        <NavLink href="/subscription">Подписка</NavLink>
+        <NavLink href="/help">Помощь</NavLink>
+    </div>
+</header>
 
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+<main>
+    @Body
+</main>
+
+@code {
+    private bool MobileNavOpen;
+
+    protected override void OnInitialized()
+    {
+        Cart.Changed += OnCartChanged;
+        base.OnInitialized();
+    }
+
+    private void OnCartChanged() => InvokeAsync(StateHasChanged);
+
+    private void ToggleMobileNav() => MobileNavOpen = !MobileNavOpen;
+
+    private void CloseMobileNav() => MobileNavOpen = false;
+
+    public void Dispose()
+    {
+        Cart.Changed -= OnCartChanged;
+    }
+
+    private static class Icons
+    {
+        public const string Globe =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z' stroke='currentColor' stroke-width='2'/><path d='M3.6 9h16.8M3.6 15h16.8' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M12 3c2.6 2.7 4 5.8 4 9s-1.4 6.3-4 9c-2.6-2.7-4-5.8-4-9s1.4-6.3 4-9Z' stroke='currentColor' stroke-width='2'/></svg>";
+
+        public const string ChevronDown =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M6 9l6 6 6-6' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+
+        public const string Cart =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M6 6h15l-2 8H7L6 6Z' stroke='currentColor' stroke-width='2' stroke-linejoin='round'/><path d='M6 6 5 3H2' stroke='currentColor' stroke-width='2' stroke-linecap='round'/><path d='M8 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2ZM18 20a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z' fill='currentColor'/></svg>";
+
+        public const string Hamburger =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M4 6h16M4 12h16M4 18h16' stroke='currentColor' stroke-width='2' stroke-linecap='round'/></svg>";
+    }
+}

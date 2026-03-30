@@ -1,0 +1,88 @@
+@page "/subscription"
+@inject CartState Cart
+
+<PageTitle>GameShop — Подписка</PageTitle>
+
+<section class="page-pad">
+    <div class="container">
+        <div class="two-col">
+            <div>
+                <h1>Premium</h1>
+                <p class="muted">
+                    Premium открывает дополнительные сцены, ускоряет прогресс и даёт доступ к эксклюзивным активностям.
+                    Подписка продлевается по выбранному сроку.
+                </p>
+
+                <div class="benefits">
+                    @foreach (var benefit in Benefits)
+                    {
+                        <div class="benefit">
+                            <span class="check" aria-hidden="true">@((MarkupString)Icons.Check)</span>
+                            <span>@benefit</span>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div>
+                <div class="gif gif-premium">premium-content.gif</div>
+            </div>
+        </div>
+
+        <div class="plans">
+            <div class="centered">
+                <h2>Выберите план</h2>
+            </div>
+
+            <div class="plan-row">
+                @foreach (var plan in Plans)
+                {
+                    <div class="card plan-card @(plan.Highlight ? "highlight" : "")">
+                        @if (!string.IsNullOrWhiteSpace(plan.Badge))
+                        {
+                            <div class="card-badge badge-gold">@plan.Badge</div>
+                        }
+
+                        <div class="plan-name">@plan.Name</div>
+                        <p class="plan-price">@plan.Price</p>
+                        <div class="plan-period">@plan.Period</div>
+
+                        <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="() => Buy(plan)">
+                            Купить
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private static readonly IReadOnlyList<string> Benefits =
+    [
+        "Эксклюзивные сцены и диалоги",
+        "Бонусные алмазы каждый день",
+        "Ускоренное восстановление энергии",
+        "Уникальные предметы кастомизации"
+    ];
+
+    private static readonly IReadOnlyList<Plan> Plans =
+    [
+        new("1 месяц", "€6.99", "Ежемесячно", null, false),
+        new("3 месяца", "€17.99", "Раз в 3 месяца", null, false),
+        new("12 месяцев", "€59.99", "Раз в год", "Выгодно", true)
+    ];
+
+    private void Buy(Plan plan)
+    {
+        Cart.Add(1);
+    }
+
+    private sealed record Plan(string Name, string Price, string Period, string? Badge, bool Highlight);
+
+    private static class Icons
+    {
+        public const string Check =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M20 6 9 17l-5-5' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+    }
+}
