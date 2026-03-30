@@ -1,4 +1,5 @@
 ﻿@page "/"
+@inject LanguageState Lang
 
 <PageTitle>GameShop — Главная</PageTitle>
 
@@ -9,13 +10,18 @@
                 <div class="gif gif-home-1">gameplay.gif</div>
 
                 <p class="muted" style="margin-top: 24px;">
-                    Покупайте алмазы и Premium, чтобы ускорить прогресс и открыть эксклюзивный контент в вашей любимой игре-симуляторе свиданий.
-                    Быстрая выдача, удобные способы оплаты и поддержка 24/7.
+                    @Lang.T(
+                        "Покупайте алмазы и Premium, чтобы ускорить прогресс и открыть эксклюзивный контент в вашей любимой игре-симуляторе свиданий. Быстрая выдача, удобные способы оплаты и поддержка 24/7.",
+                        "Buy diamonds and Premium to speed up progress and unlock exclusive content in your favorite dating simulation game. Fast delivery, convenient payment options, and 24/7 support.",
+                        "Kaufe Diamanten und Premium, um schneller voranzukommen und exklusive Inhalte in deiner Dating‑Simulation freizuschalten. Schnelle Lieferung, bequeme Zahlungsmethoden und Support rund um die Uhr.",
+                        "Achetez des diamants et Premium pour accélérer la progression et débloquer du contenu exclusif dans votre jeu de simulation de rencontres. Livraison rapide, paiements pratiques et support 24/7.",
+                        "Compra diamantes y Premium para avanzar más rápido y desbloquear contenido exclusivo en tu juego de simulación de citas. Entrega rápida, métodos de pago cómodos y soporte 24/7."
+                    )
                 </p>
 
                 <div class="home-actions">
-                    <a class="btn btn-primary" href="/diamonds">Купить алмазы</a>
-                    <a class="btn btn-outline-gold" href="/subscription">Premium</a>
+                    <a class="btn btn-primary" href="/diamonds">@Lang.BuyDiamonds</a>
+                    <a class="btn btn-outline-gold" href="/subscription">@Lang.Premium</a>
                 </div>
             </div>
 

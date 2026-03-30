@@ -1,31 +1,68 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
 @inject CartState Cart
+@inject LanguageState Lang
+@inject NavigationManager Nav
 
-<header class="header">
+<header class="header" @onclick="CloseMenus">
     <div class="container header-inner">
         <a class="logo" href="/">GameShop</a>
 
         <nav class="nav" aria-label="Primary">
-            <NavLink href="/" Match="NavLinkMatch.All">Главная</NavLink>
-            <NavLink href="/about">Об игре</NavLink>
-            <NavLink href="/diamonds">Алмазы</NavLink>
-            <NavLink href="/subscription">Подписка</NavLink>
-            <NavLink href="/help">Помощь</NavLink>
+            <NavLink href="/" Match="NavLinkMatch.All">@Lang.NavHome</NavLink>
+            <NavLink href="/about">@Lang.NavAbout</NavLink>
+            <NavLink href="/diamonds">@Lang.NavDiamonds</NavLink>
+            <NavLink href="/subscription">@Lang.NavSubscription</NavLink>
+            <NavLink href="/help">@Lang.NavHelp</NavLink>
         </nav>
 
         <div class="header-right">
-            <button class="icon-btn desktop-only" type="button" aria-label="Language">
-                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
-                <span>RU</span>
-                <span class="icon" aria-hidden="true">@((MarkupString)Icons.ChevronDown)</span>
-            </button>
+            <div class="menu desktop-only" @onclick:stopPropagation="true">
+                <button class="icon-btn" type="button" aria-label="Language" @onclick="ToggleLangMenu">
+                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
+                    <span>@Lang.Code</span>
+                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.ChevronDown)</span>
+                </button>
 
-            <button class="icon-btn mobile-only" type="button" aria-label="Language">
-                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
-            </button>
+                @if (LangMenuOpen)
+                {
+                    <div class="menu-panel" role="menu" aria-label="Language menu">
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Ru)">
+                            <span>RU</span><span class="muted">Русский</span>
+                        </button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.En)">
+                            <span>EN</span><span class="muted">English</span>
+                        </button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.De)">
+                            <span>DE</span><span class="muted">Deutsch</span>
+                        </button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Fr)">
+                            <span>FR</span><span class="muted">Français</span>
+                        </button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Es)">
+                            <span>ES</span><span class="muted">Español</span>
+                        </button>
+                    </div>
+                }
+            </div>
 
-            <button class="icon-btn cart" type="button" aria-label="Cart">
+            <div class="menu mobile-only" @onclick:stopPropagation="true">
+                <button class="icon-btn" type="button" aria-label="Language" @onclick="ToggleLangMenu">
+                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
+                </button>
+                @if (LangMenuOpen)
+                {
+                    <div class="menu-panel" role="menu" aria-label="Language menu">
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Ru)"><span>RU</span><span class="muted">Русский</span></button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.En)"><span>EN</span><span class="muted">English</span></button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.De)"><span>DE</span><span class="muted">Deutsch</span></button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Fr)"><span>FR</span><span class="muted">Français</span></button>
+                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Es)"><span>ES</span><span class="muted">Español</span></button>
+                    </div>
+                }
+            </div>
+
+            <button class="icon-btn cart" type="button" aria-label="Cart" @onclick="GoToCart">
                 <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
                 @if (Cart.Count > 0)
                 {
@@ -40,11 +77,11 @@
     </div>
 
     <div class="mobile-nav @(MobileNavOpen ? "open" : "")" @onclick="CloseMobileNav">
-        <NavLink href="/" Match="NavLinkMatch.All">Главная</NavLink>
-        <NavLink href="/about">Об игре</NavLink>
-        <NavLink href="/diamonds">Алмазы</NavLink>
-        <NavLink href="/subscription">Подписка</NavLink>
-        <NavLink href="/help">Помощь</NavLink>
+        <NavLink href="/" Match="NavLinkMatch.All">@Lang.NavHome</NavLink>
+        <NavLink href="/about">@Lang.NavAbout</NavLink>
+        <NavLink href="/diamonds">@Lang.NavDiamonds</NavLink>
+        <NavLink href="/subscription">@Lang.NavSubscription</NavLink>
+        <NavLink href="/help">@Lang.NavHelp</NavLink>
     </div>
 </header>
 
@@ -54,22 +91,49 @@
 
 @code {
     private bool MobileNavOpen;
+    private bool LangMenuOpen;
 
     protected override void OnInitialized()
     {
         Cart.Changed += OnCartChanged;
+        Lang.Changed += OnLangChanged;
+        Nav.LocationChanged += OnLocationChanged;
         base.OnInitialized();
     }
 
     private void OnCartChanged() => InvokeAsync(StateHasChanged);
+    private void OnLangChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        MobileNavOpen = false;
+        LangMenuOpen = false;
+    }
 
     private void ToggleMobileNav() => MobileNavOpen = !MobileNavOpen;
 
     private void CloseMobileNav() => MobileNavOpen = false;
 
+    private void ToggleLangMenu() => LangMenuOpen = !LangMenuOpen;
+
+    private void SetLang(LanguageState.Language lang)
+    {
+        Lang.Set(lang);
+        LangMenuOpen = false;
+    }
+
+    private void GoToCart() => Nav.NavigateTo("/cart");
+
+    private void CloseMenus()
+    {
+        LangMenuOpen = false;
+    }
+
     public void Dispose()
     {
         Cart.Changed -= OnCartChanged;
+        Lang.Changed -= OnLangChanged;
+        Nav.LocationChanged -= OnLocationChanged;
     }
 
     private static class Icons

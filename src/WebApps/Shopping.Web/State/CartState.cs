@@ -2,27 +2,61 @@ namespace Shopping.Web.State;
 
 public sealed class CartState
 {
-    private int _count;
+    private readonly List<CartLine> _lines = [];
 
-    public int Count => _count;
+    public IReadOnlyList<CartLine> Lines => _lines;
+
+    public int Count => _lines.Sum(l => l.Quantity);
+
+    public decimal Total => _lines.Sum(l => l.UnitPrice * l.Quantity);
 
     public event Action? Changed;
 
-    public void Add(int quantity = 1)
+    public void AddItem(string sku, string title, decimal unitPrice, int quantity = 1)
     {
-        if (quantity <= 0)
+        if (quantity <= 0 || string.IsNullOrWhiteSpace(sku))
         {
             return;
         }
 
-        _count += quantity;
+        var existing = _lines.FirstOrDefault(l => l.Sku == sku);
+        if (existing is not null)
+        {
+            existing.Quantity += quantity;
+        }
+        else
+        {
+            _lines.Add(new CartLine(sku, title, unitPrice, quantity));
+        }
+
         Changed?.Invoke();
     }
 
     public void Clear()
     {
-        _count = 0;
+        _lines.Clear();
         Changed?.Invoke();
     }
-}
 
+    public void Remove(string sku)
+    {
+        _lines.RemoveAll(l => l.Sku == sku);
+        Changed?.Invoke();
+    }
+
+    public sealed class CartLine
+    {
+        public CartLine(string sku, string title, decimal unitPrice, int quantity)
+        {
+            Sku = sku;
+            Title = title;
+            UnitPrice = unitPrice;
+            Quantity = quantity;
+        }
+
+        public string Sku { get; }
+        public string Title { get; }
+        public decimal UnitPrice { get; }
+        public int Quantity { get; set; }
+    }
+}

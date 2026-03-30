@@ -1,17 +1,24 @@
 @page "/help"
+@inject LanguageState Lang
 
-<PageTitle>GameShop — Помощь</PageTitle>
+<PageTitle>GameShop — @Lang.T("Помощь", "Help", "Hilfe", "Aide", "Ayuda")</PageTitle>
 
 <section class="page-pad">
     <div class="container">
         <div class="narrow" style="max-width: 720px;">
-            <h1>Помощь</h1>
+            <h1>@Lang.T("Помощь", "Help", "Hilfe", "Aide", "Ayuda")</h1>
             <p class="muted" style="margin-bottom: 48px;">
-                Ответы на частые вопросы о покупках, подписке и аккаунте.
+                @Lang.T(
+                    "Ответы на частые вопросы о покупках, подписке и аккаунте.",
+                    "Answers to common questions about purchases, subscriptions, and your account.",
+                    "Antworten auf häufige Fragen zu Käufen, Abos und deinem Konto.",
+                    "Réponses aux questions fréquentes sur les achats, l’abonnement et le compte.",
+                    "Respuestas a preguntas frecuentes sobre compras, suscripción y cuenta."
+                )
             </p>
 
             <div class="faq">
-                @foreach (var group in Groups)
+                @foreach (var group in CurrentGroups)
                 {
                     <div>
                         <div class="faq-group-label">@group.Label</div>
@@ -48,7 +55,18 @@
         }
     }
 
-    private static readonly IReadOnlyList<FaqGroup> Groups =
+    private IReadOnlyList<FaqGroup> CurrentGroups =>
+        Lang.Current switch
+        {
+            LanguageState.Language.Ru => RuGroups,
+            LanguageState.Language.En => EnGroups,
+            LanguageState.Language.De => DeGroups,
+            LanguageState.Language.Fr => FrGroups,
+            LanguageState.Language.Es => EsGroups,
+            _ => EnGroups
+        };
+
+    private static readonly IReadOnlyList<FaqGroup> RuGroups =
     [
         new(
             "Алмазы & Оплата",
@@ -78,6 +96,142 @@
             [
                 new("misc-1", "Как связаться с поддержкой?", "Напишите нам через форму на сайте или на email поддержки (укажем в разделе контактов)."),
                 new("misc-2", "Есть ли возврат средств?", "Возврат возможен в отдельных случаях. Обратитесь в поддержку — рассмотрим заявку.")
+            ]
+        )
+    ];
+
+    private static readonly IReadOnlyList<FaqGroup> EnGroups =
+    [
+        new(
+            "Diamonds & Payment",
+            [
+                new("pay-1", "How do I buy diamonds?", "Open Diamonds, pick a pack, and click Add to cart. Then follow the payment steps."),
+                new("pay-2", "Which payment methods are available?", "Available methods depend on your region. We’ll show the current options at checkout."),
+                new("pay-3", "Diamonds didn’t arrive—what should I do?", "Double-check your ID. If it’s been over 15 minutes, contact support with your receipt.")
+            ]
+        ),
+        new(
+            "Subscription",
+            [
+                new("sub-1", "What’s included in Premium?", "Daily bonuses, exclusive scenes, faster progression, and unique rewards."),
+                new("sub-2", "How do I cancel my subscription?", "Cancellation depends on your payment method. In your account (or payment provider), choose Cancel."),
+                new("sub-3", "Bonuses aren’t active after payment?", "Restart the game and refresh. If it still doesn’t work, contact support with your receipt.")
+            ]
+        ),
+        new(
+            "Account",
+            [
+                new("acc-1", "Where can I find my in-game ID?", "Usually in Profile/Settings. Look for Player ID or UID."),
+                new("acc-2", "How do I link my account?", "Open game settings, choose an available method (email/social), and confirm.")
+            ]
+        ),
+        new(
+            "Other",
+            [
+                new("misc-1", "How can I contact support?", "Reach us via the website form or support email (see Contacts)."),
+                new("misc-2", "Do you offer refunds?", "Refunds may be available in certain cases. Contact support and we’ll review your request.")
+            ]
+        )
+    ];
+
+    private static readonly IReadOnlyList<FaqGroup> DeGroups =
+    [
+        new(
+            "Diamanten & Zahlung",
+            [
+                new("pay-1", "Wie kaufe ich Diamanten?", "Öffne Diamanten, wähle ein Paket und klicke In den Warenkorb. Dann den Zahlungsschritten folgen."),
+                new("pay-2", "Welche Zahlungsmethoden gibt es?", "Das hängt von deiner Region ab. Beim Checkout zeigen wir die verfügbaren Optionen."),
+                new("pay-3", "Diamanten sind nicht angekommen – was tun?", "Prüfe die ID. Wenn es länger als 15 Minuten dauert, kontaktiere den Support mit Beleg.")
+            ]
+        ),
+        new(
+            "Abo",
+            [
+                new("sub-1", "Was ist in Premium enthalten?", "Tägliche Boni, exklusive Szenen, schnellerer Fortschritt und einzigartige Belohnungen."),
+                new("sub-2", "Wie kündige ich?", "Die Kündigung hängt von der Zahlungsart ab. In deinem Konto (oder beim Zahlungsanbieter) Abbrechen wählen."),
+                new("sub-3", "Boni nach Zahlung nicht aktiv?", "Spiel neu starten und aktualisieren. Falls es bleibt, Support mit Beleg kontaktieren.")
+            ]
+        ),
+        new(
+            "Konto",
+            [
+                new("acc-1", "Wo finde ich meine In‑Game‑ID?", "Meist in Profil/Einstellungen. Suche nach Player ID oder UID."),
+                new("acc-2", "Wie verknüpfe ich mein Konto?", "In den Einstellungen eine Methode (E‑Mail/Sozial) wählen und bestätigen.")
+            ]
+        ),
+        new(
+            "Sonstiges",
+            [
+                new("misc-1", "Wie erreiche ich den Support?", "Über das Formular auf der Website oder per Support‑E‑Mail (siehe Kontakte)."),
+                new("misc-2", "Gibt es Rückerstattungen?", "In bestimmten Fällen möglich. Kontaktiere den Support, wir prüfen die Anfrage.")
+            ]
+        )
+    ];
+
+    private static readonly IReadOnlyList<FaqGroup> FrGroups =
+    [
+        new(
+            "Diamants & Paiement",
+            [
+                new("pay-1", "Comment acheter des diamants ?", "Ouvrez Diamants, choisissez un pack puis cliquez Ajouter au panier. Suivez ensuite le paiement."),
+                new("pay-2", "Quels moyens de paiement sont disponibles ?", "Cela dépend de votre région. Nous afficherons les options au paiement."),
+                new("pay-3", "Les diamants ne sont pas arrivés — que faire ?", "Vérifiez votre ID. Après 15 minutes, contactez le support avec le reçu.")
+            ]
+        ),
+        new(
+            "Abonnement",
+            [
+                new("sub-1", "Que contient Premium ?", "Bonus quotidiens, scènes exclusives, progression plus rapide et récompenses uniques."),
+                new("sub-2", "Comment annuler ?", "Cela dépend du moyen de paiement. Dans votre compte (ou chez le prestataire), choisissez Annuler."),
+                new("sub-3", "Bonus inactifs après paiement ?", "Redémarrez le jeu et actualisez. Sinon, contactez le support avec le reçu.")
+            ]
+        ),
+        new(
+            "Compte",
+            [
+                new("acc-1", "Où trouver mon ID dans le jeu ?", "Souvent dans Profil/Paramètres. Cherchez Player ID ou UID."),
+                new("acc-2", "Comment lier mon compte ?", "Dans les paramètres, choisissez une méthode (email/réseaux) puis confirmez.")
+            ]
+        ),
+        new(
+            "Divers",
+            [
+                new("misc-1", "Comment contacter le support ?", "Via le formulaire du site ou l’email de support (voir Contacts)."),
+                new("misc-2", "Y a‑t‑il des remboursements ?", "Possible dans certains cas. Contactez le support pour examen.")
+            ]
+        )
+    ];
+
+    private static readonly IReadOnlyList<FaqGroup> EsGroups =
+    [
+        new(
+            "Diamantes & Pago",
+            [
+                new("pay-1", "¿Cómo compro diamantes?", "Abre Diamantes, elige un paquete y pulsa Añadir al carrito. Luego sigue los pasos de pago."),
+                new("pay-2", "¿Qué métodos de pago hay?", "Depende de tu región. En el checkout mostraremos las opciones disponibles."),
+                new("pay-3", "No llegaron los diamantes — ¿qué hago?", "Verifica tu ID. Si pasan más de 15 minutos, contacta soporte con el recibo.")
+            ]
+        ),
+        new(
+            "Suscripción",
+            [
+                new("sub-1", "¿Qué incluye Premium?", "Bonos diarios, escenas exclusivas, progreso más rápido y recompensas únicas."),
+                new("sub-2", "¿Cómo cancelo la suscripción?", "Depende del método de pago. En tu cuenta (o proveedor) elige Cancelar."),
+                new("sub-3", "¿Bonos no activos tras pagar?", "Reinicia el juego y actualiza. Si sigue igual, contacta soporte con el recibo.")
+            ]
+        ),
+        new(
+            "Cuenta",
+            [
+                new("acc-1", "¿Dónde encuentro mi ID en el juego?", "Normalmente en Perfil/Ajustes. Busca Player ID o UID."),
+                new("acc-2", "¿Cómo vinculo mi cuenta?", "En ajustes, elige un método (correo/redes) y confirma.")
+            ]
+        ),
+        new(
+            "Otros",
+            [
+                new("misc-1", "¿Cómo contacto con soporte?", "Usa el formulario del sitio o el email de soporte (ver Contactos)."),
+                new("misc-2", "¿Hay reembolsos?", "En algunos casos. Contacta soporte y revisaremos tu solicitud.")
             ]
         )
     ];
