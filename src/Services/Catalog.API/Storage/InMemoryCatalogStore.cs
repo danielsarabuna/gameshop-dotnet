@@ -5,17 +5,6 @@ public sealed class InMemoryCatalogStore : ICatalogStore
     private static readonly IReadOnlyList<CatalogItem> Items =
     [
         new(
-            Id: Guid.Parse("6b3f7e39-cac9-408e-a9f9-c109007cc921"),
-            Title: "30 diamonds",
-            Description: "In‑game currency pack (diamonds).",
-            Type: CatalogProductType.Currency,
-            Price: 0.49m,
-            Currency: "EUR",
-            IsActive: true,
-            Metadata: new Dictionary<string, string> { ["diamonds"] = "30" },
-            ImageUrl: null
-        ),
-        new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000000060"),
             Title: "60 diamonds",
             Description: "In‑game currency pack (diamonds).",
