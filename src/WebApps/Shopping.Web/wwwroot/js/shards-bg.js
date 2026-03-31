@@ -14,13 +14,13 @@
         !!window.matchMedia?.("(max-width: 900px)")?.matches ||
         /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
-    const shardCount = isMobile ? 20 : 40;
+    const heartCount = isMobile ? 20 : 40;
     const enablePush = !isMobile && !prefersReducedMotion;
     const enableAnimation = !prefersReducedMotion;
 
     const backgroundColor = "#05040E";
     const pushRadius = 160;
-    const glowRadius = 80;
+    const glowRadius = 90;
     const maxDpr = 2;
 
     const mouse = {
@@ -31,14 +31,7 @@
 
     const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const rand = (min, max) => min + Math.random() * (max - min);
-
-    const randomTriangle = (radius) => {
-        const angles = [rand(0, Math.PI * 2), rand(0, Math.PI * 2), rand(0, Math.PI * 2)].sort((a, b) => a - b);
-        return angles.map((a) => {
-            const r = radius * rand(0.55, 1);
-            return { x: Math.cos(a) * r, y: Math.sin(a) * r };
-        });
-    };
+    const pow = Math.pow;
 
     let width = 1;
     let height = 1;
@@ -46,31 +39,35 @@
     let lastTs = 0;
     let rafId = 0;
 
-    const createShard = () => {
-        const radius = rand(15, 50);
-        const speed = rand(isMobile ? 6 : 8, isMobile ? 18 : 26);
+    const createHeart = () => {
+        const size = rand(10, 40);
+        const speedPerFrame = rand(0.2, 0.8); // px/frame at 60fps
+        const speed = speedPerFrame * 60; // px/s
         const angle = rand(0, Math.PI * 2);
 
         return {
             x: rand(0, width),
             y: rand(0, height),
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
+            dx: Math.cos(angle) * speed,
+            dy: Math.sin(angle) * speed,
+            vx: 0,
+            vy: 0,
             rot: rand(0, Math.PI * 2),
-            vr: rand(-0.25, 0.25),
+            drot: rand(-0.005, 0.005) * 60, // rad/s
+            vrot: 0,
             spinDir: Math.random() < 0.5 ? -1 : 1,
-            radius,
-            pts: randomTriangle(radius),
-            fillHue: rand(250, 280),
-            fillL: rand(10, 45),
-            fillA: rand(0.15, 0.55),
-            strokeHue: rand(260, 290),
+            phase: rand(0, Math.PI * 2),
+            size,
+            fillHue: rand(300, 330),
+            fillL: rand(12, 45),
+            fillA: rand(0.15, 0.5),
+            strokeHue: rand(300, 340),
             strokeL: rand(60, 85),
-            strokeA: rand(0.2, 0.55),
+            strokeA: rand(0.2, 0.75),
         };
     };
 
-    let shards = [];
+    let hearts = [];
 
     const resize = () => {
         width = Math.max(1, window.innerWidth);
@@ -90,84 +87,89 @@
         }
     };
 
-    const wrap = (shard) => {
-        const margin = 90;
-        if (shard.x < -margin) shard.x = width + margin;
-        if (shard.x > width + margin) shard.x = -margin;
-        if (shard.y < -margin) shard.y = height + margin;
-        if (shard.y > height + margin) shard.y = -margin;
+    const wrap = (heart) => {
+        const margin = 70;
+        if (heart.x < -margin) heart.x = width + margin;
+        if (heart.x > width + margin) heart.x = -margin;
+        if (heart.y < -margin) heart.y = height + margin;
+        if (heart.y > height + margin) heart.y = -margin;
     };
 
     const update = (dt) => {
-        for (const shard of shards) {
-            shard.x += shard.vx * dt;
-            shard.y += shard.vy * dt;
-            shard.rot += shard.vr * dt;
+        const dampV = pow(0.94, dt * 60);
+        const dampR = pow(0.96, dt * 60);
 
-            shard.vx *= 0.999;
-            shard.vy *= 0.999;
-            shard.vr *= 0.995;
+        for (const heart of hearts) {
+            heart.x += (heart.dx + heart.vx) * dt;
+            heart.y += (heart.dy + heart.vy) * dt;
+            heart.rot += (heart.drot + heart.vrot) * dt;
+
+            heart.vx *= dampV;
+            heart.vy *= dampV;
+            heart.vrot *= dampR;
 
             if (enablePush && mouse.active) {
-                const dx = shard.x - mouse.x;
-                const dy = shard.y - mouse.y;
+                const dx = heart.x - mouse.x;
+                const dy = heart.y - mouse.y;
                 const dist = Math.hypot(dx, dy);
                 if (dist > 0.001 && dist < pushRadius) {
                     const t = 1 - dist / pushRadius;
-                    const force = t * t * 520; // px/s^2
                     const nx = dx / dist;
                     const ny = dy / dist;
-                    shard.vx += nx * force * dt;
-                    shard.vy += ny * force * dt;
-                    shard.vr += shard.spinDir * t * 8 * dt;
+
+                    const forcePerFrame = 2.5 * t;
+                    heart.vx += nx * forcePerFrame * 60 * dt;
+                    heart.vy += ny * forcePerFrame * 60 * dt;
+
+                    const spinPerSec = rand(0.01, 0.03) * 60;
+                    heart.vrot += heart.spinDir * spinPerSec * t * dt * 60;
                 }
             }
 
-            const speed = Math.hypot(shard.vx, shard.vy);
-            const maxSpeed = 160;
-            if (speed > maxSpeed) {
-                const k = maxSpeed / speed;
-                shard.vx *= k;
-                shard.vy *= k;
-            }
-
-            wrap(shard);
+            wrap(heart);
         }
     };
 
     const drawGlow = () => {
         if (!enablePush || !mouse.active) return;
         const gradient = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, glowRadius);
-        gradient.addColorStop(0, "rgba(160, 100, 255, 0.18)");
-        gradient.addColorStop(1, "rgba(160, 100, 255, 0)");
+        gradient.addColorStop(0, "rgba(220, 80, 180, 0.18)");
+        gradient.addColorStop(1, "rgba(220, 80, 180, 0)");
         ctx.fillStyle = gradient;
         ctx.fillRect(mouse.x - glowRadius, mouse.y - glowRadius, glowRadius * 2, glowRadius * 2);
     };
 
-    const drawShard = (shard) => {
+    const drawHeartPath = (s) => {
+        ctx.beginPath();
+        ctx.moveTo(0, -s * 0.25);
+        ctx.bezierCurveTo(s * 0.5, -s * 0.75, s, s * 0.1, 0, s * 0.6);
+        ctx.bezierCurveTo(-s, s * 0.1, -s * 0.5, -s * 0.75, 0, -s * 0.25);
+        ctx.closePath();
+    };
+
+    const drawHeart = (heart, ts) => {
         let proximity = 0;
         if (enablePush && mouse.active) {
-            const dist = Math.hypot(shard.x - mouse.x, shard.y - mouse.y);
+            const dist = Math.hypot(heart.x - mouse.x, heart.y - mouse.y);
             if (dist < pushRadius) {
                 proximity = 1 - dist / pushRadius;
             }
         }
 
-        const fillL = clamp(shard.fillL + 35 * proximity, 0, 100);
-        const strokeA = shard.strokeA + (0.8 - shard.strokeA) * proximity;
+        const fillL = clamp(heart.fillL + 35 * proximity, 0, 100);
+        const strokeA = heart.strokeA + (0.8 - heart.strokeA) * proximity;
+
+        const pulse = 1 + 0.2 * proximity * (0.6 + 0.4 * Math.sin(ts * 0.004 + heart.phase));
+        const s = heart.size * pulse;
 
         ctx.save();
-        ctx.translate(shard.x, shard.y);
-        ctx.rotate(shard.rot);
+        ctx.translate(heart.x, heart.y);
+        ctx.rotate(heart.rot);
 
-        ctx.beginPath();
-        ctx.moveTo(shard.pts[0].x, shard.pts[0].y);
-        ctx.lineTo(shard.pts[1].x, shard.pts[1].y);
-        ctx.lineTo(shard.pts[2].x, shard.pts[2].y);
-        ctx.closePath();
+        drawHeartPath(s);
 
-        ctx.fillStyle = `hsla(${shard.fillHue.toFixed(0)}, 70%, ${fillL.toFixed(0)}%, ${shard.fillA.toFixed(2)})`;
-        ctx.strokeStyle = `hsla(${shard.strokeHue.toFixed(0)}, 80%, ${shard.strokeL.toFixed(0)}%, ${strokeA.toFixed(2)})`;
+        ctx.fillStyle = `hsla(${heart.fillHue.toFixed(0)}, 70%, ${fillL.toFixed(0)}%, ${heart.fillA.toFixed(2)})`;
+        ctx.strokeStyle = `hsla(${heart.strokeHue.toFixed(0)}, 85%, ${heart.strokeL.toFixed(0)}%, ${strokeA.toFixed(2)})`;
         ctx.lineWidth = 1;
         ctx.fill();
         ctx.stroke();
@@ -175,7 +177,7 @@
         ctx.restore();
     };
 
-    const draw = () => {
+    const draw = (ts) => {
         ctx.clearRect(0, 0, width, height);
         ctx.fillStyle = backgroundColor;
         ctx.fillRect(0, 0, width, height);
@@ -187,8 +189,8 @@
             ctx.restore();
         }
 
-        for (const shard of shards) {
-            drawShard(shard);
+        for (const heart of hearts) {
+            drawHeart(heart, ts);
         }
     };
 
@@ -196,15 +198,15 @@
         const dt = clamp((ts - lastTs) / 1000, 0, 0.033);
         lastTs = ts;
         update(dt);
-        draw();
+        draw(ts);
         rafId = window.requestAnimationFrame(loop);
     };
 
     const init = () => {
         resize();
-        shards = Array.from({ length: shardCount }, () => createShard());
+        hearts = Array.from({ length: heartCount }, () => createHeart());
 
-        draw();
+        draw(performance.now());
         if (!enableAnimation) {
             return;
         }
