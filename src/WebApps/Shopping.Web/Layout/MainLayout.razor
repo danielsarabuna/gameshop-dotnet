@@ -62,7 +62,7 @@
                 }
             </div>
 
-            <button class="icon-btn cart" type="button" aria-label="Cart" @onclick="OpenCart" @onclick:stopPropagation="true">
+            <button class="icon-btn cart @(CartBump ? "bump" : "")" type="button" aria-label="Cart" @onclick="OpenCart" @onclick:stopPropagation="true">
                 <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
                 @if (Cart.Count > 0)
                 {
@@ -158,6 +158,8 @@
     private bool MobileNavOpen;
     private bool LangMenuOpen;
     private bool CartOpen;
+    private bool CartBump;
+    private CancellationTokenSource? CartBumpCts;
     private string PromoCode = string.Empty;
     private string? PromoMessage;
 
@@ -169,7 +171,27 @@
         base.OnInitialized();
     }
 
-    private void OnCartChanged() => InvokeAsync(StateHasChanged);
+    private async void OnCartChanged()
+    {
+        CartBumpCts?.Cancel();
+        CartBumpCts = new CancellationTokenSource();
+        var token = CartBumpCts.Token;
+
+        CartBump = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Task.Delay(220, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        CartBump = false;
+        await InvokeAsync(StateHasChanged);
+    }
     private void OnLangChanged() => InvokeAsync(StateHasChanged);
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
@@ -218,6 +240,7 @@
         Cart.Changed -= OnCartChanged;
         Lang.Changed -= OnLangChanged;
         Nav.LocationChanged -= OnLocationChanged;
+        CartBumpCts?.Cancel();
     }
 
     private static class Icons
