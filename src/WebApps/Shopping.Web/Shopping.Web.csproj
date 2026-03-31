@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <Content Remove="Pages\Counter.razor" />
+    <Content Remove="wwwroot\gifs\.gitkeep" />
   </ItemGroup>
 
 </Project>
