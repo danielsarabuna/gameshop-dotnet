@@ -235,13 +235,6 @@
 
 	    private async void OnCartChanged()
 	    {
-	        if (!string.IsNullOrWhiteSpace(AppliedPromoCode))
-	        {
-	            AppliedPromoCode = null;
-	            PromoDiscountAmount = 0m;
-	            PromoMessage = null;
-	        }
-
 	        CartBumpCts?.Cancel();
 	        CartBumpCts = new CancellationTokenSource();
 	        var token = CartBumpCts.Token;
@@ -259,6 +252,12 @@
         }
 
         CartBump = false;
+
+        if (!string.IsNullOrWhiteSpace(AppliedPromoCode))
+        {
+            _ = ApplyPromo(AppliedPromoCode, isSilent: true);
+        }
+
         await InvokeAsync(StateHasChanged);
     }
     private void OnLangChanged() => InvokeAsync(StateHasChanged);
@@ -290,15 +289,27 @@
 
     private void CloseCart() => CartOpen = false;
 
-	    private async Task ApplyPromo()
-	    {
-	        PromoMessage = null;
-	        AppliedPromoCode = null;
-	        PromoDiscountAmount = 0m;
+	    private async Task ApplyPromo() => await ApplyPromo(PromoCode);
 
-	        if (string.IsNullOrWhiteSpace(PromoCode))
+	    private async Task ApplyPromo(string? code = null, bool isSilent = false)
+	    {
+	        var targetCode = (code ?? PromoCode)?.Trim() ?? string.Empty;
+
+	        if (!isSilent)
 	        {
-	            PromoMessage = Lang.T("Введите промокод.", "Enter a promo code.", "Promocode eingeben.", "Saisissez un code promo.", "Introduce un código promo.");
+	            PromoMessage = null;
+	            AppliedPromoCode = null;
+	            PromoDiscountAmount = 0m;
+	        }
+
+	        if (string.IsNullOrWhiteSpace(targetCode))
+	        {
+	            if (!isSilent)
+	            {
+	                PromoMessage = Lang.T("Введите промокод.", "Enter a promo code.", "Promocode eingeben.", "Saisissez un code promo.", "Introduce un código promo.");
+	                AppliedPromoCode = null;
+	                PromoDiscountAmount = 0m;
+	            }
 	            return;
 	        }
 
@@ -307,12 +318,17 @@
 	        {
 	            if (!TryParseProductId(line.Sku, out var productId))
 	            {
-	                PromoMessage = Lang.T(
-	                    "Товары в корзине нужно обновить (перезагрузите страницу) и применить промокод заново.",
-	                    "Please refresh the page and apply the promo code again.",
-	                    "Bitte Seite neu laden und den Code erneut anwenden.",
-	                    "Veuillez recharger la page et réappliquer le code.",
-	                    "Recarga la página y aplica el código de nuevo.");
+	                if (!isSilent)
+	                {
+	                    PromoMessage = Lang.T(
+	                        "Товары в корзине нужно обновить (перезагрузите страницу) и применить промокод заново.",
+	                        "Please refresh the page and apply the promo code again.",
+	                        "Bitte Seite neu laden und den Code erneut anwenden.",
+	                        "Veuillez recharger la page et réappliquer le code.",
+	                        "Recarga la página y aplica el código de nuevo.");
+	                    AppliedPromoCode = null;
+	                    PromoDiscountAmount = 0m;
+	                }
 	                return;
 	            }
 
@@ -322,58 +338,83 @@
 	        PromoBusy = true;
 	        try
 	        {
-	            var request = new ApplyPromoRequest(PromoCode.Trim(), lines);
+	            var request = new ApplyPromoRequest(targetCode, lines);
 	            using var response = await Http.PostAsJsonAsync(PromoApplyUrl, request);
 	            if (!response.IsSuccessStatusCode)
 	            {
-	                PromoMessage = Lang.T(
-	                    "Не удалось применить промокод. Попробуйте позже.",
-	                    "Could not apply promo code. Please try again later.",
-	                    "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
-	                    "Impossible d’appliquer le code promo. Réessayez plus tard.",
-	                    "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	                if (!isSilent)
+	                {
+	                    PromoMessage = Lang.T(
+	                        "Не удалось применить промокод. Попробуйте позже.",
+	                        "Could not apply promo code. Please try again later.",
+	                        "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
+	                        "Impossible d’appliquer le code promo. Réessayez plus tard.",
+	                        "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	                }
+	                AppliedPromoCode = null;
+	                PromoDiscountAmount = 0m;
 	                return;
 	            }
 
 	            var result = await response.Content.ReadFromJsonAsync<ApplyPromoResponse>();
 	            if (result is null)
 	            {
+	                if (!isSilent)
+	                {
+	                    PromoMessage = Lang.T(
+	                        "Не удалось применить промокод. Попробуйте позже.",
+	                        "Could not apply promo code. Please try again later.",
+	                        "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
+	                        "Impossible d’appliquer le code promo. Réessayez plus tard.",
+	                        "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	                }
+	                AppliedPromoCode = null;
+	                PromoDiscountAmount = 0m;
+	                return;
+	            }
+
+	            if (!result.IsValid)
+	            {
+	                if (!isSilent)
+	                {
+	                    PromoMessage = result.Error ?? Lang.T("Промокод недействителен.", "Invalid promo code.", "Ungültiger Code.", "Code invalide.", "Código inválido.");
+	                }
+	                AppliedPromoCode = null;
+	                PromoDiscountAmount = 0m;
+	                return;
+	            }
+
+	            AppliedPromoCode = targetCode;
+	            PromoDiscountAmount = Math.Max(0m, result.DiscountAmount);
+
+	            if (!isSilent)
+	            {
+	                PromoMessage = Lang.T(
+	                    "Промокод применён.",
+	                    "Promo code applied.",
+	                    "Code angewendet.",
+	                    "Code appliqué.",
+	                    "Código aplicado.");
+	            }
+	        }
+	        catch
+	        {
+	            if (!isSilent)
+	            {
 	                PromoMessage = Lang.T(
 	                    "Не удалось применить промокод. Попробуйте позже.",
 	                    "Could not apply promo code. Please try again later.",
 	                    "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
 	                    "Impossible d’appliquer le code promo. Réessayez plus tard.",
 	                    "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
-	                return;
 	            }
-
-	            if (!result.IsValid)
-	            {
-	                PromoMessage = result.Error ?? Lang.T("Промокод недействителен.", "Invalid promo code.", "Ungültiger Code.", "Code invalide.", "Código inválido.");
-	                return;
-	            }
-
-	            AppliedPromoCode = PromoCode.Trim();
-	            PromoDiscountAmount = Math.Max(0m, result.DiscountAmount);
-	            PromoMessage = Lang.T(
-	                "Промокод применён.",
-	                "Promo code applied.",
-	                "Code angewendet.",
-	                "Code appliqué.",
-	                "Código aplicado.");
-	        }
-	        catch
-	        {
-	            PromoMessage = Lang.T(
-	                "Не удалось применить промокод. Попробуйте позже.",
-	                "Could not apply promo code. Please try again later.",
-	                "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
-	                "Impossible d’appliquer le code promo. Réessayez plus tard.",
-	                "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	            AppliedPromoCode = null;
+	            PromoDiscountAmount = 0m;
 	        }
 	        finally
 	        {
 	            PromoBusy = false;
+	            StateHasChanged();
 	        }
 	    }
 
