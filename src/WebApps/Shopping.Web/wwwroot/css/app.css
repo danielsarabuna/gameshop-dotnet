@@ -792,6 +792,48 @@ p, .body {
     align-items: center;
 }
 
+.cart-customer {
+    padding: 0 20px;
+    margin-top: 18px;
+}
+
+.cart-customer-grid {
+    display: grid;
+    gap: 10px;
+}
+
+.cart-payment-label {
+    margin-top: 14px;
+}
+
+.pay-methods {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.pay-method {
+    height: 40px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: border-color var(--dur-fast) var(--ease), background-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.pay-method:hover {
+    border-color: rgba(255,255,255,0.2);
+}
+
+.pay-method.active {
+    border-color: rgba(124,58,237,0.75);
+    background: rgba(124,58,237,0.18);
+}
+
 .cart-input {
     width: 100%;
     height: 44px;
@@ -882,6 +924,10 @@ p, .body {
 
 .cart-clear:hover { color: var(--text); border-color: rgba(255,255,255,0.18); }
 .cart-clear:active { transform: scale(0.98); }
+
+@media (max-width: 640px) {
+    .pay-methods { grid-template-columns: 1fr; }
+}
 
 @keyframes panelIn {
     from { opacity: 0; transform: translateY(-8px) scale(0.98); }

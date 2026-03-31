@@ -143,12 +143,43 @@
             }
         </div>
 
+        <div class="cart-customer">
+            <div class="cart-promo-label">@Lang.T("Данные игрока", "Player details", "Spielerdaten", "Informations du joueur", "Datos del jugador")</div>
+            <div class="cart-customer-grid">
+                <input class="cart-input" @bind="PlayerId" placeholder="@(Lang.T("ID игрока", "Player ID", "Spieler-ID", "ID joueur", "ID de jugador"))" />
+                <input class="cart-input" @bind="PlayerName" placeholder="@(Lang.T("Имя", "Name", "Name", "Nom", "Nombre"))" />
+                <input class="cart-input" @bind="PlayerEmail" placeholder="Email" />
+            </div>
+
+            <div class="cart-promo-label cart-payment-label">@Lang.T("Способ оплаты", "Payment method", "Zahlungsmethode", "Methode de paiement", "Metodo de pago")</div>
+            <div class="pay-methods">
+                <button class="pay-method @(IsPayment("stripe") ? "active" : "")" type="button" @onclick='() => SelectPayment("stripe")'>
+                    Stripe
+                </button>
+                <button class="pay-method @(IsPayment("paypal") ? "active" : "")" type="button" @onclick='() => SelectPayment("paypal")'>
+                    PayPal
+                </button>
+                <button class="pay-method @(IsPayment("yookassa") ? "active" : "")" type="button" @onclick='() => SelectPayment("yookassa")'>
+                    YooKassa
+                </button>
+            </div>
+
+            @if (!CanCheckout)
+            {
+                <div class="muted" style="margin-top: 10px;">@CheckoutRequirementsText</div>
+            }
+        </div>
+
         <div class="cart-footer">
             <div class="cart-total">
                 <div class="muted">@Lang.T("Итого:", "Total:", "Summe:", "Total :", "Total:")</div>
                 <div class="cart-total-amount">@FormatMoney(Cart.Total)</div>
             </div>
-            <button class="cart-checkout" type="button" disabled>@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
+            <button class="cart-checkout" type="button" disabled="@(!CanCheckout)" @onclick="Checkout">@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
+            @if (!string.IsNullOrWhiteSpace(CheckoutMessage))
+            {
+                <div class="muted" style="margin-top: 10px;">@CheckoutMessage</div>
+            }
             <button class="cart-clear" type="button" @onclick="Cart.Clear">@Lang.T("Очистить корзину", "Clear cart", "Warenkorb leeren", "Vider le panier", "Vaciar carrito")</button>
         </div>
     }
@@ -162,6 +193,26 @@
     private CancellationTokenSource? CartBumpCts;
     private string PromoCode = string.Empty;
     private string? PromoMessage;
+    private string PlayerId = string.Empty;
+    private string PlayerName = string.Empty;
+    private string PlayerEmail = string.Empty;
+    private string? SelectedPaymentMethod;
+    private string? CheckoutMessage;
+
+    private bool CanCheckout =>
+        Cart.Lines.Count > 0 &&
+        !string.IsNullOrWhiteSpace(PlayerId) &&
+        !string.IsNullOrWhiteSpace(PlayerName) &&
+        (string.IsNullOrWhiteSpace(PlayerEmail) || IsValidEmail(PlayerEmail)) &&
+        !string.IsNullOrWhiteSpace(SelectedPaymentMethod);
+
+    private string CheckoutRequirementsText =>
+        Lang.T(
+            "Заполните ID игрока, имя и выберите способ оплаты. Email — по желанию.",
+            "Fill in player ID, name, and select a payment method. Email is optional.",
+            "Fülle Spieler-ID und Name aus und wähle eine Zahlungsmethode. E-Mail ist optional.",
+            "Renseignez l'ID joueur, le nom et choisissez un mode de paiement. L'email est facultatif.",
+            "Completa ID de jugador, nombre y elige un metodo de pago. El email es opcional.");
 
     protected override void OnInitialized()
     {
@@ -226,6 +277,40 @@
         PromoMessage = string.IsNullOrWhiteSpace(PromoCode)
             ? Lang.T("Введите промокод.", "Enter a promo code.", "Promocode eingeben.", "Saisissez un code promo.", "Introduce un código promo.")
             : Lang.T("Промокод применён (демо).", "Promo applied (demo).", "Code angewendet (Demo).", "Code appliqué (démo).", "Código aplicado (demo).");
+    }
+
+    private void SelectPayment(string method)
+    {
+        SelectedPaymentMethod = method;
+        CheckoutMessage = null;
+    }
+
+    private bool IsPayment(string method) => string.Equals(SelectedPaymentMethod, method, StringComparison.OrdinalIgnoreCase);
+
+    private void Checkout()
+    {
+        if (!CanCheckout)
+        {
+            return;
+        }
+
+        CheckoutMessage = Lang.T(
+            "Данные для заказа заполнены. Далее можно отправлять запрос на оплату.",
+            "Checkout details are complete. You can now send the payment request.",
+            "Die Checkout-Daten sind vollständig. Der Zahlungsrequest kann jetzt gesendet werden.",
+            "Les informations de commande sont completees. Vous pouvez maintenant envoyer la demande de paiement.",
+            "Los datos de checkout estan completos. Ahora puedes enviar la solicitud de pago.");
+    }
+
+    private static bool IsValidEmail(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var email = value.Trim();
+        return email.Contains('@') && email.Contains('.');
     }
 
     private void CloseMenus()
