@@ -1,22 +1,27 @@
 using Ordering.Application.Abstractions;
 using Ordering.Domain.Orders;
+using Ordering.Domain.Products;
 
 namespace Ordering.Application.Orders.CreateOrder;
 
 public sealed class CreateOrderHandler
 {
     private readonly IOrderRepository _repository;
+    private readonly ICatalogClient _catalog;
+    private readonly IPromoCodeStore _promoCodes;
 
-    public CreateOrderHandler(IOrderRepository repository)
+    public CreateOrderHandler(IOrderRepository repository, ICatalogClient catalog, IPromoCodeStore promoCodes)
     {
         _repository = repository;
+        _catalog = catalog;
+        _promoCodes = promoCodes;
     }
 
     public async Task<CreateOrderResult> HandleAsync(CreateOrderRequest request, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(request.BuyerId))
+        if (string.IsNullOrWhiteSpace(request.GameUserId))
         {
-            throw new ArgumentException("BuyerId is required.", nameof(request));
+            throw new ArgumentException("GameUserId is required.", nameof(request));
         }
 
         if (request.Items.Count == 0)
@@ -30,23 +35,101 @@ public sealed class CreateOrderHandler
             {
                 throw new ArgumentException("Quantity must be positive.", nameof(request));
             }
-
-            if (item.UnitPrice < 0)
-            {
-                throw new ArgumentException("UnitPrice cannot be negative.", nameof(request));
-            }
         }
 
-        var orderId = Guid.NewGuid();
-        var orderItems = request.Items
-            .Select(i => new OrderItem(i.ProductId, i.Title, i.UnitPrice, i.Quantity))
+        var products = new List<(CatalogProduct product, int quantity)>(request.Items.Count);
+        foreach (var line in request.Items)
+        {
+            var product = await _catalog.GetProductAsync(line.ProductId, cancellationToken);
+            if (product is null)
+            {
+                throw new ArgumentException("Product not found.", nameof(request));
+            }
+
+            if (!product.IsActive)
+            {
+                throw new ArgumentException("Product is not active.", nameof(request));
+            }
+
+            products.Add((product, line.Quantity));
+        }
+
+        var currency = products[0].product.Currency;
+        if (products.Any(p => !string.Equals(p.product.Currency, currency, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new ArgumentException("All products must use the same currency.", nameof(request));
+        }
+
+        var orderItems = products
+            .Select(p => new OrderItem(p.product.Id, p.product.Title, p.product.Type, p.product.Price, p.quantity, p.product.Metadata))
             .ToArray();
 
-        var order = new Order(orderId, request.BuyerId, orderItems, DateTimeOffset.UtcNow);
+        var subtotal = orderItems.Sum(i => i.LineTotal);
+
+        var promoCode = string.IsNullOrWhiteSpace(request.PromoCode) ? null : request.PromoCode.Trim();
+        var discountAmount = promoCode is null ? 0m : CalculateDiscount(promoCode, orderItems, subtotal, currency);
+
+        var orderId = Guid.NewGuid();
+        var order = new Order(
+            orderId,
+            request.GameUserId.Trim(),
+            request.PaymentMethod,
+            orderItems,
+            currency,
+            discountAmount,
+            promoCode,
+            DateTimeOffset.UtcNow);
 
         await _repository.AddAsync(order, cancellationToken);
 
-        return new CreateOrderResult(order.Id, order.Total);
+        return new CreateOrderResult(order.Id, order.Status, order.Subtotal, order.DiscountAmount, order.Total, order.Currency);
+    }
+
+    private decimal CalculateDiscount(string code, IReadOnlyList<OrderItem> items, decimal subtotal, string currency)
+    {
+        var promo = _promoCodes.Get(code);
+        if (promo is null)
+        {
+            throw new ArgumentException("Invalid promo code.", nameof(code));
+        }
+
+        if (!promo.IsActive)
+        {
+            throw new ArgumentException("Promo code is not active.", nameof(code));
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (promo.StartsAtUtc is not null && promo.StartsAtUtc.Value > now)
+        {
+            throw new ArgumentException("Promo code is not active yet.", nameof(code));
+        }
+
+        if (promo.ExpiresAtUtc is not null && promo.ExpiresAtUtc.Value < now)
+        {
+            throw new ArgumentException("Promo code has expired.", nameof(code));
+        }
+
+        if (promo.MaxUses > 0 && promo.UsedCount >= promo.MaxUses)
+        {
+            throw new ArgumentException("Promo code usage limit reached.", nameof(code));
+        }
+
+        var eligibleSubtotal = promo.ProductIds.Count == 0
+            ? subtotal
+            : items.Where(i => promo.ProductIds.Contains(i.ProductId)).Sum(i => i.LineTotal);
+
+        if (eligibleSubtotal <= 0)
+        {
+            throw new ArgumentException("Promo code is not applicable to selected items.", nameof(code));
+        }
+
+        return promo.Type switch
+        {
+            PromoCodes.DiscountType.Percent => eligibleSubtotal * (promo.Value / 100m),
+            PromoCodes.DiscountType.FixedAmount => string.Equals(promo.Currency, currency, StringComparison.OrdinalIgnoreCase)
+                ? Math.Min(promo.Value, eligibleSubtotal)
+                : throw new ArgumentException("Promo code is not applicable for this currency.", nameof(code)),
+            _ => 0m
+        };
     }
 }
-
