@@ -32,6 +32,10 @@ public sealed class CartState
         Changed?.Invoke();
     }
 
+    public void Increment(string sku) => ChangeQuantity(sku, 1);
+
+    public void Decrement(string sku) => ChangeQuantity(sku, -1);
+
     public void Clear()
     {
         _lines.Clear();
@@ -41,6 +45,28 @@ public sealed class CartState
     public void Remove(string sku)
     {
         _lines.RemoveAll(l => l.Sku == sku);
+        Changed?.Invoke();
+    }
+
+    private void ChangeQuantity(string sku, int delta)
+    {
+        if (delta == 0)
+        {
+            return;
+        }
+
+        var line = _lines.FirstOrDefault(l => l.Sku == sku);
+        if (line is null)
+        {
+            return;
+        }
+
+        line.Quantity += delta;
+        if (line.Quantity <= 0)
+        {
+            _lines.Remove(line);
+        }
+
         Changed?.Invoke();
     }
 
