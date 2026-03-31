@@ -71,6 +71,21 @@ dotnet build WebShop.sln -c Release -m:1
 
 ### 7.2 Запуск сервисов локально
 ```bash
+bash ./run-local.sh
+```
+
+Или через `make`:
+```bash
+make run-local
+```
+
+Если хотите также собрать/запустить Blazor-клиент `Shopping.Web`:
+```bash
+INCLUDE_WEB=1 bash ./run-local.sh
+```
+
+Ручной запуск (4 терминала):
+```bash
 dotnet run --project src/Services/Catalog.API/Catalog.API.csproj
 dotnet run --project src/Services/Basket.API/Basket.API.csproj
 dotnet run --project src/Services/Ordering/Ordering.API/Ordering.API.csproj
