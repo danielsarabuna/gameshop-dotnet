@@ -1166,3 +1166,41 @@ code { color: #c02d76; }
 .loading-progress-text:after {
     content: var(--blazor-load-percentage-text, "Loading");
 }
+
+/* Help page */
+.help-header { text-align: center; margin-bottom: 48px; }
+.help-header h1 { font-size: 42px; margin-bottom: 16px; }
+.help-header p { font-size: 18px; max-width: 480px; margin: 0 auto; }
+
+.help-form { margin-top: 48px; margin-bottom: 64px; }
+.help-form h2 { margin-bottom: 24px; }
+.help-form input, .help-form textarea {
+    width: 100%;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: rgba(42, 42, 42, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-size: 15px;
+}
+.help-form input::placeholder, .help-form textarea::placeholder { color: var(--muted); }
+.help-form input:focus, .help-form textarea:focus { outline: none; border-color: var(--primary); }
+.help-form textarea { resize: vertical; min-height: 120px; }
+
+.help-contacts {
+    margin-top: 48px;
+    display: flex;
+    justify-content: center;
+    gap: 48px;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+}
+.contact-item { display: flex; align-items: center; gap: 12px; }
+.contact-icon { font-size: 20px; }
+
+@media (max-width: 768px) {
+    .help-contacts { flex-direction: column; align-items: center; gap: 24px; }
+}
