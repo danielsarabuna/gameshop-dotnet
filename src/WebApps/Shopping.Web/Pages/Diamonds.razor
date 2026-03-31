@@ -55,7 +55,7 @@
     private void AddToCart(DiamondPack pack)
     {
         var amountLabel = FormatDiamondAmount(pack.Diamonds);
-        Cart.AddItem($"diamonds:{pack.Diamonds}", amountLabel, pack.PriceValue, 1);
+        Cart.AddItem($"diamonds:{pack.Id:D}", amountLabel, pack.PriceValue, 1);
     }
 
     private async Task<IReadOnlyList<DiamondPack>> LoadPacksAsync()
@@ -102,6 +102,7 @@
         }
 
         return new DiamondPack(
+            item.Id,
             diamonds,
             item.Price,
             $"€{item.Price:0.00}",
@@ -134,7 +135,7 @@
             ? value
             : null;
 
-    private sealed record DiamondPack(int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind);
+    private sealed record DiamondPack(Guid Id, int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind);
 
     private sealed record CatalogItemDto(
         Guid Id,
