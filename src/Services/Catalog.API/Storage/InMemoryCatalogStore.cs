@@ -13,7 +13,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["diamonds"] = "60" },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_60.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000000120"),
@@ -24,7 +24,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["diamonds"] = "120" },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_120.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000000350"),
@@ -40,7 +40,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
                 ["badgeKey"] = "best",
                 ["badgeKind"] = "purple"
             },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_350.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000000800"),
@@ -51,7 +51,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["diamonds"] = "800" },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_800.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000002000"),
@@ -67,7 +67,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
                 ["badgeKey"] = "top",
                 ["badgeKind"] = "gold"
             },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_2000.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000004500"),
@@ -78,7 +78,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["diamonds"] = "4500" },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_4500.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000009000"),
@@ -94,7 +94,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
                 ["badgeKey"] = "hot",
                 ["badgeKind"] = "purple"
             },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_9000.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000015000"),
@@ -105,7 +105,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["diamonds"] = "15000" },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_15000.png"
         ),
         new(
             Id: Guid.Parse("d1a00000-0000-0000-0000-000000025000"),
@@ -121,7 +121,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
                 ["badgeKey"] = "mega",
                 ["badgeKind"] = "gold"
             },
-            ImageUrl: null
+            ImageUrl: "/images/diamonds_25000.png"
         ),
         new(
             Id: Guid.Parse("9aa00000-0000-0000-0000-000000000001"),
@@ -132,7 +132,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["months"] = "1" },
-            ImageUrl: null
+            ImageUrl: "/images/premium_1.png"
         ),
         new(
             Id: Guid.Parse("9aa00000-0000-0000-0000-000000000003"),
@@ -143,7 +143,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Currency: "EUR",
             IsActive: true,
             Metadata: new Dictionary<string, string> { ["months"] = "3" },
-            ImageUrl: null
+            ImageUrl: "/images/premium_3.png"
         ),
         new(
             Id: Guid.Parse("9aa00000-0000-0000-0000-000000000012"),
@@ -159,7 +159,7 @@ public sealed class InMemoryCatalogStore : ICatalogStore
                 ["badgeKey"] = "best",
                 ["badgeKind"] = "gold"
             },
-            ImageUrl: null
+            ImageUrl: "/images/premium_12.png"
         )
     ];
 

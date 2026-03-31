@@ -30,7 +30,16 @@
                         <div class="card-badge @(pack.BadgeKind == "gold" ? "badge-gold" : "badge-purple")">@GetBadgeText(pack.BadgeKey)</div>
                     }
 
-                    <div class="img-square">image</div>
+                    <div class="img-square">
+                        @if (!string.IsNullOrWhiteSpace(pack.ImageUrl))
+                        {
+                            <img src="@pack.ImageUrl" alt="@pack.Diamonds diamonds" style="width: 100%; height: 100%; object-fit: contain; padding: 10px;" />
+                        }
+                        else
+                        {
+                            <span>image</span>
+                        }
+                    </div>
                     <div class="diamond-amount">@FormatDiamondAmount(pack.Diamonds)</div>
                     <div class="diamond-price">@pack.PriceLabel</div>
 
@@ -107,7 +116,8 @@
             item.Price,
             $"€{item.Price:0.00}",
             GetMetadataValue(item.Metadata, "badgeKey"),
-            GetBadgeKindFromMetadata(item.Metadata));
+            GetBadgeKindFromMetadata(item.Metadata),
+            item.ImageUrl);
     }
 
     private string FormatDiamondAmount(int diamonds) =>
@@ -135,7 +145,7 @@
             ? value
             : null;
 
-    private sealed record DiamondPack(Guid Id, int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind);
+    private sealed record DiamondPack(Guid Id, int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind, string? ImageUrl);
 
     private sealed record CatalogItemDto(
         Guid Id,

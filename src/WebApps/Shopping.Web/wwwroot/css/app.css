@@ -130,7 +130,9 @@ p, .body {
 }
 
 .card {
-    background: var(--card);
+    background: rgba(42, 42, 42, 0.65);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border: 1px solid var(--border);
     border-radius: var(--radius);
 }
@@ -436,6 +438,11 @@ p, .body {
 .diamond-card {
     padding: 20px;
     position: relative;
+    background: rgba(42, 42, 42, 0.55);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
     transition: transform .12s ease, box-shadow .12s ease;
 }
 
