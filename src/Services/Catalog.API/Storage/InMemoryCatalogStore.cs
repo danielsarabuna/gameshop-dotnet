@@ -34,7 +34,12 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Price: 4.99m,
             Currency: "EUR",
             IsActive: true,
-            Metadata: new Dictionary<string, string> { ["diamonds"] = "350" },
+            Metadata: new Dictionary<string, string>
+            {
+                ["diamonds"] = "350",
+                ["badgeKey"] = "best",
+                ["badgeKind"] = "purple"
+            },
             ImageUrl: null
         ),
         new(
@@ -56,7 +61,12 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Price: 19.99m,
             Currency: "EUR",
             IsActive: true,
-            Metadata: new Dictionary<string, string> { ["diamonds"] = "2000" },
+            Metadata: new Dictionary<string, string>
+            {
+                ["diamonds"] = "2000",
+                ["badgeKey"] = "top",
+                ["badgeKind"] = "gold"
+            },
             ImageUrl: null
         ),
         new(
@@ -78,7 +88,12 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Price: 69.99m,
             Currency: "EUR",
             IsActive: true,
-            Metadata: new Dictionary<string, string> { ["diamonds"] = "9000" },
+            Metadata: new Dictionary<string, string>
+            {
+                ["diamonds"] = "9000",
+                ["badgeKey"] = "hot",
+                ["badgeKind"] = "purple"
+            },
             ImageUrl: null
         ),
         new(
@@ -100,7 +115,12 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Price: 149.99m,
             Currency: "EUR",
             IsActive: true,
-            Metadata: new Dictionary<string, string> { ["diamonds"] = "25000" },
+            Metadata: new Dictionary<string, string>
+            {
+                ["diamonds"] = "25000",
+                ["badgeKey"] = "mega",
+                ["badgeKind"] = "gold"
+            },
             ImageUrl: null
         ),
         new(
@@ -133,7 +153,12 @@ public sealed class InMemoryCatalogStore : ICatalogStore
             Price: 59.99m,
             Currency: "EUR",
             IsActive: true,
-            Metadata: new Dictionary<string, string> { ["months"] = "12" },
+            Metadata: new Dictionary<string, string>
+            {
+                ["months"] = "12",
+                ["badgeKey"] = "best",
+                ["badgeKind"] = "gold"
+            },
             ImageUrl: null
         )
     ];

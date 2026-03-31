@@ -1,6 +1,8 @@
 @page "/subscription"
 @inject CartState Cart
 @inject LanguageState Lang
+@inject HttpClient Http
+@inject IConfiguration Config
 
 <PageTitle>GameShop — @Lang.T("Подписка", "Subscription", "Abo", "Abonnement", "Suscripción")</PageTitle>
 
@@ -37,28 +39,39 @@
 
         <div class="plans">
             <div class="centered">
-                <h2>@Lang.T("Выберите план", "Choose a plan", "Wähle einen Plan", "Choisir un plan", "Elige un plan")</h2>
-            </div>
-
-            <div class="plan-row">
-                @foreach (var plan in CurrentPlans)
+                @if (Plans.Count == 0)
                 {
-                    <div class="card plan-card @(plan.Highlight ? "highlight" : "")">
-                        @if (!string.IsNullOrWhiteSpace(plan.Badge))
-                        {
-                            <div class="card-badge badge-gold">@plan.Badge</div>
-                        }
-
-                        <div class="plan-name">@plan.Name</div>
-                        <p class="plan-price">@plan.PriceLabel</p>
-                        <div class="plan-period">@plan.Period</div>
-
-                        <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="() => Buy(plan)">
-                            @Lang.T("Купить", "Buy", "Kaufen", "Acheter", "Comprar")
-                        </button>
-                    </div>
+                    <h2>@Lang.T("Планы временно недоступны", "Plans are temporarily unavailable", "Pläne sind vorübergehend nicht verfügbar", "Les forfaits sont temporairement indisponibles", "Los planes no están disponibles temporalmente")</h2>
+                    <p class="muted">@Lang.T("Мы не получили подписки из каталога. Обновите страницу чуть позже.", "We could not load subscription plans from catalog. Please refresh the page a bit later.", "Wir konnten die Abopläne aus dem Katalog nicht laden. Bitte aktualisiere die Seite später erneut.", "Nous n'avons pas pu charger les forfaits depuis le catalogue. Veuillez actualiser la page un peu plus tard.", "No pudimos cargar los planes desde el catálogo. Actualiza la página un poco más tarde.")</p>
+                }
+                else
+                {
+                    <h2>@Lang.T("Выберите план", "Choose a plan", "Wähle einen Plan", "Choisir un plan", "Elige un plan")</h2>
                 }
             </div>
+
+            @if (Plans.Count > 0)
+            {
+                <div class="plan-row">
+                    @foreach (var plan in Plans)
+                    {
+                        <div class="card plan-card @(plan.Highlight ? "highlight" : "")">
+                            @if (!string.IsNullOrWhiteSpace(plan.Badge))
+                            {
+                                <div class="card-badge badge-gold">@plan.Badge</div>
+                            }
+
+                            <div class="plan-name">@plan.Name</div>
+                            <p class="plan-price">@plan.PriceLabel</p>
+                            <div class="plan-period">@plan.Period</div>
+
+                            <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="() => Buy(plan)">
+                                @Lang.T("Купить", "Buy", "Kaufen", "Acheter", "Comprar")
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
         </div>
     </div>
 </section>
@@ -114,59 +127,148 @@
         "Recuperación de energía más rápida",
         "Objetos de personalización únicos"
     ];
+    private IReadOnlyList<Plan> Plans => _plans;
+    private IReadOnlyList<Plan> _plans = [];
 
-    private IReadOnlyList<Plan> CurrentPlans =>
-        Lang.Current switch
-        {
-            LanguageState.Language.Ru => RuPlans,
-            LanguageState.Language.En => EnPlans,
-            LanguageState.Language.De => DePlans,
-            LanguageState.Language.Fr => FrPlans,
-            LanguageState.Language.Es => EsPlans,
-            _ => EnPlans
-        };
-
-    private static readonly IReadOnlyList<Plan> RuPlans =
-    [
-        new("1 месяц", 6.99m, "€6.99", "Ежемесячно", null, false),
-        new("3 месяца", 17.99m, "€17.99", "Раз в 3 месяца", null, false),
-        new("12 месяцев", 59.99m, "€59.99", "Раз в год", "Выгодно", true)
-    ];
-
-    private static readonly IReadOnlyList<Plan> EnPlans =
-    [
-        new("1 month", 6.99m, "€6.99", "Monthly", null, false),
-        new("3 months", 17.99m, "€17.99", "Every 3 months", null, false),
-        new("12 months", 59.99m, "€59.99", "Yearly", "Best deal", true)
-    ];
-
-    private static readonly IReadOnlyList<Plan> DePlans =
-    [
-        new("1 Monat", 6.99m, "€6.99", "Monatlich", null, false),
-        new("3 Monate", 17.99m, "€17.99", "Alle 3 Monate", null, false),
-        new("12 Monate", 59.99m, "€59.99", "Jährlich", "Bestes Angebot", true)
-    ];
-
-    private static readonly IReadOnlyList<Plan> FrPlans =
-    [
-        new("1 mois", 6.99m, "€6.99", "Mensuel", null, false),
-        new("3 mois", 17.99m, "€17.99", "Tous les 3 mois", null, false),
-        new("12 mois", 59.99m, "€59.99", "Annuel", "Meilleure offre", true)
-    ];
-
-    private static readonly IReadOnlyList<Plan> EsPlans =
-    [
-        new("1 mes", 6.99m, "€6.99", "Mensual", null, false),
-        new("3 meses", 17.99m, "€17.99", "Cada 3 meses", null, false),
-        new("12 meses", 59.99m, "€59.99", "Anual", "Mejor oferta", true)
-    ];
+    protected override async Task OnInitializedAsync()
+    {
+        _plans = await LoadPlansAsync();
+    }
 
     private void Buy(Plan plan)
     {
-        Cart.AddItem($"premium:{plan.Name}", $"Premium — {plan.Name}", plan.PriceValue, 1);
+        Cart.AddItem($"premium:{plan.Id}", $"Premium — {plan.Name}", plan.PriceValue, 1);
     }
 
-    private sealed record Plan(string Name, decimal PriceValue, string PriceLabel, string Period, string? Badge, bool Highlight);
+    private async Task<IReadOnlyList<Plan>> LoadPlansAsync()
+    {
+        try
+        {
+            var items = await Http.GetFromJsonAsync<IReadOnlyList<CatalogItemDto>>(CatalogItemsUrl);
+            if (items is null)
+            {
+                return [];
+            }
+
+            return items
+                .Where(item => string.Equals(item.Type, "Subscription", StringComparison.OrdinalIgnoreCase) && item.IsActive)
+                .Select(MapPlanFromCatalog)
+                .Where(plan => plan is not null)
+                .Select(plan => plan!)
+                .OrderBy(plan => plan.Months)
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private string CatalogItemsUrl
+    {
+        get
+        {
+            var baseUrl = Config["ApiBaseUrl"]?.Trim();
+            return string.IsNullOrWhiteSpace(baseUrl)
+                ? "/api/v1/catalog/items"
+                : $"{baseUrl.TrimEnd('/')}/api/v1/catalog/items";
+        }
+    }
+
+    private Plan? MapPlanFromCatalog(CatalogItemDto item)
+    {
+        if (!item.Metadata.TryGetValue("months", out var monthsText) || !int.TryParse(monthsText, out var months))
+        {
+            return null;
+        }
+
+        var badgeKey = GetMetadataValue(item.Metadata, "badgeKey");
+        var badgeKind = GetBadgeKindFromMetadata(item.Metadata);
+
+        return new Plan(
+            item.Id,
+            months,
+            FormatMonths(months),
+            item.Price,
+            $"€{item.Price:0.00}",
+            FormatBillingPeriod(months),
+            GetBadgeText(badgeKey),
+            string.Equals(badgeKind, "gold", StringComparison.OrdinalIgnoreCase));
+    }
+
+    private string FormatMonths(int months) => Lang.Current switch
+    {
+        LanguageState.Language.Ru => $"{months} {GetRuMonthsWord(months)}",
+        LanguageState.Language.En => $"{months} month{(months == 1 ? string.Empty : "s")}",
+        LanguageState.Language.De => $"{months} Monat{(months == 1 ? string.Empty : "e")}",
+        LanguageState.Language.Fr => $"{months} mois",
+        LanguageState.Language.Es => $"{months} mes{(months == 1 ? string.Empty : "es")}",
+        _ => $"{months} months"
+    };
+
+    private string FormatBillingPeriod(int months) => months switch
+    {
+        1 => Lang.T("Ежемесячно", "Monthly", "Monatlich", "Mensuel", "Mensual"),
+        12 => Lang.T("Раз в год", "Yearly", "Jährlich", "Annuel", "Anual"),
+        _ => string.Format(
+            Lang.T("Раз в {0} месяца", "Every {0} months", "Alle {0} Monate", "Tous les {0} mois", "Cada {0} meses"),
+            months)
+    };
+
+    private string? GetBadgeText(string? badgeKey) => badgeKey switch
+    {
+        "best" => Lang.T("Выгодно", "Best deal", "Bestes Angebot", "Meilleure offre", "Mejor oferta"),
+        "top" => Lang.T("Топ", "Top", "Top", "Top", "Top"),
+        "hot" => Lang.T("Хит", "Hot", "Hot", "Hot", "Hot"),
+        "mega" => Lang.T("Мега", "Mega", "Mega", "Mega", "Mega"),
+        _ => null
+    };
+
+    private static string? GetBadgeKindFromMetadata(IReadOnlyDictionary<string, string> metadata)
+    {
+        var value = GetMetadataValue(metadata, "badgeKind")?.ToLowerInvariant();
+        return value is "gold" or "purple" ? value : null;
+    }
+
+    private static string? GetMetadataValue(IReadOnlyDictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
+
+    private static string GetRuMonthsWord(int months)
+    {
+        var n = months % 100;
+        if (n is >= 11 and <= 14)
+        {
+            return "месяцев";
+        }
+
+        var lastDigit = months % 10;
+        if (lastDigit == 1)
+        {
+            return "месяц";
+        }
+
+        if (lastDigit == 2 || lastDigit == 3 || lastDigit == 4)
+        {
+            return "месяца";
+        }
+
+        return "месяцев";
+    }
+
+    private sealed record Plan(Guid Id, int Months, string Name, decimal PriceValue, string PriceLabel, string Period, string? Badge, bool Highlight);
+
+    private sealed record CatalogItemDto(
+        Guid Id,
+        string Title,
+        string Description,
+        string Type,
+        decimal Price,
+        string Currency,
+        bool IsActive,
+        Dictionary<string, string> Metadata,
+        string? ImageUrl);
 
     private static class Icons
     {
