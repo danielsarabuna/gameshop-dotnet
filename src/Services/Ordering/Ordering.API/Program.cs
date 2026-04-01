@@ -3,6 +3,7 @@ using Ordering.Application.Orders.CreateOrder;
 using Ordering.Application.Payments;
 using Ordering.Application.PromoCodes;
 using Ordering.Infrastructure.Integrations;
+using Ordering.Infrastructure.Payments;
 using Ordering.Infrastructure.Persistence;
 using Logging;
 using System.Text.Json.Serialization;
@@ -14,6 +15,7 @@ builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
 builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
 builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
 builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
+builder.Services.AddSingleton<IPaymentProviderAccessor, PaymentProviderAccessor>();
 
 builder.Services.AddHttpClient<ICatalogClient, HttpCatalogClient>(client =>
 {
@@ -100,6 +102,12 @@ app.MapPost("/promocodes/apply", async (ApplyPromoCodeRequest request, ApplyProm
     return Results.Ok(result);
 });
 
+app.MapGet("/api/v1/payment-methods", () =>
+{
+    var methods = PaymentMethodsData.GetAvailableMethods();
+    return Results.Ok(methods);
+});
+
 app.MapPost("/api/v1/payments/{provider}", async (
     string provider,
     CreatePaymentRequest request,
@@ -147,8 +155,8 @@ app.MapPost("/payments/{provider}", async (
 app.MapPost("/api/v1/webhooks/{provider}", async (
     HttpRequest httpRequest,
     string provider,
-    PaymentWebhookRequest request,
     HandleWebhookHandler handler,
+    IPaymentProviderAccessor accessor,
     IConfiguration configuration,
     CancellationToken cancellationToken) =>
 {
@@ -158,14 +166,42 @@ app.MapPost("/api/v1/webhooks/{provider}", async (
     }
 
     var secret = configuration[$"Webhooks:{provider}:Secret"] ?? configuration["Webhooks:Secret"];
-    if (!string.IsNullOrWhiteSpace(secret))
+    var signature = httpRequest.Headers["X-Webhook-Secret"].ToString();
+
+    if (!string.IsNullOrWhiteSpace(secret) && !string.Equals(signature, secret, StringComparison.Ordinal))
     {
-        var header = httpRequest.Headers["X-Webhook-Secret"].ToString();
-        if (!string.Equals(header, secret, StringComparison.Ordinal))
+        return Results.Unauthorized();
+    }
+
+    using var reader = new StreamReader(httpRequest.Body);
+    var body = await reader.ReadToEndAsync(cancellationToken);
+    var bodyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body));
+
+    var providerInstance = accessor.GetProvider(method);
+    WebhookResult? webhookResult = null;
+
+    if (providerInstance is not null)
+    {
+        try
         {
-            return Results.Unauthorized();
+            webhookResult = await providerInstance.ParseWebhookAsync(bodyStream, signature, cancellationToken);
+        }
+        catch (NotImplementedException)
+        {
         }
     }
+
+    if (webhookResult is null)
+    {
+        return Results.BadRequest(new { error = "Webhook parsing not implemented." });
+    }
+
+    var request = new PaymentWebhookRequest(
+        webhookResult.EventId,
+        webhookResult.OrderId,
+        webhookResult.PaymentId,
+        webhookResult.Status
+    );
 
     try
     {
@@ -181,8 +217,8 @@ app.MapPost("/api/v1/webhooks/{provider}", async (
 app.MapPost("/webhooks/{provider}", async (
     HttpRequest httpRequest,
     string provider,
-    PaymentWebhookRequest request,
     HandleWebhookHandler handler,
+    IPaymentProviderAccessor accessor,
     IConfiguration configuration,
     CancellationToken cancellationToken) =>
 {
@@ -192,14 +228,42 @@ app.MapPost("/webhooks/{provider}", async (
     }
 
     var secret = configuration[$"Webhooks:{provider}:Secret"] ?? configuration["Webhooks:Secret"];
-    if (!string.IsNullOrWhiteSpace(secret))
+    var signature = httpRequest.Headers["X-Webhook-Secret"].ToString();
+
+    if (!string.IsNullOrWhiteSpace(secret) && !string.Equals(signature, secret, StringComparison.Ordinal))
     {
-        var header = httpRequest.Headers["X-Webhook-Secret"].ToString();
-        if (!string.Equals(header, secret, StringComparison.Ordinal))
+        return Results.Unauthorized();
+    }
+
+    using var reader = new StreamReader(httpRequest.Body);
+    var body = await reader.ReadToEndAsync(cancellationToken);
+    var bodyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body));
+
+    var providerInstance = accessor.GetProvider(method);
+    WebhookResult? webhookResult = null;
+
+    if (providerInstance is not null)
+    {
+        try
         {
-            return Results.Unauthorized();
+            webhookResult = await providerInstance.ParseWebhookAsync(bodyStream, signature, cancellationToken);
+        }
+        catch (NotImplementedException)
+        {
         }
     }
+
+    if (webhookResult is null)
+    {
+        return Results.BadRequest(new { error = "Webhook parsing not implemented." });
+    }
+
+    var request = new PaymentWebhookRequest(
+        webhookResult.EventId,
+        webhookResult.OrderId,
+        webhookResult.PaymentId,
+        webhookResult.Status
+    );
 
     try
     {
@@ -234,6 +298,13 @@ static bool TryParseProvider(string provider, out Ordering.Domain.Payments.Payme
         case "yoo_kassa":
         case "yoo-kassa":
             method = Ordering.Domain.Payments.PaymentMethod.YooKassa;
+            return true;
+        case "corvuspay":
+        case "corvus_pay":
+            method = Ordering.Domain.Payments.PaymentMethod.CorvusPay;
+            return true;
+        case "xsolla":
+            method = Ordering.Domain.Payments.PaymentMethod.Xsolla;
             return true;
         default:
             return false;

@@ -8,11 +8,13 @@ public sealed class CreatePaymentHandler
 {
     private readonly IOrderRepository _orders;
     private readonly IPaymentStore _payments;
+    private readonly IPaymentProviderAccessor _providerAccessor;
 
-    public CreatePaymentHandler(IOrderRepository orders, IPaymentStore payments)
+    public CreatePaymentHandler(IOrderRepository orders, IPaymentStore payments, IPaymentProviderAccessor providerAccessor)
     {
         _orders = orders;
         _payments = payments;
+        _providerAccessor = providerAccessor;
     }
 
     public async Task<CreatePaymentResult> HandleAsync(Guid orderId, PaymentMethod provider, CancellationToken cancellationToken)
@@ -36,24 +38,33 @@ public sealed class CreatePaymentHandler
         }
 
         var existing = await _payments.GetByOrderAsync(orderId, provider, cancellationToken);
-        if (existing is not null)
+        if (existing is not null && !string.IsNullOrEmpty(existing.ExternalId))
         {
             return new CreatePaymentResult(existing.Id, existing.Provider, existing.Status, BuildCheckoutUrl(existing));
         }
+
+        var paymentProvider = _providerAccessor.GetProvider(provider)
+            ?? throw new InvalidOperationException($"Payment provider {provider} is not configured.");
+
+        var intentResult = await paymentProvider.CreatePaymentIntentAsync(
+            order.Total,
+            order.Currency,
+            orderId,
+            cancellationToken);
 
         var payment = new Payment(
             Id: Guid.NewGuid(),
             OrderId: orderId,
             Provider: provider,
-            Status: PaymentStatus.Pending,
-            ExternalId: null,
+            Status: intentResult.Status,
+            ExternalId: intentResult.ExternalId,
             CreatedAtUtc: DateTimeOffset.UtcNow,
             CompletedAtUtc: null
         );
 
         await _payments.AddAsync(payment, cancellationToken);
 
-        return new CreatePaymentResult(payment.Id, payment.Provider, payment.Status, BuildCheckoutUrl(payment));
+        return new CreatePaymentResult(payment.Id, payment.Provider, payment.Status, intentResult.CheckoutUrl);
     }
 
     private static string BuildCheckoutUrl(Payment payment) =>

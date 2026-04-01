@@ -1,0 +1,185 @@
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Ordering.Application.Payments;
+using Ordering.Domain.Payments;
+using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
+using DomainPaymentStatus = Ordering.Application.Payments.PaymentStatus;
+
+namespace Ordering.Infrastructure.Payments;
+
+public class PayPalPaymentProvider : IPaymentProvider
+{
+    private readonly string _clientId;
+    private readonly string _clientSecret;
+    private readonly string _baseUrl;
+    private readonly HttpClient _httpClient;
+    private readonly string? _webhookSecret;
+    private string? _accessToken;
+
+    public DomainPaymentMethod Provider => DomainPaymentMethod.PayPal;
+
+    public PayPalPaymentProvider(string clientId, string clientSecret, string mode = "sandbox", string? webhookSecret = null)
+    {
+        _clientId = clientId;
+        _clientSecret = clientSecret;
+        _baseUrl = mode.ToLowerInvariant() == "live"
+            ? "https://api-m.paypal.com"
+            : "https://api-m.sandbox.paypal.com";
+        _httpClient = new HttpClient();
+        _webhookSecret = webhookSecret;
+    }
+
+    public async Task<PaymentIntentResult> CreatePaymentIntentAsync(
+        decimal amount,
+        string currency,
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        await EnsureAccessTokenAsync(cancellationToken);
+
+        var orderRequest = new
+        {
+            intent = "CAPTURE",
+            purchase_units = new[]
+            {
+                new
+                {
+                    reference_id = orderId.ToString("D"),
+                    amount = new
+                    {
+                        currency_code = currency.ToUpperInvariant(),
+                        value = amount.ToString("F2")
+                    }
+                }
+            }
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v2/checkout/orders")
+        {
+            Content = JsonContent.Create(orderRequest)
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"PayPal order creation failed: {content}");
+        }
+
+        var doc = JsonDocument.Parse(content);
+        var payPalOrderId = doc.RootElement.GetProperty("id").GetString()!;
+        var approveLink = doc.RootElement.GetProperty("links").EnumerateArray()
+            .FirstOrDefault(l => l.GetProperty("rel").GetString() == "approve")
+            .GetProperty("href")
+            .GetString()!;
+
+        return new PaymentIntentResult(
+            ExternalId: payPalOrderId,
+            CheckoutUrl: approveLink,
+            Status: DomainPaymentStatus.Pending
+        );
+    }
+
+    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(_webhookSecret))
+        {
+            throw new InvalidOperationException("Webhook secret not configured.");
+        }
+
+        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
+        var payload = reader.ReadToEnd();
+
+        try
+        {
+            var json = JsonDocument.Parse(payload);
+            var root = json.RootElement;
+
+            var eventType = root.GetProperty("event_type").GetString();
+
+            if (eventType == "CHECKOUT.ORDER.APPROVED" || eventType == "PAYMENT.CAPTURE.COMPLETED" || eventType == "PAYMENT.CAPTURE.SUCCEEDED")
+            {
+                var resource = root.GetProperty("resource");
+                var orderId = resource.GetProperty("id").GetString();
+
+                Guid parsedOrderId;
+                if (resource.TryGetProperty("custom_id", out var customId))
+                {
+                    parsedOrderId = Guid.Parse(customId.GetString()!);
+                }
+                else
+                {
+                    parsedOrderId = Guid.NewGuid();
+                }
+
+                return Task.FromResult(new WebhookResult(
+                    OrderId: parsedOrderId,
+                    PaymentId: Guid.NewGuid(),
+                    EventId: orderId ?? Guid.NewGuid().ToString(),
+                    Status: "succeeded"
+                ));
+            }
+
+            if (eventType == "PAYMENT.CAPTURE.DENIED" || eventType == "PAYMENT.CAPTURE.REFUNDED" || eventType == "CHECKOUT.ORDER.CANCELLED")
+            {
+                var resource = root.GetProperty("resource");
+                var orderId = resource.GetProperty("id").GetString();
+
+                Guid parsedOrderId;
+                if (resource.TryGetProperty("custom_id", out var customId))
+                {
+                    parsedOrderId = Guid.Parse(customId.GetString()!);
+                }
+                else
+                {
+                    parsedOrderId = Guid.NewGuid();
+                }
+
+                return Task.FromResult(new WebhookResult(
+                    OrderId: parsedOrderId,
+                    PaymentId: Guid.NewGuid(),
+                    EventId: orderId ?? Guid.NewGuid().ToString(),
+                    Status: "failed"
+                ));
+            }
+
+            throw new InvalidOperationException($"Unhandled event type: {eventType}");
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to parse PayPal webhook: {ex.Message}");
+        }
+    }
+
+    private async Task EnsureAccessTokenAsync(CancellationToken cancellationToken)
+    {
+        if (!string.IsNullOrEmpty(_accessToken))
+            return;
+
+        var credentials = Convert.ToBase64String(
+            System.Text.Encoding.UTF8.GetBytes($"{_clientId}:{_clientSecret}"));
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/oauth2/token")
+        {
+            Headers = { { "Authorization", $"Basic {credentials}" } },
+            Content = new FormUrlEncodedContent(new Dictionary<string, string>
+            {
+                ["grant_type"] = "client_credentials"
+            })
+        };
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"PayPal token fetch failed: {content}");
+        }
+
+        var doc = JsonDocument.Parse(content);
+        _accessToken = doc.RootElement.GetProperty("access_token").GetString();
+    }
+}
