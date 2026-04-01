@@ -1,10 +1,11 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @implements IDisposable
 @inject CartState Cart
 @inject LanguageState Lang
 @inject NavigationManager Nav
 @inject HttpClient Http
 @inject IConfiguration Config
+@inject PaymentService Payments
 
 <header class="header" @onclick="CloseMenus">
     <div class="container header-inner">
@@ -153,18 +154,24 @@
                 <input class="cart-input" @bind="PlayerEmail" placeholder="Email" />
             </div>
 
-            <div class="cart-promo-label cart-payment-label">@Lang.T("Способ оплаты", "Payment method", "Zahlungsmethode", "Methode de paiement", "Metodo de pago")</div>
-            <div class="pay-methods">
-                <button class="pay-method @(IsPayment("stripe") ? "active" : "")" type="button" @onclick='() => SelectPayment("stripe")'>
-                    Stripe
-                </button>
-                <button class="pay-method @(IsPayment("paypal") ? "active" : "")" type="button" @onclick='() => SelectPayment("paypal")'>
-                    PayPal
-                </button>
-                <button class="pay-method @(IsPayment("yookassa") ? "active" : "")" type="button" @onclick='() => SelectPayment("yookassa")'>
-                    YooKassa
-                </button>
-            </div>
+            <label class="cart-promo-label cart-payment-label" for="cart-payment-select">@Lang.T("Способ оплаты", "Payment method", "Zahlungsmethode", "Methode de paiement", "Metodo de pago")</label>
+            <select id="cart-payment-select" class="cart-input pay-select" @bind="SelectedPaymentMethod" @bind:after="OnPaymentMethodChanged">
+                <option value="">@Lang.T("Выберите способ оплаты", "Select payment method", "Zahlungsmethode wählen", "Choisir le mode de paiement", "Elegir método de pago")</option>
+                @foreach (var m in _paymentMethods)
+                {
+                    <option value="@m.Code">@m.Name</option>
+                }
+            </select>
+            @if (PaymentMethodsLoadFailed)
+            {
+                <div class="muted" style="margin-top: 10px;">@Lang.T(
+                    "Не удалось загрузить способы оплаты. Проверьте, что сервис заказов доступен.",
+                    "Could not load payment methods. Make sure the ordering service is available.",
+                    "Zahlungsmethoden konnten nicht geladen werden. Prüfe, ob der Bestellservice erreichbar ist.",
+                    "Impossible de charger les moyens de paiement. Vérifiez que le service de commande est disponible.",
+                    "No se pudieron cargar los métodos de pago. Comprueba que el servicio de pedidos esté disponible."
+                )</div>
+            }
 
             @if (!CanCheckout)
             {
@@ -207,8 +214,10 @@
 	    private string PlayerId = string.Empty;
 	    private string PlayerName = string.Empty;
 	    private string PlayerEmail = string.Empty;
-	    private string? SelectedPaymentMethod;
+	    private string SelectedPaymentMethod = string.Empty;
 	    private string? CheckoutMessage;
+	    private IReadOnlyList<PaymentMethodInfo> _paymentMethods = [];
+	    private bool PaymentMethodsLoadFailed;
 
     private bool CanCheckout =>
         Cart.Lines.Count > 0 &&
@@ -232,6 +241,41 @@
         Nav.LocationChanged += OnLocationChanged;
         base.OnInitialized();
     }
+
+	    protected override async Task OnInitializedAsync()
+	    {
+	        await LoadPaymentMethodsAsync();
+	    }
+
+	    private async Task LoadPaymentMethodsAsync()
+	    {
+	        var list = await Payments.GetPaymentMethodsAsync();
+	        if (list is null || list.Count == 0)
+	        {
+	            _paymentMethods = [];
+	            PaymentMethodsLoadFailed = true;
+	        }
+	        else
+	        {
+	            _paymentMethods = list;
+	            PaymentMethodsLoadFailed = false;
+	        }
+
+	        NormalizePaymentSelection();
+	    }
+
+	    private void NormalizePaymentSelection()
+	    {
+	        if (string.IsNullOrWhiteSpace(SelectedPaymentMethod))
+	        {
+	            return;
+	        }
+
+	        if (!_paymentMethods.Any(m => string.Equals(m.Code, SelectedPaymentMethod, StringComparison.OrdinalIgnoreCase)))
+	        {
+	            SelectedPaymentMethod = string.Empty;
+	        }
+	    }
 
 	    private async void OnCartChanged()
 	    {
@@ -418,13 +462,7 @@
 	        }
 	    }
 
-    private void SelectPayment(string method)
-    {
-        SelectedPaymentMethod = method;
-        CheckoutMessage = null;
-    }
-
-    private bool IsPayment(string method) => string.Equals(SelectedPaymentMethod, method, StringComparison.OrdinalIgnoreCase);
+    private void OnPaymentMethodChanged() => CheckoutMessage = null;
 
     private void Checkout()
     {
