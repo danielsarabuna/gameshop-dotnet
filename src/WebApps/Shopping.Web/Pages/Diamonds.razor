@@ -1,0 +1,57 @@
+@page "/diamonds"
+@inject CartState Cart
+
+<PageTitle>GameShop — Алмазы</PageTitle>
+
+<section class="page-pad" style="padding-bottom: 60px;">
+    <div class="container">
+        <div class="centered">
+            <h1>Алмазы</h1>
+            <p class="muted" style="margin: 0 auto 48px; max-width: 680px;">
+                Выберите пакет алмазов и добавьте в корзину. Начисление обычно занимает несколько минут после подтверждения оплаты.
+            </p>
+        </div>
+
+        <div class="grid diamonds">
+            @foreach (var pack in Packs)
+            {
+                <div class="card diamond-card">
+                    @if (!string.IsNullOrWhiteSpace(pack.BadgeText))
+                    {
+                        <div class="card-badge @(pack.BadgeKind == "gold" ? "badge-gold" : "badge-purple")">@pack.BadgeText</div>
+                    }
+
+                    <div class="img-square">image</div>
+                    <div class="diamond-amount">@pack.Amount</div>
+                    <div class="diamond-price">@pack.Price</div>
+
+                    <button class="btn btn-primary btn-full" type="button" @onclick="() => AddToCart(pack)">
+                        В корзину
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@code {
+    private static readonly IReadOnlyList<DiamondPack> Packs =
+    [
+        new("120 алмазов", "€1.99", null, null),
+        new("350 алмазов", "€4.99", "Best value", "purple"),
+        new("800 алмазов", "€9.99", null, null),
+        new("2000 алмазов", "€19.99", "Top", "gold"),
+        new("4500 алмазов", "€39.99", null, null),
+        new("9000 алмазов", "€69.99", "Hot", "purple"),
+        new("15000 алмазов", "€99.99", null, null),
+        new("25000 алмазов", "€149.99", "Mega", "gold")
+    ];
+
+    private void AddToCart(DiamondPack pack)
+    {
+        Cart.Add(1);
+    }
+
+    private sealed record DiamondPack(string Amount, string Price, string? BadgeText, string? BadgeKind);
+}
+

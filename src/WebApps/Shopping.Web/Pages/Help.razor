@@ -1,0 +1,94 @@
+@page "/help"
+
+<PageTitle>GameShop — Помощь</PageTitle>
+
+<section class="page-pad">
+    <div class="container">
+        <div class="narrow" style="max-width: 720px;">
+            <h1>Помощь</h1>
+            <p class="muted" style="margin-bottom: 48px;">
+                Ответы на частые вопросы о покупках, подписке и аккаунте.
+            </p>
+
+            <div class="faq">
+                @foreach (var group in Groups)
+                {
+                    <div>
+                        <div class="faq-group-label">@group.Label</div>
+                        @foreach (var item in group.Items)
+                        {
+                            var open = OpenIds.Contains(item.Id);
+                            <div class="accordion-item">
+                                <button class="accordion-q" type="button" @onclick="() => Toggle(item.Id)">
+                                    <span>@item.Question</span>
+                                    <span class="icon chev @(open ? "open" : "")" aria-hidden="true">@((MarkupString)Icons.Chevron)</span>
+                                </button>
+                                <div class="accordion-a @(open ? "open" : "")">
+                                    <div class="accordion-a-inner">
+                                        @item.Answer
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly HashSet<string> OpenIds = new(StringComparer.Ordinal);
+
+    private void Toggle(string id)
+    {
+        if (!OpenIds.Add(id))
+        {
+            OpenIds.Remove(id);
+        }
+    }
+
+    private static readonly IReadOnlyList<FaqGroup> Groups =
+    [
+        new(
+            "Алмазы & Оплата",
+            [
+                new("pay-1", "Как купить алмазы?", "Откройте «Алмазы», выберите пакет и нажмите «В корзину». Далее следуйте шагам оплаты."),
+                new("pay-2", "Какие способы оплаты доступны?", "Доступные способы зависят от региона. При оформлении мы покажем актуальные варианты."),
+                new("pay-3", "Алмазы не начислились — что делать?", "Проверьте, что указан правильный ID. Если прошло более 15 минут — напишите в поддержку с чеком.")
+            ]
+        ),
+        new(
+            "Подписка",
+            [
+                new("sub-1", "Что входит в Premium?", "Ежедневные бонусы, эксклюзивные сцены, ускорение прогресса и уникальные награды."),
+                new("sub-2", "Как отменить подписку?", "Отмена зависит от способа оплаты. В личном кабинете (или у провайдера платежа) выберите «Отменить»."),
+                new("sub-3", "Бонусы не активны после оплаты?", "Обновите игру и перезапустите. Если не помогло — обратитесь в поддержку, приложив квитанцию.")
+            ]
+        ),
+        new(
+            "Аккаунт",
+            [
+                new("acc-1", "Где найти мой ID в игре?", "Обычно ID находится в профиле/настройках аккаунта. Ищите строку «Player ID» или «UID»."),
+                new("acc-2", "Как привязать аккаунт?", "В настройках игры включите привязку через доступные способы (почта/соцсети) и подтвердите действие.")
+            ]
+        ),
+        new(
+            "Прочее",
+            [
+                new("misc-1", "Как связаться с поддержкой?", "Напишите нам через форму на сайте или на email поддержки (укажем в разделе контактов)."),
+                new("misc-2", "Есть ли возврат средств?", "Возврат возможен в отдельных случаях. Обратитесь в поддержку — рассмотрим заявку.")
+            ]
+        )
+    ];
+
+    private sealed record FaqItem(string Id, string Question, string Answer);
+
+    private sealed record FaqGroup(string Label, IReadOnlyList<FaqItem> Items);
+
+    private static class Icons
+    {
+        public const string Chevron =
+            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M6 9l6 6 6-6' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>";
+    }
+}
