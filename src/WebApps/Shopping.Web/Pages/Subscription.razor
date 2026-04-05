@@ -1,7 +1,8 @@
 @page "/subscription"
 @inject CartState Cart
+@inject LanguageState Lang
 
-<PageTitle>GameShop — Подписка</PageTitle>
+<PageTitle>GameShop — @Lang.T("Подписка", "Subscription", "Abo", "Abonnement", "Suscripción")</PageTitle>
 
 <section class="page-pad">
     <div class="container">
@@ -9,12 +10,17 @@
             <div>
                 <h1>Premium</h1>
                 <p class="muted">
-                    Premium открывает дополнительные сцены, ускоряет прогресс и даёт доступ к эксклюзивным активностям.
-                    Подписка продлевается по выбранному сроку.
+                    @Lang.T(
+                        "Premium открывает дополнительные сцены, ускоряет прогресс и даёт доступ к эксклюзивным активностям. Подписка продлевается по выбранному сроку.",
+                        "Premium unlocks extra scenes, speeds up progression, and gives access to exclusive activities. Your subscription runs for the selected period.",
+                        "Premium schaltet zusätzliche Szenen frei, beschleunigt den Fortschritt und bietet exklusive Aktivitäten. Das Abo läuft für den gewählten Zeitraum.",
+                        "Premium débloque des scènes supplémentaires, accélère la progression et donne accès à des activités exclusives. L’abonnement dure la période choisie.",
+                        "Premium desbloquea escenas extra, acelera el progreso y da acceso a actividades exclusivas. La suscripción dura el período seleccionado."
+                    )
                 </p>
 
                 <div class="benefits">
-                    @foreach (var benefit in Benefits)
+                    @foreach (var benefit in CurrentBenefits)
                     {
                         <div class="benefit">
                             <span class="check" aria-hidden="true">@((MarkupString)Icons.Check)</span>
@@ -31,11 +37,11 @@
 
         <div class="plans">
             <div class="centered">
-                <h2>Выберите план</h2>
+                <h2>@Lang.T("Выберите план", "Choose a plan", "Wähle einen Plan", "Choisir un plan", "Elige un plan")</h2>
             </div>
 
             <div class="plan-row">
-                @foreach (var plan in Plans)
+                @foreach (var plan in CurrentPlans)
                 {
                     <div class="card plan-card @(plan.Highlight ? "highlight" : "")">
                         @if (!string.IsNullOrWhiteSpace(plan.Badge))
@@ -44,11 +50,11 @@
                         }
 
                         <div class="plan-name">@plan.Name</div>
-                        <p class="plan-price">@plan.Price</p>
+                        <p class="plan-price">@plan.PriceLabel</p>
                         <div class="plan-period">@plan.Period</div>
 
                         <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="() => Buy(plan)">
-                            Купить
+                            @Lang.T("Купить", "Buy", "Kaufen", "Acheter", "Comprar")
                         </button>
                     </div>
                 }
@@ -58,7 +64,18 @@
 </section>
 
 @code {
-    private static readonly IReadOnlyList<string> Benefits =
+    private IReadOnlyList<string> CurrentBenefits =>
+        Lang.Current switch
+        {
+            LanguageState.Language.Ru => RuBenefits,
+            LanguageState.Language.En => EnBenefits,
+            LanguageState.Language.De => DeBenefits,
+            LanguageState.Language.Fr => FrBenefits,
+            LanguageState.Language.Es => EsBenefits,
+            _ => EnBenefits
+        };
+
+    private static readonly IReadOnlyList<string> RuBenefits =
     [
         "Эксклюзивные сцены и диалоги",
         "Бонусные алмазы каждый день",
@@ -66,19 +83,90 @@
         "Уникальные предметы кастомизации"
     ];
 
-    private static readonly IReadOnlyList<Plan> Plans =
+    private static readonly IReadOnlyList<string> EnBenefits =
     [
-        new("1 месяц", "€6.99", "Ежемесячно", null, false),
-        new("3 месяца", "€17.99", "Раз в 3 месяца", null, false),
-        new("12 месяцев", "€59.99", "Раз в год", "Выгодно", true)
+        "Exclusive scenes and dialogues",
+        "Daily bonus diamonds",
+        "Faster energy recovery",
+        "Unique customization items"
+    ];
+
+    private static readonly IReadOnlyList<string> DeBenefits =
+    [
+        "Exklusive Szenen und Dialoge",
+        "Tägliche Bonus‑Diamanten",
+        "Schnellere Energie‑Regeneration",
+        "Einzigartige Anpassungs‑Items"
+    ];
+
+    private static readonly IReadOnlyList<string> FrBenefits =
+    [
+        "Scènes et dialogues exclusifs",
+        "Diamants bonus quotidiens",
+        "Récupération d’énergie plus rapide",
+        "Objets de personnalisation uniques"
+    ];
+
+    private static readonly IReadOnlyList<string> EsBenefits =
+    [
+        "Escenas y diálogos exclusivos",
+        "Diamantes extra diarios",
+        "Recuperación de energía más rápida",
+        "Objetos de personalización únicos"
+    ];
+
+    private IReadOnlyList<Plan> CurrentPlans =>
+        Lang.Current switch
+        {
+            LanguageState.Language.Ru => RuPlans,
+            LanguageState.Language.En => EnPlans,
+            LanguageState.Language.De => DePlans,
+            LanguageState.Language.Fr => FrPlans,
+            LanguageState.Language.Es => EsPlans,
+            _ => EnPlans
+        };
+
+    private static readonly IReadOnlyList<Plan> RuPlans =
+    [
+        new("1 месяц", 6.99m, "€6.99", "Ежемесячно", null, false),
+        new("3 месяца", 17.99m, "€17.99", "Раз в 3 месяца", null, false),
+        new("12 месяцев", 59.99m, "€59.99", "Раз в год", "Выгодно", true)
+    ];
+
+    private static readonly IReadOnlyList<Plan> EnPlans =
+    [
+        new("1 month", 6.99m, "€6.99", "Monthly", null, false),
+        new("3 months", 17.99m, "€17.99", "Every 3 months", null, false),
+        new("12 months", 59.99m, "€59.99", "Yearly", "Best deal", true)
+    ];
+
+    private static readonly IReadOnlyList<Plan> DePlans =
+    [
+        new("1 Monat", 6.99m, "€6.99", "Monatlich", null, false),
+        new("3 Monate", 17.99m, "€17.99", "Alle 3 Monate", null, false),
+        new("12 Monate", 59.99m, "€59.99", "Jährlich", "Bestes Angebot", true)
+    ];
+
+    private static readonly IReadOnlyList<Plan> FrPlans =
+    [
+        new("1 mois", 6.99m, "€6.99", "Mensuel", null, false),
+        new("3 mois", 17.99m, "€17.99", "Tous les 3 mois", null, false),
+        new("12 mois", 59.99m, "€59.99", "Annuel", "Meilleure offre", true)
+    ];
+
+    private static readonly IReadOnlyList<Plan> EsPlans =
+    [
+        new("1 mes", 6.99m, "€6.99", "Mensual", null, false),
+        new("3 meses", 17.99m, "€17.99", "Cada 3 meses", null, false),
+        new("12 meses", 59.99m, "€59.99", "Anual", "Mejor oferta", true)
     ];
 
     private void Buy(Plan plan)
     {
-        Cart.Add(1);
+        Cart.AddItem($"premium:{plan.Name}", $"Premium — {plan.Name}", plan.PriceValue, 1);
     }
 
-    private sealed record Plan(string Name, string Price, string Period, string? Badge, bool Highlight);
+    private sealed record Plan(string Name, decimal PriceValue, string PriceLabel, string Period, string? Badge, bool Highlight);
 
     private static class Icons
     {

@@ -1,55 +1,66 @@
 @page "/about"
+@inject LanguageState Lang
 
-<PageTitle>GameShop — Об игре</PageTitle>
+<PageTitle>GameShop — @Lang.T("Об игре", "About", "Über das Spiel", "À propos", "Acerca de")</PageTitle>
 
 <section class="page-pad">
     <div class="container">
         <div class="narrow">
-            <h1>Об игре</h1>
+            <h1>@Lang.T("Об игре", "About the game", "Über das Spiel", "À propos du jeu", "Acerca del juego")</h1>
             <p class="muted">
-                GameShop — это романтический симулятор свиданий, где каждое решение влияет на сюжет, отношения и финал.
-                Открывайте новые ветки, коллекционируйте иллюстрации и улучшайте свой профиль, чтобы покорять сердца персонажей.
+                @Lang.T(
+                    "GameShop — это романтический симулятор свиданий, где каждое решение влияет на сюжет, отношения и финал. Открывайте новые ветки, коллекционируйте иллюстрации и улучшайте свой профиль, чтобы покорять сердца персонажей.",
+                    "GameShop is a dating simulation game where every choice shapes the story, relationships, and ending. Unlock new branches, collect ilExample Game Studiotions, and upgrade your profile to win characters’ hearts.",
+                    "GameShop ist eine Dating‑Simulation, in der jede Entscheidung Story, Beziehungen und Ende beeinflusst. Schalte neue Handlungsstränge frei, sammle IlExample Game Studiotionen und verbessere dein Profil.",
+                    "GameShop est un jeu de simulation de rencontres où chaque choix influence l’histoire, les relations et la fin. Débloquez de nouvelles branches, collectionnez des ilExample Game Studiotions et améliorez votre profil.",
+                    "GameShop es un juego de simulación de citas donde cada decisión influye en la historia, las relaciones y el final. Desbloquea nuevas rutas, colecciona iExample Game Studiociones y mejora tu perfil."
+                )
             </p>
             <p class="muted">
-                Алмазы ускоряют прогресс и помогают открывать премиальные сцены, а Premium даёт доступ к бонусам и эксклюзивным активностям.
-                Мы сделали покупки максимально простыми — выбирайте пакет, оплачивайте и наслаждайтесь игрой.
+                @Lang.T(
+                    "Алмазы ускоряют прогресс и помогают открывать премиальные сцены, а Premium даёт доступ к бонусам и эксклюзивным активностям. Мы сделали покупки максимально простыми — выбирайте пакет, оплачивайте и наслаждайтесь игрой.",
+                    "Diamonds speed up progress and unlock premium scenes, while Premium gives you bonuses and exclusive activities. Purchasing is simple—pick a pack, pay, and enjoy the game.",
+                    "Diamanten beschleunigen den Fortschritt und schalten Premium‑Szenen frei. Premium bietet Boni und exklusive Aktivitäten. Kaufen ist einfach: Paket wählen, bezahlen, spielen.",
+                    "Les diamants accélèrent la progression et débloquent des scènes premium. Premium offre des bonus et des activités exclusives. L’achat est simple : choisissez, payez, profitez.",
+                    "Los diamantes aceleran el progreso y desbloquean escenas premium. Premium ofrece bonificaciones y actividades exclusivas. Comprar es sencillo: elige, paga y disfruta."
+                )
             </p>
 
             <div class="divider"></div>
 
             <div class="steps">
                 <div>
-                    <h2>Как купить алмазы</h2>
+                    <h2>@Lang.T("Как купить алмазы", "How to buy diamonds", "So kaufst du Diamanten", "Comment acheter des diamants", "Cómo comprar diamantes")</h2>
                     <div class="step-list">
                         <div class="step-item">
                             <div class="step-num">1</div>
-                            <div class="muted">Откройте раздел «Алмазы» и выберите пакет.</div>
+                            <div class="muted">@Lang.T("Откройте раздел «Алмазы» и выберите пакет.", "Open the Diamonds page and choose a pack.", "Öffne die Diamanten‑Seite und wähle ein Paket.", "Ouvrez la page Diamants et choisissez un pack.", "Abre la página de Diamantes y elige un paquete.")</div>
                         </div>
                         <div class="step-item">
                             <div class="step-num">2</div>
-                            <div class="muted">Нажмите «В корзину» и перейдите к оплате.</div>
+                            <div class="muted">@Lang.T("Нажмите «В корзину» и перейдите к оплате.", "Click Add to cart and proceed to checkout.", "Klicke In den Warenkorb und gehe zur Kasse.", "Cliquez sur Ajouter au panier puis passez au paiement.", "Pulsa Añadir al carrito y ve al pago.")</div>
                         </div>
                         <div class="step-item">
                             <div class="step-num">3</div>
-                            <div class="muted">Укажите свой ID в игре и подтвердите покупку.</div>
+                            <div class="muted">@Lang.T("Укажите свой ID в игре и подтвердите покупку.", "Enter your in‑game ID and confirm the purchase.", "Gib deine In‑Game‑ID an und bestätige den Kauf.", "Saisissez votre ID en jeu et confirmez l’achat.", "Introduce tu ID del juego y confirma la compra.")</div>
                         </div>
                     </div>
                 </div>
 
                 <div>
-                    <h2>Как активировать Premium</h2>
+                    <h2>@Lang.T("Как активировать Premium", "How to activate Premium", "So aktivierst du Premium", "Comment activer Premium", "Cómo activar Premium")</h2>
                     <div class="step-list">
                         <div class="step-item">
                             <div class="step-num">1</div>
-                            <div class="muted">Выберите план подписки на 1, 3 или 12 месяцев.</div>
+                            <div class="muted">@Lang.T("Выберите план подписки на 1, 3 или 12 месяцев.", "Choose a 1, 3, or 12‑month plan.", "Wähle einen 1‑, 3‑ oder 12‑Monats‑Plan.", "Choisissez un plan de 1, 3 ou 12 mois.", "Elige un plan de 1, 3 o 12 meses.")</div>
                         </div>
                         <div class="step-item">
                             <div class="step-num">2</div>
-                            <div class="muted">Оплатите удобным способом и дождитесь подтверждения.</div>
+                            <div class="muted">@Lang.T("Оплатите удобным способом и дождитесь подтверждения.", "Pay with a convenient method and wait for confirmation.", "Bezahle und warte auf die Bestätigung.", "Payez et attendez la confirmation.", "Paga y espera la confirmación.")</div>
                         </div>
                         <div class="step-item">
                             <div class="step-num">3</div>
-                            <div class="muted">Бонусы активируются автоматически в аккаунте.</div>
+                            <div class="muted">@Lang.T("Бонусы активируются автоматически в аккаунте.", "Benefits activate automatically on your account.", "Vorteile werden automatisch im Konto aktiviert.", "Les bonus s’activent automatiquement sur le compte.", "Los beneficios se activan automáticamente en la cuenta.")</div>
                         </div>
                     </div>
                 </div>
@@ -57,4 +68,3 @@
         </div>
     </div>
 </section>
-

@@ -1,14 +1,21 @@
 @page "/diamonds"
 @inject CartState Cart
+@inject LanguageState Lang
 
-<PageTitle>GameShop — Алмазы</PageTitle>
+<PageTitle>GameShop — @Lang.T("Алмазы", "Diamonds", "Diamanten", "Diamants", "Diamantes")</PageTitle>
 
 <section class="page-pad" style="padding-bottom: 60px;">
     <div class="container">
         <div class="centered">
-            <h1>Алмазы</h1>
+            <h1>@Lang.T("Алмазы", "Diamonds", "Diamanten", "Diamants", "Diamantes")</h1>
             <p class="muted" style="margin: 0 auto 48px; max-width: 680px;">
-                Выберите пакет алмазов и добавьте в корзину. Начисление обычно занимает несколько минут после подтверждения оплаты.
+                @Lang.T(
+                    "Выберите пакет алмазов и добавьте в корзину. Начисление обычно занимает несколько минут после подтверждения оплаты.",
+                    "Choose a diamond pack and add it to your cart. Delivery usually takes a few minutes after payment is confirmed.",
+                    "Wähle ein Diamanten‑Paket und lege es in den Warenkorb. Die Lieferung dauert обычно nur wenige Minuten nach Zahlungsbestätigung.",
+                    "Choisissez un pack de diamants et ajoutez‑le au panier. La livraison prend généralement quelques minutes après confirmation du paiement.",
+                    "Elige un paquete de diamantes y añádelo al carrito. La entrega suele tardar unos minutos tras confirmar el pago."
+                )
             </p>
         </div>
 
@@ -23,10 +30,10 @@
 
                     <div class="img-square">image</div>
                     <div class="diamond-amount">@pack.Amount</div>
-                    <div class="diamond-price">@pack.Price</div>
+                    <div class="diamond-price">@pack.PriceLabel</div>
 
                     <button class="btn btn-primary btn-full" type="button" @onclick="() => AddToCart(pack)">
-                        В корзину
+                        @Lang.T("В корзину", "Add to cart", "In den Warenkorb", "Ajouter au panier", "Añadir al carrito")
                     </button>
                 </div>
             }
@@ -35,23 +42,81 @@
 </section>
 
 @code {
-    private static readonly IReadOnlyList<DiamondPack> Packs =
+    private IReadOnlyList<DiamondPack> Packs =>
+        Lang.Current switch
+        {
+            LanguageState.Language.Ru => RuPacks,
+            LanguageState.Language.En => EnPacks,
+            LanguageState.Language.De => DePacks,
+            LanguageState.Language.Fr => FrPacks,
+            LanguageState.Language.Es => EsPacks,
+            _ => EnPacks
+        };
+
+    private static readonly IReadOnlyList<DiamondPack> RuPacks =
     [
-        new("120 алмазов", "€1.99", null, null),
-        new("350 алмазов", "€4.99", "Best value", "purple"),
-        new("800 алмазов", "€9.99", null, null),
-        new("2000 алмазов", "€19.99", "Top", "gold"),
-        new("4500 алмазов", "€39.99", null, null),
-        new("9000 алмазов", "€69.99", "Hot", "purple"),
-        new("15000 алмазов", "€99.99", null, null),
-        new("25000 алмазов", "€149.99", "Mega", "gold")
+        new("120 алмазов", 1.99m, "€1.99", null, null),
+        new("350 алмазов", 4.99m, "€4.99", "Best value", "purple"),
+        new("800 алмазов", 9.99m, "€9.99", null, null),
+        new("2000 алмазов", 19.99m, "€19.99", "Top", "gold"),
+        new("4500 алмазов", 39.99m, "€39.99", null, null),
+        new("9000 алмазов", 69.99m, "€69.99", "Hot", "purple"),
+        new("15000 алмазов", 99.99m, "€99.99", null, null),
+        new("25000 алмазов", 149.99m, "€149.99", "Mega", "gold")
+    ];
+
+    private static readonly IReadOnlyList<DiamondPack> EnPacks =
+    [
+        new("120 diamonds", 1.99m, "€1.99", null, null),
+        new("350 diamonds", 4.99m, "€4.99", "Best value", "purple"),
+        new("800 diamonds", 9.99m, "€9.99", null, null),
+        new("2000 diamonds", 19.99m, "€19.99", "Top", "gold"),
+        new("4500 diamonds", 39.99m, "€39.99", null, null),
+        new("9000 diamonds", 69.99m, "€69.99", "Hot", "purple"),
+        new("15000 diamonds", 99.99m, "€99.99", null, null),
+        new("25000 diamonds", 149.99m, "€149.99", "Mega", "gold")
+    ];
+
+    private static readonly IReadOnlyList<DiamondPack> DePacks =
+    [
+        new("120 Diamanten", 1.99m, "€1.99", null, null),
+        new("350 Diamanten", 4.99m, "€4.99", "Bestes Angebot", "purple"),
+        new("800 Diamanten", 9.99m, "€9.99", null, null),
+        new("2000 Diamanten", 19.99m, "€19.99", "Top", "gold"),
+        new("4500 Diamanten", 39.99m, "€39.99", null, null),
+        new("9000 Diamanten", 69.99m, "€69.99", "Hot", "purple"),
+        new("15000 Diamanten", 99.99m, "€99.99", null, null),
+        new("25000 Diamanten", 149.99m, "€149.99", "Mega", "gold")
+    ];
+
+    private static readonly IReadOnlyList<DiamondPack> FrPacks =
+    [
+        new("120 diamants", 1.99m, "€1.99", null, null),
+        new("350 diamants", 4.99m, "€4.99", "Meilleure offre", "purple"),
+        new("800 diamants", 9.99m, "€9.99", null, null),
+        new("2000 diamants", 19.99m, "€19.99", "Top", "gold"),
+        new("4500 diamants", 39.99m, "€39.99", null, null),
+        new("9000 diamants", 69.99m, "€69.99", "Hot", "purple"),
+        new("15000 diamants", 99.99m, "€99.99", null, null),
+        new("25000 diamants", 149.99m, "€149.99", "Mega", "gold")
+    ];
+
+    private static readonly IReadOnlyList<DiamondPack> EsPacks =
+    [
+        new("120 diamantes", 1.99m, "€1.99", null, null),
+        new("350 diamantes", 4.99m, "€4.99", "Mejor oferta", "purple"),
+        new("800 diamantes", 9.99m, "€9.99", null, null),
+        new("2000 diamantes", 19.99m, "€19.99", "Top", "gold"),
+        new("4500 diamantes", 39.99m, "€39.99", null, null),
+        new("9000 diamantes", 69.99m, "€69.99", "Hot", "purple"),
+        new("15000 diamantes", 99.99m, "€99.99", null, null),
+        new("25000 diamantes", 149.99m, "€149.99", "Mega", "gold")
     ];
 
     private void AddToCart(DiamondPack pack)
     {
-        Cart.Add(1);
+        Cart.AddItem($"diamonds:{pack.Amount}", pack.Amount, pack.PriceValue, 1);
     }
 
-    private sealed record DiamondPack(string Amount, string Price, string? BadgeText, string? BadgeKind);
+    private sealed record DiamondPack(string Amount, decimal PriceValue, string PriceLabel, string? BadgeText, string? BadgeKind);
 }
-

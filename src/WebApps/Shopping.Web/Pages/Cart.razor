@@ -1,0 +1,69 @@
+@page "/cart"
+@inject CartState CartModel
+@inject LanguageState Lang
+
+<PageTitle>GameShop — Корзина</PageTitle>
+
+<section class="page-pad">
+    <div class="container">
+        <h1>@Lang.T("Корзина", "Cart", "Warenkorb", "Panier", "Carrito")</h1>
+
+        @if (CartModel.Lines.Count == 0)
+        {
+            <p class="muted">
+                @Lang.T(
+                    "Корзина пуста. Добавьте алмазы или Premium.",
+                    "Your cart is empty. Add diamonds or Premium.",
+                    "Dein Warenkorb ist leer. Füge Diamanten oder Premium hinzu.",
+                    "Votre panier est vide. Ajoutez des diamants ou Premium.",
+                    "Tu carrito está vacío. Añade diamantes o Premium."
+                )
+            </p>
+            <div style="margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap;">
+                <a class="btn btn-primary" href="/diamonds">@Lang.NavDiamonds</a>
+                <a class="btn btn-outline-gold" href="/subscription">@Lang.Premium</a>
+            </div>
+        }
+        else
+        {
+            <div class="cart-wrap" style="margin-top: 24px;">
+                @foreach (var line in CartModel.Lines)
+                {
+                    <div class="card cart-item">
+                        <div>
+                            <div class="cart-item-title">@line.Title</div>
+                            <div class="cart-item-sub">
+                                @Lang.T("Кол-во", "Qty", "Menge", "Qté", "Cant."): @line.Quantity
+                            </div>
+                        </div>
+
+                        <div class="cart-right">
+                            <div class="price">@FormatMoney(line.UnitPrice * line.Quantity)</div>
+                            <button class="btn btn-ghost" style="height: 44px; padding: 0 16px;" type="button" @onclick="() => CartModel.Remove(line.Sku)">
+                                @Lang.T("Удалить", "Remove", "Entfernen", "Supprimer", "Eliminar")
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <div class="card cart-summary">
+                    <div class="muted">@Lang.T("Итого", "Total", "Summe", "Total", "Total")</div>
+                    <div class="price" style="font-size: 20px;">@FormatMoney(CartModel.Total)</div>
+                </div>
+
+                <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
+                    <button class="btn btn-ghost" type="button" @onclick="CartModel.Clear">
+                        @Lang.T("Очистить", "Clear", "Leeren", "Vider", "Vaciar")
+                    </button>
+                    <button class="btn btn-primary" type="button" disabled>
+                        @Lang.T("Оформить (скоро)", "Checkout (soon)", "Zur Kasse (bald)", "Paiement (bientôt)", "Pagar (pronto)")
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</section>
+
+@code {
+    private static string FormatMoney(decimal value) => $"€{value:0.00}";
+}
