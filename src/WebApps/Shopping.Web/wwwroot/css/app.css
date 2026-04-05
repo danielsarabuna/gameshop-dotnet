@@ -147,14 +147,13 @@ p, .body {
 
 .header-inner {
     height: 64px;
-    display: flex;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
     align-items: center;
-    justify-content: space-between;
     gap: 16px;
 }
 
 .logo {
-    flex: 0 0 20%;
     font-style: italic;
     font-size: 22px;
     font-weight: 800;
@@ -162,10 +161,12 @@ p, .body {
 }
 
 .nav {
-    flex: 0 0 50%;
-    display: flex;
-    justify-content: center;
-    gap: 32px;
+    width: min(720px, 100%);
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    column-gap: 32px;
+    justify-self: center;
 }
 
 .nav a {
@@ -178,6 +179,13 @@ p, .body {
     border: 1px solid transparent;
     transition: border-color .12s ease, color .12s ease;
     white-space: nowrap;
+    width: 100%;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .nav a.active {
@@ -189,7 +197,6 @@ p, .body {
 .nav a:hover { color: var(--text); }
 
 .header-right {
-    flex: 0 0 30%;
     display: flex;
     justify-content: flex-end;
     gap: 24px;
