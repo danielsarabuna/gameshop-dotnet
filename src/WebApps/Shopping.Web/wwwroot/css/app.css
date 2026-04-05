@@ -15,11 +15,31 @@
     --dur-slow: 300ms;
 }
 
-html, body {
+html {
     height: 100%;
-    background: var(--bg);
+    background: #05040E;
+}
+
+body {
+    height: 100%;
+    background: transparent;
     color: var(--text);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+
+#shards-bg {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    pointer-events: none;
+    display: block;
+}
+
+#app {
+    position: relative;
+    z-index: 1;
 }
 
 * { box-sizing: border-box; }
