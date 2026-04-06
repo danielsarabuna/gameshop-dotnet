@@ -5,7 +5,20 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging();
-builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
+var storageMode = builder.Configuration.GetValue<string>("Catalog:Storage");
+if (string.IsNullOrWhiteSpace(storageMode))
+{
+    storageMode = builder.Environment.IsEnvironment("Docker") ? "Mongo" : "InMemory";
+}
+
+if (string.Equals(storageMode, "Mongo", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<ICatalogStore, MongoCatalogStore>();
+}
+else
+{
+    builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
+}
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
