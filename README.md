@@ -1,7 +1,9 @@
-# Техническая документация MVP: Игровой Магазин (Distributed Game Store)
+# WebShop / GameShop — MVP (Distributed Game Store)
 
 ## 1. Обзор проекта
 Целью MVP является создание масштабируемой платформы для продажи цифрового контента (игр, дополнений). Система строится на базе **микросервисной архитектуры** с физическим разделением фронтенда и бэкенда. Основной акцент сделан на обеспечении целостности транзакций, безопасности платежей и возможности независимого масштабирования компонентов.
+
+Дополнительно в репозитории есть демо‑фронтенд **GameShop** (Blazor WebAssembly) — тёмная витрина для покупки внутриигровой валюты (алмазы) и Premium‑подписки для dating‑sim.
 
 ## 2. Объем MVP (MVP Scope)
 Для первой версии продукта реализуются следующие критические модули:
@@ -64,46 +66,71 @@ Solution/
 
 ## 7. Быстрый старт (Dev)
 
-### 7.1 Сборка решения
+### 7.1 Требования
+- .NET 9 SDK
+- (Опционально) Docker (для запуска всей системы через `docker compose`)
+- macOS: если при сборке/запуске появляется сообщение про Xcode/Apple SDKs license — примите лицензию:
+  ```bash
+  sudo xcodebuild -license
+  ```
+
+### 7.2 Запуск только фронтенда (GameShop UI)
+```bash
+dotnet run --project src/WebApps/Shopping.Web/Shopping.Web.csproj
+```
+Открыть: `http://localhost:5200`
+
+Что есть в UI (демо):
+- Dark theme + адаптив (desktop/mobile)
+- Локализация: RU/EN/DE/FR/ES (переключатель в хедере)
+- Cart drawer справа (qty, промокод — demo, total)
+- Canvas background effect: **Floating Hearts** (desktop реагирует на курсор; mobile — без push‑эффекта)
+
+### 7.3 Сборка решения
 ```bash
 dotnet build WebShop.sln -c Release -m:1
 ```
 
-### 7.2 Запуск сервисов локально
-```bash
-bash ./run-local.sh
-```
-
-Или через `make`:
+### 7.4 Запуск API + Gateway локально
 ```bash
 make run-local
 ```
 
-Если хотите также собрать/запустить Blazor-клиент `Shopping.Web`:
+Логи пишутся в `.logs/`. Остановка — `Ctrl+C`.
+
+Если запускаете скрипт напрямую и получаете `Permission denied`, сделайте его исполняемым:
 ```bash
-INCLUDE_WEB=1 bash ./run-local.sh
+chmod +x ./run-local.sh
 ```
 
-Ручной запуск (4 терминала):
+### 7.5 Запуск локально вместе с Web (Shopping.Web)
 ```bash
-dotnet run --project src/Services/Catalog.API/Catalog.API.csproj
-dotnet run --project src/Services/Basket.API/Basket.API.csproj
-dotnet run --project src/Services/Ordering/Ordering.API/Ordering.API.csproj
-dotnet run --project src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj
+INCLUDE_WEB=1 make run-local
 ```
 
 Порты (HTTP):
+- Web (Shopping.Web): `http://localhost:5200`
 - API Gateway: `http://localhost:5100`
 - Catalog: `http://localhost:5101`
 - Basket: `http://localhost:5102`
 - Ordering: `http://localhost:5103`
 
-### 7.3 Тесты
+Health checks:
+- `http://localhost:5100/health`
+- `http://localhost:5101/health`
+- `http://localhost:5102/health`
+- `http://localhost:5103/health`
+
+Через gateway:
+- `http://localhost:5100/api/v1/catalog/items`
+- `http://localhost:5100/api/v1/basket/test-user`
+
+### 7.6 Тесты
 ```bash
 dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release -p:NuGetAudit=false
 ```
 
-### 7.4 Docker Compose
+### 7.7 Docker Compose (вся система)
 ```bash
 docker compose up --build
 ```
