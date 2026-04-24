@@ -40,3 +40,8 @@ app.MapGet("/api/v1/catalog/items/{id:guid}", (Guid id, ICatalogStore store) =>
 });
 
 app.Run();
+
+namespace Catalog.API
+{
+    public sealed class Program;
+}

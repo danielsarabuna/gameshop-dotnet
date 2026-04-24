@@ -2,6 +2,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Ordering.Domain/Ordering.Domain.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/EventBus/EventBus.csproj" />
+    <ProjectReference Include="../../../Contracts/IntegrationEvents/IntegrationEvents.csproj" />
   </ItemGroup>
 
   <PropertyGroup>
