@@ -8,6 +8,11 @@ namespace Ordering.Infrastructure.Persistence;
 
 public sealed class OrderingDatabaseInitializer
 {
+    static OrderingDatabaseInitializer()
+    {
+        DefaultTypeMap.MatchNamesWithUnderscores = true;
+    }
+
     private readonly string _connectionString;
     private readonly ILogger<OrderingDatabaseInitializer> _logger;
 

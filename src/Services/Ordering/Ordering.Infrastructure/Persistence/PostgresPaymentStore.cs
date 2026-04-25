@@ -32,9 +32,16 @@ public sealed class PostgresPaymentStore : IPaymentStore
         var row = await connection.QuerySingleOrDefaultAsync<PaymentRow>(
             new CommandDefinition(sql, new { OrderId = orderId, Provider = (int)provider }, cancellationToken: cancellationToken));
 
-        return row is null
-            ? null
-            : new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, row.CreatedAtUtc, row.CompletedAtUtc);
+        if (row is null)
+        {
+            return null;
+        }
+
+        var createdAt = new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAtUtc, DateTimeKind.Utc));
+        var completedAt = row.CompletedAtUtc.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(row.CompletedAtUtc.Value, DateTimeKind.Utc))
+            : (DateTimeOffset?)null;
+        return new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, createdAt, completedAt);
     }
 
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken)
@@ -87,6 +94,6 @@ public sealed class PostgresPaymentStore : IPaymentStore
         int Provider,
         int Status,
         string? ExternalId,
-        DateTimeOffset CreatedAtUtc,
-        DateTimeOffset? CompletedAtUtc);
+        DateTime CreatedAtUtc,
+        DateTime? CompletedAtUtc);
 }

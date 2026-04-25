@@ -74,6 +74,7 @@ public sealed class PostgresOrderRepository : IOrderRepository
         }
 
         var items = JsonSerializer.Deserialize<IReadOnlyList<OrderItem>>(row.Items, JsonOptions) ?? Array.Empty<OrderItem>();
+        var createdAt = new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAtUtc, DateTimeKind.Utc));
         var order = new Order(
             row.Id,
             row.GameUserId,
@@ -82,12 +83,15 @@ public sealed class PostgresOrderRepository : IOrderRepository
             row.Currency,
             row.DiscountAmount,
             row.PromoCode,
-            row.CreatedAtUtc);
+            createdAt);
 
         var status = (OrderStatus)row.Status;
         if (status == OrderStatus.Paid)
         {
-            order.MarkPaid(row.PaymentId ?? "unknown", row.PaidAtUtc ?? DateTimeOffset.UtcNow);
+            var paidAt = row.PaidAtUtc.HasValue
+                ? new DateTimeOffset(DateTime.SpecifyKind(row.PaidAtUtc.Value, DateTimeKind.Utc))
+                : DateTimeOffset.UtcNow;
+            order.MarkPaid(row.PaymentId ?? "unknown", paidAt);
         }
         else if (status == OrderStatus.Failed)
         {
@@ -142,9 +146,9 @@ public sealed class PostgresOrderRepository : IOrderRepository
         string Currency,
         decimal DiscountAmount,
         string? PromoCode,
-        DateTimeOffset CreatedAtUtc,
+        DateTime CreatedAtUtc,
         int Status,
         string? PaymentId,
-        DateTimeOffset? PaidAtUtc,
+        DateTime? PaidAtUtc,
         string? FailureReason);
 }
