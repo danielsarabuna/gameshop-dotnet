@@ -16,6 +16,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging("Ordering");
 builder.Services.AddWebShopTracing(builder.Configuration, "Ordering");
+builder.Services.AddWebShopMetrics(builder.Configuration, "Ordering");
+
 var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
 {
@@ -56,6 +58,32 @@ if (string.Equals(eventBusProvider, "RabbitMq", StringComparison.OrdinalIgnoreCa
 else
 {
     builder.Services.AddSingleton<IEventBus>(NullEventBus.Instance);
+}
+
+var orderingHealth = builder.Services.AddHealthChecks();
+if (usePostgres)
+{
+    var pgConn = builder.Configuration["Ordering:Postgres:ConnectionString"]
+        ?? (builder.Environment.IsEnvironment("Docker")
+            ? "Host=postgres;Port=5432;Username=webshop;Password=webshop;Database=ordering"
+            : "Host=localhost;Port=5432;Username=webshop;Password=webshop;Database=ordering");
+    orderingHealth.AddNpgSql(pgConn, name: "postgres", tags: new[] { "ready" });
+}
+if (string.Equals(eventBusProvider, "RabbitMq", StringComparison.OrdinalIgnoreCase))
+{
+    var rabbitHost = builder.Configuration["EventBus:RabbitMq:Host"]
+        ?? (builder.Environment.IsEnvironment("Docker") ? "rabbitmq" : "localhost");
+    var rabbitUser = builder.Configuration["EventBus:RabbitMq:Username"] ?? "guest";
+    var rabbitPass = builder.Configuration["EventBus:RabbitMq:Password"] ?? "guest";
+    var rabbitUri = new Uri($"amqp://{rabbitUser}:{rabbitPass}@{rabbitHost}:5672/");
+    orderingHealth.AddRabbitMQ(
+        async _ =>
+        {
+            var factory = new RabbitMQ.Client.ConnectionFactory { Uri = rabbitUri };
+            return await factory.CreateConnectionAsync();
+        },
+        name: "rabbitmq",
+        tags: new[] { "ready" });
 }
 
 var catalogTransport = builder.Configuration.GetValue<string>("Catalog:Transport");
@@ -122,7 +150,8 @@ if (usePostgres)
 app.UseWebShopRequestLogging();
 app.UseCors();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapWebShopHealth();
+app.MapWebShopMetrics();
 
 app.MapPost("/api/v1/orders", async (CreateOrderRequest request, CreateOrderHandler handler, CancellationToken cancellationToken) =>
 {

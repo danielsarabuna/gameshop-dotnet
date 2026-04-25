@@ -1,4 +1,14 @@
 services:
+  web:
+    build:
+      context: .
+      dockerfile: src/WebApps/Shopping.Web/Dockerfile
+    ports:
+      - "5200:8080"
+    depends_on:
+      apigateway:
+        condition: service_healthy
+
   apigateway:
     build:
       context: .
