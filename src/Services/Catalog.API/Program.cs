@@ -1,10 +1,15 @@
 using Catalog.API.Storage;
 using Logging;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging();
 builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
+builder.Services.ConfigureHttpJsonOptions(options =>
+{
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
 
 var app = builder.Build();
 

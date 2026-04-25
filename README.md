@@ -124,6 +124,25 @@ Health checks:
 Через gateway:
 - `http://localhost:5100/api/v1/catalog/items`
 - `http://localhost:5100/api/v1/basket/test-user`
+- `http://localhost:5100/api/v1/orders/create`
+- `http://localhost:5100/api/v1/promocodes/apply`
+- `http://localhost:5100/api/v1/payments/stripe` (также `paypal`, `yookassa`)
+- `http://localhost:5100/api/v1/webhooks/stripe` (также `paypal`, `yookassa`)
+
+Catalog seed (in-memory):
+- 9 пакетов алмазов (`type=Currency`)
+- 3 Premium-подписки (`type=Subscription`)
+
+Promo codes (in-memory):
+- `LOVE10` — 10% на всё
+- `PREM20` — 20% только на Premium
+- `SAVE5` — фикс €5 только на алмазы
+
+Webhook security (dev):
+- Если задан `Webhooks:Secret` или `Webhooks:{provider}:Secret`, нужно передать заголовок `X-Webhook-Secret`.
+
+Supabase (начисление/лог покупок):
+- Установите `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` (или `Supabase:Url`, `Supabase:ServiceRoleKey` в конфиге).
 
 ### 7.6 Тесты
 ```bash

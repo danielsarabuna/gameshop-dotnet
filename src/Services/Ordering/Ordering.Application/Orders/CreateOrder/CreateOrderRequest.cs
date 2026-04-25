@@ -1,11 +1,16 @@
+using Ordering.Domain.Payments;
+
 namespace Ordering.Application.Orders.CreateOrder;
 
-public sealed record CreateOrderRequest(string BuyerId, IReadOnlyList<CreateOrderItem> Items);
+public sealed record CreateOrderRequest(
+    string GameUserId,
+    PaymentMethod PaymentMethod,
+    IReadOnlyList<CreateOrderLine> Items,
+    string? PromoCode
+);
 
-public sealed record CreateOrderItem(
+public sealed record CreateOrderLine(
     Guid ProductId,
-    string Title,
-    decimal UnitPrice,
     int Quantity
 );
 

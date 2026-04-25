@@ -18,5 +18,10 @@ public sealed class InMemoryOrderRepository : IOrderRepository
     {
         return Task.FromResult(_orders.TryGetValue(id, out var order) ? order : null);
     }
-}
 
+    public Task UpdateAsync(Order order, CancellationToken cancellationToken)
+    {
+        _orders.AddOrUpdate(order.Id, order, (_, _) => order);
+        return Task.CompletedTask;
+    }
+}
