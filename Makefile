@@ -29,5 +29,8 @@ check:
 	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false
 	dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Debug -p:NuGetAudit=false
 
+smoke:
+	./smoke.sh
+
 clean-logs:
 	rm -rf .logs
