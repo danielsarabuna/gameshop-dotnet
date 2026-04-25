@@ -167,7 +167,9 @@ p, .body {
     position: sticky;
     top: 0;
     z-index: 50;
-    background: var(--bg);
+    background: rgba(30, 30, 30, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     border-bottom: 1px solid var(--border);
     height: 64px;
 }
@@ -326,7 +328,9 @@ p, .body {
 .mobile-nav {
     display: none;
     border-bottom: 1px solid var(--border);
-    background: var(--bg);
+    background: rgba(30, 30, 30, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
 }
 
 .mobile-nav a {
@@ -593,7 +597,9 @@ p, .body {
     height: 100vh;
     width: 420px;
     max-width: 100%;
-    background: var(--bg);
+    background: rgba(30, 30, 30, 0.78);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     border-left: 1px solid var(--border);
     transform: translateX(100%);
     transition: transform var(--dur-slow) var(--ease);
@@ -807,7 +813,9 @@ p, .body {
     border-top: 1px solid var(--border);
     padding: 20px;
     margin-top: 16px;
-    background: var(--bg);
+    background: rgba(30, 30, 30, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
 }
 
 .cart-total {
