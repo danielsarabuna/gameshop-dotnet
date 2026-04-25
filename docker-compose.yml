@@ -38,7 +38,6 @@ services:
       dockerfile: src/Services/Catalog.API/Dockerfile
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
-      ASPNETCORE_URLS: http://+:8080
       Catalog__Storage: Mongo
       Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
       Otel__Enabled: "true"
@@ -84,7 +83,7 @@ services:
       EventBus__RabbitMq__Username: guest
       EventBus__RabbitMq__Password: guest
       Catalog__Transport: Grpc
-      Catalog__GrpcUrl: http://catalog-api:8080
+      Catalog__GrpcUrl: http://catalog-api:8081
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     ports:
@@ -160,7 +159,7 @@ services:
       start_period: 30s
 
   jaeger:
-    image: jaegertracing/all-in-one:1.62
+    image: jaegertracing/all-in-one:1.62.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
