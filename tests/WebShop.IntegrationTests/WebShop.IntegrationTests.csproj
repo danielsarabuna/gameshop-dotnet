@@ -22,6 +22,8 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Services/Catalog.API/Catalog.API.csproj" />
     <ProjectReference Include="../../src/Services/Basket.API/Basket.API.csproj" />
+    <ProjectReference Include="../../src/Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
+    <ProjectReference Include="../../src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj" />
   </ItemGroup>
 
 </Project>

@@ -65,6 +65,10 @@
                 }
             </div>
 
+            <div class="auth-area" @onclick:stopPropagation="true">
+                <LoginDisplay LoginLabel="@LoginButtonLabel" LogoutLabel="@LogoutButtonLabel" />
+            </div>
+
             <button class="icon-btn cart @(CartBump ? "bump" : "")" type="button" aria-label="Cart" @onclick="OpenCart" @onclick:stopPropagation="true">
                 <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
                 @if (Cart.Count > 0)
@@ -225,6 +229,12 @@
         !string.IsNullOrWhiteSpace(PlayerName) &&
         (string.IsNullOrWhiteSpace(PlayerEmail) || IsValidEmail(PlayerEmail)) &&
         !string.IsNullOrWhiteSpace(SelectedPaymentMethod);
+
+    private string LoginButtonLabel =>
+        Lang.T("Войти", "Sign in", "Anmelden", "Connexion", "Iniciar sesión");
+
+    private string LogoutButtonLabel =>
+        Lang.T("Выйти", "Sign out", "Abmelden", "Déconnexion", "Cerrar sesión");
 
     private string CheckoutRequirementsText =>
         Lang.T(

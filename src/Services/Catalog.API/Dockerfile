@@ -4,6 +4,7 @@ WORKDIR /src
 COPY WebShop.sln ./
 COPY src/Services/Catalog.API/Catalog.API.csproj src/Services/Catalog.API/
 COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
+COPY src/Contracts/Catalog.Grpc/Catalog.Grpc.csproj src/Contracts/Catalog.Grpc/
 
 RUN dotnet restore src/Services/Catalog.API/Catalog.API.csproj
 

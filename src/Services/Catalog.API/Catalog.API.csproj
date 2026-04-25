@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../BuildingBlocks/Logging/Logging.csproj" />
+    <ProjectReference Include="../../Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

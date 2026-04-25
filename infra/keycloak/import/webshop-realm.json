@@ -1,0 +1,124 @@
+{
+  "realm": "webshop",
+  "enabled": true,
+  "displayName": "WebShop / GameShop",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "accessTokenLifespan": 900,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      {
+        "name": "user",
+        "description": "Default authenticated user."
+      },
+      {
+        "name": "admin",
+        "description": "Administrator with full access."
+      }
+    ]
+  },
+  "groups": [],
+  "users": [
+    {
+      "username": "tester",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Test",
+      "lastName": "User",
+      "email": "tester@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "tester",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user"]
+    },
+    {
+      "username": "admin-user",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Realm",
+      "lastName": "Admin",
+      "email": "admin-user@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "admin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["user", "admin"]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "shopping-web",
+      "name": "Shopping.Web (Blazor WASM)",
+      "description": "Public OIDC client for the GameShop storefront.",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "implicitFlowEnabled": false,
+      "serviceAccountsEnabled": false,
+      "rootUrl": "http://localhost:5200",
+      "baseUrl": "http://localhost:5200",
+      "redirectUris": [
+        "http://localhost:5200/*",
+        "https://localhost:5200/*"
+      ],
+      "webOrigins": [
+        "http://localhost:5200",
+        "https://localhost:5200",
+        "+"
+      ],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5200/*",
+        "access.token.lifespan": "900"
+      },
+      "defaultClientScopes": [
+        "web-origins",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": [
+        "address",
+        "phone",
+        "offline_access",
+        "microprofile-jwt"
+      ]
+    },
+    {
+      "clientId": "webshop-api",
+      "name": "WebShop backend audience",
+      "description": "Bearer-only audience consumed by API Gateway and microservices.",
+      "enabled": true,
+      "publicClient": false,
+      "bearerOnly": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "secret": "not-used-bearer-only",
+      "attributes": {
+        "access.token.lifespan": "900"
+      }
+    }
+  ],
+  "scopeMappings": [],
+  "clientScopeMappings": {},
+  "smtpServer": {},
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "ru", "de", "fr", "es"],
+  "defaultLocale": "en"
+}
