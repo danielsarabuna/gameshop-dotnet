@@ -1,6 +1,8 @@
 @page "/diamonds"
 @inject CartState Cart
 @inject LanguageState Lang
+@inject HttpClient Http
+@inject IConfiguration Config
 
 <PageTitle>GameShop — @Lang.T("Алмазы", "Diamonds", "Diamanten", "Diamants", "Diamantes")</PageTitle>
 
@@ -23,13 +25,13 @@
             @foreach (var pack in Packs)
             {
                 <div class="card diamond-card">
-                    @if (!string.IsNullOrWhiteSpace(pack.BadgeText))
+                    @if (!string.IsNullOrWhiteSpace(GetBadgeText(pack.BadgeKey)))
                     {
-                        <div class="card-badge @(pack.BadgeKind == "gold" ? "badge-gold" : "badge-purple")">@pack.BadgeText</div>
+                        <div class="card-badge @(pack.BadgeKind == "gold" ? "badge-gold" : "badge-purple")">@GetBadgeText(pack.BadgeKey)</div>
                     }
 
                     <div class="img-square">image</div>
-                    <div class="diamond-amount">@pack.Amount</div>
+                    <div class="diamond-amount">@FormatDiamondAmount(pack.Diamonds)</div>
                     <div class="diamond-price">@pack.PriceLabel</div>
 
                     <button class="btn btn-primary btn-full" type="button" @onclick="() => AddToCart(pack)">
@@ -42,86 +44,111 @@
 </section>
 
 @code {
-    private IReadOnlyList<DiamondPack> Packs =>
-        Lang.Current switch
-        {
-            LanguageState.Language.Ru => RuPacks,
-            LanguageState.Language.En => EnPacks,
-            LanguageState.Language.De => DePacks,
-            LanguageState.Language.Fr => FrPacks,
-            LanguageState.Language.Es => EsPacks,
-            _ => EnPacks
-        };
+    private IReadOnlyList<DiamondPack> Packs => _packs;
+    private IReadOnlyList<DiamondPack> _packs = [];
 
-    private static readonly IReadOnlyList<DiamondPack> RuPacks =
-    [
-        new("60 алмазов", 0.99m, "€0.99", null, null),
-        new("120 алмазов", 1.99m, "€1.99", null, null),
-        new("350 алмазов", 4.99m, "€4.99", "Best value", "purple"),
-        new("800 алмазов", 9.99m, "€9.99", null, null),
-        new("2000 алмазов", 19.99m, "€19.99", "Top", "gold"),
-        new("4500 алмазов", 39.99m, "€39.99", null, null),
-        new("9000 алмазов", 69.99m, "€69.99", "Hot", "purple"),
-        new("15000 алмазов", 99.99m, "€99.99", null, null),
-        new("25000 алмазов", 149.99m, "€149.99", "Mega", "gold")
-    ];
-
-    private static readonly IReadOnlyList<DiamondPack> EnPacks =
-    [
-        new("60 diamonds", 0.99m, "€0.99", null, null),
-        new("120 diamonds", 1.99m, "€1.99", null, null),
-        new("350 diamonds", 4.99m, "€4.99", "Best value", "purple"),
-        new("800 diamonds", 9.99m, "€9.99", null, null),
-        new("2000 diamonds", 19.99m, "€19.99", "Top", "gold"),
-        new("4500 diamonds", 39.99m, "€39.99", null, null),
-        new("9000 diamonds", 69.99m, "€69.99", "Hot", "purple"),
-        new("15000 diamonds", 99.99m, "€99.99", null, null),
-        new("25000 diamonds", 149.99m, "€149.99", "Mega", "gold")
-    ];
-
-    private static readonly IReadOnlyList<DiamondPack> DePacks =
-    [
-        new("60 Diamanten", 0.99m, "€0.99", null, null),
-        new("120 Diamanten", 1.99m, "€1.99", null, null),
-        new("350 Diamanten", 4.99m, "€4.99", "Bestes Angebot", "purple"),
-        new("800 Diamanten", 9.99m, "€9.99", null, null),
-        new("2000 Diamanten", 19.99m, "€19.99", "Top", "gold"),
-        new("4500 Diamanten", 39.99m, "€39.99", null, null),
-        new("9000 Diamanten", 69.99m, "€69.99", "Hot", "purple"),
-        new("15000 Diamanten", 99.99m, "€99.99", null, null),
-        new("25000 Diamanten", 149.99m, "€149.99", "Mega", "gold")
-    ];
-
-    private static readonly IReadOnlyList<DiamondPack> FrPacks =
-    [
-        new("60 diamants", 0.99m, "€0.99", null, null),
-        new("120 diamants", 1.99m, "€1.99", null, null),
-        new("350 diamants", 4.99m, "€4.99", "Meilleure offre", "purple"),
-        new("800 diamants", 9.99m, "€9.99", null, null),
-        new("2000 diamants", 19.99m, "€19.99", "Top", "gold"),
-        new("4500 diamants", 39.99m, "€39.99", null, null),
-        new("9000 diamants", 69.99m, "€69.99", "Hot", "purple"),
-        new("15000 diamants", 99.99m, "€99.99", null, null),
-        new("25000 diamants", 149.99m, "€149.99", "Mega", "gold")
-    ];
-
-    private static readonly IReadOnlyList<DiamondPack> EsPacks =
-    [
-        new("60 diamantes", 0.99m, "€0.99", null, null),
-        new("120 diamantes", 1.99m, "€1.99", null, null),
-        new("350 diamantes", 4.99m, "€4.99", "Mejor oferta", "purple"),
-        new("800 diamantes", 9.99m, "€9.99", null, null),
-        new("2000 diamantes", 19.99m, "€19.99", "Top", "gold"),
-        new("4500 diamantes", 39.99m, "€39.99", null, null),
-        new("9000 diamantes", 69.99m, "€69.99", "Hot", "purple"),
-        new("15000 diamantes", 99.99m, "€99.99", null, null),
-        new("25000 diamantes", 149.99m, "€149.99", "Mega", "gold")
-    ];
+    protected override async Task OnInitializedAsync()
+    {
+        _packs = await LoadPacksAsync();
+    }
 
     private void AddToCart(DiamondPack pack)
     {
-        Cart.AddItem($"diamonds:{pack.Amount}", pack.Amount, pack.PriceValue, 1);
+        var amountLabel = FormatDiamondAmount(pack.Diamonds);
+        Cart.AddItem($"diamonds:{pack.Diamonds}", amountLabel, pack.PriceValue, 1);
     }
 
-    private sealed record DiamondPack(string Amount, decimal PriceValue, string PriceLabel, string? BadgeText, string? BadgeKind);
+    private async Task<IReadOnlyList<DiamondPack>> LoadPacksAsync()
+    {
+        try
+        {
+            var items = await Http.GetFromJsonAsync<IReadOnlyList<CatalogItemDto>>(CatalogItemsUrl);
+            if (items is null)
+            {
+                return [];
+            }
+
+            return items
+                .Where(item => string.Equals(item.Type, "Currency", StringComparison.OrdinalIgnoreCase) && item.IsActive)
+                .Select(MapFromCatalog)
+                .Where(pack => pack is not null)
+                .Select(pack => pack!)
+                .OrderBy(pack => pack.Diamonds)
+                .ToList();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    private string CatalogItemsUrl
+    {
+        get
+        {
+            var baseUrl = Config["ApiBaseUrl"]?.Trim();
+            return string.IsNullOrWhiteSpace(baseUrl)
+                ? "/api/v1/catalog/items"
+                : $"{baseUrl.TrimEnd('/')}/api/v1/catalog/items";
+        }
+    }
+
+    private static DiamondPack? MapFromCatalog(CatalogItemDto item)
+    {
+        if (!item.Metadata.TryGetValue("diamonds", out var diamondsText) ||
+            !int.TryParse(diamondsText, out var diamonds))
+        {
+            return null;
+        }
+
+        return new DiamondPack(
+            diamonds,
+            item.Price,
+            $"€{item.Price:0.00}",
+            GetBadgeKey(diamonds),
+            GetBadgeKind(diamonds));
+    }
+
+    private string FormatDiamondAmount(int diamonds) =>
+        string.Format(
+            Lang.T("{0} алмазов", "{0} diamonds", "{0} Diamanten", "{0} diamants", "{0} diamantes"),
+            diamonds);
+
+    private string? GetBadgeText(string? badgeKey) => badgeKey switch
+    {
+        "best" => Lang.T("Выгодно", "Best value", "Bestes Angebot", "Meilleure offre", "Mejor oferta"),
+        "top" => Lang.T("Топ", "Top", "Top", "Top", "Top"),
+        "hot" => "Hot",
+        "mega" => "Mega",
+        _ => null
+    };
+
+    private static string? GetBadgeKey(int diamonds) => diamonds switch
+    {
+        350 => "best",
+        2000 => "top",
+        9000 => "hot",
+        25000 => "mega",
+        _ => null
+    };
+
+    private static string? GetBadgeKind(int diamonds) => diamonds switch
+    {
+        2000 or 25000 => "gold",
+        350 or 9000 => "purple",
+        _ => null
+    };
+
+    private sealed record DiamondPack(int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind);
+
+    private sealed record CatalogItemDto(
+        Guid Id,
+        string Title,
+        string Description,
+        string Type,
+        decimal Price,
+        string Currency,
+        bool IsActive,
+        Dictionary<string, string> Metadata,
+        string? ImageUrl);
 }
