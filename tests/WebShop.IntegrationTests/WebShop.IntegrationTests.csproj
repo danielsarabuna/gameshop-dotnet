@@ -13,6 +13,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="9.0.0" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
+    <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Services/Catalog.API/Catalog.API.csproj" />
     <ProjectReference Include="../../src/Services/Basket.API/Basket.API.csproj" />
+    <ProjectReference Include="../../src/Services/Ordering/Ordering.API/Ordering.API.csproj" />
     <ProjectReference Include="../../src/Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
     <ProjectReference Include="../../src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj" />
   </ItemGroup>
