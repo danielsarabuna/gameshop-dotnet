@@ -5,24 +5,87 @@ public sealed class InMemoryCatalogStore : ICatalogStore
     private static readonly IReadOnlyList<CatalogItem> Items =
     [
         new(
-            Id: Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            Title: "Space Raiders",
-            Description: "Arcade shooter with roguelike elements.",
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000000060"),
+            Title: "60 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 0.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000000120"),
+            Title: "120 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 1.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000000350"),
+            Title: "350 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 4.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000000800"),
+            Title: "800 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 9.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000002000"),
+            Title: "2000 diamonds",
+            Description: "In‑game currency pack (diamonds).",
             Price: 19.99m,
             ImageUrl: null
         ),
         new(
-            Id: Guid.Parse("22222222-2222-2222-2222-222222222222"),
-            Title: "Dungeon Builder",
-            Description: "Strategy game about building the perfect dungeon.",
-            Price: 29.99m,
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000004500"),
+            Title: "4500 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 39.99m,
             ImageUrl: null
         ),
         new(
-            Id: Guid.Parse("33333333-3333-3333-3333-333333333333"),
-            Title: "Racing Neon",
-            Description: "Futuristic racing with synthwave vibes.",
-            Price: 14.99m,
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000009000"),
+            Title: "9000 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 69.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000015000"),
+            Title: "15000 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 99.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("d1a00000-0000-0000-0000-000000025000"),
+            Title: "25000 diamonds",
+            Description: "In‑game currency pack (diamonds).",
+            Price: 149.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("9aa00000-0000-0000-0000-000000000001"),
+            Title: "Premium — 1 month",
+            Description: "Premium subscription (1 month).",
+            Price: 6.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("9aa00000-0000-0000-0000-000000000003"),
+            Title: "Premium — 3 months",
+            Description: "Premium subscription (3 months).",
+            Price: 17.99m,
+            ImageUrl: null
+        ),
+        new(
+            Id: Guid.Parse("9aa00000-0000-0000-0000-000000000012"),
+            Title: "Premium — 12 months",
+            Description: "Premium subscription (12 months).",
+            Price: 59.99m,
             ImageUrl: null
         )
     ];
@@ -31,4 +94,3 @@ public sealed class InMemoryCatalogStore : ICatalogStore
 
     public CatalogItem? GetById(Guid id) => Items.FirstOrDefault(item => item.Id == id);
 }
-
