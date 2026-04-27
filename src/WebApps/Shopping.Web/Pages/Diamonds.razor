@@ -105,8 +105,8 @@
             diamonds,
             item.Price,
             $"€{item.Price:0.00}",
-            GetBadgeKey(diamonds),
-            GetBadgeKind(diamonds));
+            GetMetadataValue(item.Metadata, "badgeKey"),
+            GetBadgeKindFromMetadata(item.Metadata));
     }
 
     private string FormatDiamondAmount(int diamonds) =>
@@ -118,26 +118,21 @@
     {
         "best" => Lang.T("Выгодно", "Best value", "Bestes Angebot", "Meilleure offre", "Mejor oferta"),
         "top" => Lang.T("Топ", "Top", "Top", "Top", "Top"),
-        "hot" => "Hot",
-        "mega" => "Mega",
+        "hot" => Lang.T("Хит", "Hot", "Hot", "Hot", "Hot"),
+        "mega" => Lang.T("Мега", "Mega", "Mega", "Mega", "Mega"),
         _ => null
     };
 
-    private static string? GetBadgeKey(int diamonds) => diamonds switch
+    private static string? GetBadgeKindFromMetadata(IReadOnlyDictionary<string, string> metadata)
     {
-        350 => "best",
-        2000 => "top",
-        9000 => "hot",
-        25000 => "mega",
-        _ => null
-    };
+        var value = GetMetadataValue(metadata, "badgeKind")?.ToLowerInvariant();
+        return value is "gold" or "purple" ? value : null;
+    }
 
-    private static string? GetBadgeKind(int diamonds) => diamonds switch
-    {
-        2000 or 25000 => "gold",
-        350 or 9000 => "purple",
-        _ => null
-    };
+    private static string? GetMetadataValue(IReadOnlyDictionary<string, string> metadata, string key) =>
+        metadata.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value
+            : null;
 
     private sealed record DiamondPack(int Diamonds, decimal PriceValue, string PriceLabel, string? BadgeKey, string? BadgeKind);
 
