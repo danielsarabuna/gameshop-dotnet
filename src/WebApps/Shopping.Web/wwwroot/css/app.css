@@ -380,6 +380,19 @@ p, .body {
 
 .gif-home-1 { aspect-ratio: 4 / 3; width: 100%; }
 .gif-home-2 { aspect-ratio: 3 / 4; width: 100%; }
+.gif-slot { width: 100%; }
+
+.gif-media {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius);
+    border: none;
+    background: transparent;
+    overflow: hidden;
+}
+
+.gif-slot.gif-home-1 .gif-media { aspect-ratio: 4 / 3; }
+.gif-slot.gif-home-2 .gif-media { aspect-ratio: 3 / 4; }
 
 .home-actions {
     display: flex;
@@ -394,6 +407,8 @@ p, .body {
     .home-actions { flex-direction: column; }
     .home-actions .btn { width: 100%; }
     .gif-home-1, .gif-home-2 { aspect-ratio: 16 / 9; }
+    .gif-slot.gif-home-1 .gif-media,
+    .gif-slot.gif-home-2 .gif-media { aspect-ratio: 16 / 9; }
 }
 
 /* Diamonds grid */
