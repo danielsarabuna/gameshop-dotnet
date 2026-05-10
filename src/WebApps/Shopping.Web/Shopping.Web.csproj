@@ -16,4 +16,8 @@
     <Content Remove="wwwroot\gifs\.gitkeep" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\images\" />
+  </ItemGroup>
+
 </Project>
