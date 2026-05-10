@@ -3,6 +3,8 @@
 @inject CartState Cart
 @inject LanguageState Lang
 @inject NavigationManager Nav
+@inject HttpClient Http
+@inject IConfiguration Config
 
 <header class="header" @onclick="CloseMenus">
     <div class="container header-inner">
@@ -131,16 +133,16 @@
             }
         </div>
 
-        <div class="cart-promo">
-            <div class="cart-promo-label">@Lang.T("Промокод", "Promo code", "Promocode", "Code promo", "Código promo")</div>
-            <div class="cart-promo-row">
-                <input class="cart-input" @bind="PromoCode" placeholder="@(Lang.T("Введите код", "Enter code", "Code eingeben", "Saisir le code", "Introduce el código"))" />
-                <button class="cart-apply" type="button" @onclick="ApplyPromo">@Lang.T("Применить", "Apply", "Anwenden", "Appliquer", "Aplicar")</button>
-            </div>
-            @if (!string.IsNullOrWhiteSpace(PromoMessage))
-            {
-                <div class="muted" style="margin-top: 10px;">@PromoMessage</div>
-            }
+	        <div class="cart-promo">
+	            <div class="cart-promo-label">@Lang.T("Промокод", "Promo code", "Promocode", "Code promo", "Código promo")</div>
+	            <div class="cart-promo-row">
+	                <input class="cart-input" @bind="PromoCode" placeholder="@(Lang.T("Введите код", "Enter code", "Code eingeben", "Saisir le code", "Introduce el código"))" />
+	                <button class="cart-apply" type="button" disabled="@PromoBusy" @onclick="ApplyPromo">@Lang.T("Применить", "Apply", "Anwenden", "Appliquer", "Aplicar")</button>
+	            </div>
+	            @if (!string.IsNullOrWhiteSpace(PromoMessage))
+	            {
+	                <div class="muted" style="margin-top: 10px;">@PromoMessage</div>
+	            }
         </div>
 
         <div class="cart-customer">
@@ -170,15 +172,21 @@
             }
         </div>
 
-        <div class="cart-footer">
-            <div class="cart-total">
-                <div class="muted">@Lang.T("Итого:", "Total:", "Summe:", "Total :", "Total:")</div>
-                <div class="cart-total-amount">@FormatMoney(Cart.Total)</div>
-            </div>
-            <button class="cart-checkout" type="button" disabled="@(!CanCheckout)" @onclick="Checkout">@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
-            @if (!string.IsNullOrWhiteSpace(CheckoutMessage))
-            {
-                <div class="muted" style="margin-top: 10px;">@CheckoutMessage</div>
+	        <div class="cart-footer">
+	            <div class="cart-total">
+	                <div class="muted">@Lang.T("Итого:", "Total:", "Summe:", "Total :", "Total:")</div>
+	                <div class="cart-total-amount">@FormatMoney(TotalWithPromo)</div>
+	            </div>
+	            @if (PromoDiscountAmount > 0)
+	            {
+	                <div class="muted" style="margin-top: 8px;">
+	                    @Lang.T("Скидка:", "Discount:", "Rabatt:", "Remise :", "Descuento:") @FormatMoney(PromoDiscountAmount)
+	                </div>
+	            }
+	            <button class="cart-checkout" type="button" disabled="@(!CanCheckout)" @onclick="Checkout">@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
+	            @if (!string.IsNullOrWhiteSpace(CheckoutMessage))
+	            {
+	                <div class="muted" style="margin-top: 10px;">@CheckoutMessage</div>
             }
             <button class="cart-clear" type="button" @onclick="Cart.Clear">@Lang.T("Очистить корзину", "Clear cart", "Warenkorb leeren", "Vider le panier", "Vaciar carrito")</button>
         </div>
@@ -186,18 +194,21 @@
 </aside>
 
 @code {
-    private bool MobileNavOpen;
-    private bool LangMenuOpen;
-    private bool CartOpen;
-    private bool CartBump;
-    private CancellationTokenSource? CartBumpCts;
-    private string PromoCode = string.Empty;
-    private string? PromoMessage;
-    private string PlayerId = string.Empty;
-    private string PlayerName = string.Empty;
-    private string PlayerEmail = string.Empty;
-    private string? SelectedPaymentMethod;
-    private string? CheckoutMessage;
+	    private bool MobileNavOpen;
+	    private bool LangMenuOpen;
+	    private bool CartOpen;
+	    private bool CartBump;
+	    private CancellationTokenSource? CartBumpCts;
+	    private string PromoCode = string.Empty;
+	    private string? PromoMessage;
+	    private string? AppliedPromoCode;
+	    private decimal PromoDiscountAmount;
+	    private bool PromoBusy;
+	    private string PlayerId = string.Empty;
+	    private string PlayerName = string.Empty;
+	    private string PlayerEmail = string.Empty;
+	    private string? SelectedPaymentMethod;
+	    private string? CheckoutMessage;
 
     private bool CanCheckout =>
         Cart.Lines.Count > 0 &&
@@ -214,19 +225,26 @@
             "Renseignez l'ID joueur, le nom et choisissez un mode de paiement. L'email est facultatif.",
             "Completa ID de jugador, nombre y elige un metodo de pago. El email es opcional.");
 
-    protected override void OnInitialized()
-    {
-        Cart.Changed += OnCartChanged;
-        Lang.Changed += OnLangChanged;
+	    protected override void OnInitialized()
+	    {
+	        Cart.Changed += OnCartChanged;
+	        Lang.Changed += OnLangChanged;
         Nav.LocationChanged += OnLocationChanged;
         base.OnInitialized();
     }
 
-    private async void OnCartChanged()
-    {
-        CartBumpCts?.Cancel();
-        CartBumpCts = new CancellationTokenSource();
-        var token = CartBumpCts.Token;
+	    private async void OnCartChanged()
+	    {
+	        if (!string.IsNullOrWhiteSpace(AppliedPromoCode))
+	        {
+	            AppliedPromoCode = null;
+	            PromoDiscountAmount = 0m;
+	            PromoMessage = null;
+	        }
+
+	        CartBumpCts?.Cancel();
+	        CartBumpCts = new CancellationTokenSource();
+	        var token = CartBumpCts.Token;
 
         CartBump = true;
         await InvokeAsync(StateHasChanged);
@@ -272,12 +290,92 @@
 
     private void CloseCart() => CartOpen = false;
 
-    private void ApplyPromo()
-    {
-        PromoMessage = string.IsNullOrWhiteSpace(PromoCode)
-            ? Lang.T("Введите промокод.", "Enter a promo code.", "Promocode eingeben.", "Saisissez un code promo.", "Introduce un código promo.")
-            : Lang.T("Промокод применён (демо).", "Promo applied (demo).", "Code angewendet (Demo).", "Code appliqué (démo).", "Código aplicado (demo).");
-    }
+	    private async Task ApplyPromo()
+	    {
+	        PromoMessage = null;
+	        AppliedPromoCode = null;
+	        PromoDiscountAmount = 0m;
+
+	        if (string.IsNullOrWhiteSpace(PromoCode))
+	        {
+	            PromoMessage = Lang.T("Введите промокод.", "Enter a promo code.", "Promocode eingeben.", "Saisissez un code promo.", "Introduce un código promo.");
+	            return;
+	        }
+
+	        var lines = new List<ApplyPromoLine>(Cart.Lines.Count);
+	        foreach (var line in Cart.Lines)
+	        {
+	            if (!TryParseProductId(line.Sku, out var productId))
+	            {
+	                PromoMessage = Lang.T(
+	                    "Товары в корзине нужно обновить (перезагрузите страницу) и применить промокод заново.",
+	                    "Please refresh the page and apply the promo code again.",
+	                    "Bitte Seite neu laden und den Code erneut anwenden.",
+	                    "Veuillez recharger la page et réappliquer le code.",
+	                    "Recarga la página y aplica el código de nuevo.");
+	                return;
+	            }
+
+	            lines.Add(new ApplyPromoLine(productId, line.Quantity));
+	        }
+
+	        PromoBusy = true;
+	        try
+	        {
+	            var request = new ApplyPromoRequest(PromoCode.Trim(), lines);
+	            using var response = await Http.PostAsJsonAsync(PromoApplyUrl, request);
+	            if (!response.IsSuccessStatusCode)
+	            {
+	                PromoMessage = Lang.T(
+	                    "Не удалось применить промокод. Попробуйте позже.",
+	                    "Could not apply promo code. Please try again later.",
+	                    "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
+	                    "Impossible d’appliquer le code promo. Réessayez plus tard.",
+	                    "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	                return;
+	            }
+
+	            var result = await response.Content.ReadFromJsonAsync<ApplyPromoResponse>();
+	            if (result is null)
+	            {
+	                PromoMessage = Lang.T(
+	                    "Не удалось применить промокод. Попробуйте позже.",
+	                    "Could not apply promo code. Please try again later.",
+	                    "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
+	                    "Impossible d’appliquer le code promo. Réessayez plus tard.",
+	                    "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	                return;
+	            }
+
+	            if (!result.IsValid)
+	            {
+	                PromoMessage = result.Error ?? Lang.T("Промокод недействителен.", "Invalid promo code.", "Ungültiger Code.", "Code invalide.", "Código inválido.");
+	                return;
+	            }
+
+	            AppliedPromoCode = PromoCode.Trim();
+	            PromoDiscountAmount = Math.Max(0m, result.DiscountAmount);
+	            PromoMessage = Lang.T(
+	                "Промокод применён.",
+	                "Promo code applied.",
+	                "Code angewendet.",
+	                "Code appliqué.",
+	                "Código aplicado.");
+	        }
+	        catch
+	        {
+	            PromoMessage = Lang.T(
+	                "Не удалось применить промокод. Попробуйте позже.",
+	                "Could not apply promo code. Please try again later.",
+	                "Promocode konnte nicht angewendet werden. Bitte später erneut versuchen.",
+	                "Impossible d’appliquer le code promo. Réessayez plus tard.",
+	                "No se pudo aplicar el código. Inténtalo de nuevo más tarde.");
+	        }
+	        finally
+	        {
+	            PromoBusy = false;
+	        }
+	    }
 
     private void SelectPayment(string method)
     {
@@ -318,7 +416,42 @@
         LangMenuOpen = false;
     }
 
-    private static string FormatMoney(decimal value) => $"€{value:0.00}";
+	    private decimal TotalWithPromo => Math.Max(0m, Cart.Total - PromoDiscountAmount);
+
+	    private string PromoApplyUrl
+	    {
+	        get
+	        {
+	            var baseUrl = Config["ApiBaseUrl"]?.Trim();
+	            return string.IsNullOrWhiteSpace(baseUrl)
+	                ? "/api/v1/promocodes/apply"
+	                : $"{baseUrl.TrimEnd('/')}/api/v1/promocodes/apply";
+	        }
+	    }
+
+	    private static bool TryParseProductId(string sku, out Guid productId)
+	    {
+	        productId = default;
+	        if (string.IsNullOrWhiteSpace(sku))
+	        {
+	            return false;
+	        }
+
+	        var idx = sku.IndexOf(':', StringComparison.Ordinal);
+	        if (idx < 0 || idx == sku.Length - 1)
+	        {
+	            return false;
+	        }
+
+	        var idText = sku[(idx + 1)..].Trim();
+	        return Guid.TryParse(idText, out productId);
+	    }
+
+	    private static string FormatMoney(decimal value) => $"€{value:0.00}";
+
+	    private sealed record ApplyPromoRequest(string Code, IReadOnlyList<ApplyPromoLine> Items);
+	    private sealed record ApplyPromoLine(Guid ProductId, int Quantity);
+	    private sealed record ApplyPromoResponse(bool IsValid, string? Error, decimal Subtotal, decimal DiscountAmount, decimal Total, string Currency);
 
     public void Dispose()
     {
