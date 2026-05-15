@@ -6,16 +6,19 @@
 <section class="page-pad">
     <div class="container">
         <div class="narrow" style="max-width: 720px;">
-            <h1>@Lang.T("Помощь", "Help", "Hilfe", "Aide", "Ayuda")</h1>
-            <p class="muted" style="margin-bottom: 48px;">
-                @Lang.T(
-                    "Ответы на частые вопросы о покупках, подписке и аккаунте.",
-                    "Answers to common questions about purchases, subscriptions, and your account.",
-                    "Antworten auf häufige Fragen zu Käufen, Abos und deinem Konto.",
-                    "Réponses aux questions fréquentes sur les achats, l’abonnement et le compte.",
-                    "Respuestas a preguntas frecuentes sobre compras, suscripción y cuenta."
-                )
-            </p>
+            
+            <div class="help-header">
+                <h1>@Lang.T("Чем мы можем помочь?", "How can we help?", "Wie können wir helfen?", "Comment pouvons-nous aider?", "¿Cómo podemos ayudar?")</h1>
+                <p class="muted">
+                    @Lang.T(
+                        "Найдите ответы на частые вопросы или свяжитесь с нами напрямую.",
+                        "Find answers to common questions or contact us directly.",
+                        "Finde Antworten auf häufige Fragen oder kontaktiere uns direkt.",
+                        "Trouvez des réponses aux questions fréquentes ou contactez-nous directement.",
+                        "Encuentra respuestas a preguntas frecuentes o contáctanos directamente."
+                    )
+                </p>
+            </div>
 
             <div class="faq">
                 @foreach (var group in CurrentGroups)
@@ -39,6 +42,29 @@
                         }
                     </div>
                 }
+            </div>
+
+            <div class="help-form" id="contact-form" style="margin-top: 48px;">
+                <h2>@Lang.T("Свяжитесь с нами", "Contact us", "Kontaktiere uns", "Contactez-nous", "Contáctanos")</h2>
+                <input placeholder="@Lang.T("Имя", "Name", "Name", "Nom", "Nombre")" />
+                <input placeholder="Email" type="email" />
+                <textarea placeholder="@Lang.T("Сообщение", "Message", "Nachricht", "Message", "Mensaje")" rows="4"></textarea>
+                <button class="btn btn-primary" style="width: 100%;">@Lang.T("Отправить", "Send", "Senden", "Envoyer", "Enviar")</button>
+            </div>
+
+            <div class="help-contacts">
+                <div class="contact-item">
+                    <span class="contact-icon">✉️</span>
+                    <span>support@GameShop.com</span>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-icon">💬</span>
+                    <span>@Lang.T("Онлайн-чат", "Online chat", "Online-Chat", "Chat en ligne", "Chat en línea")</span>
+                </div>
+                <div class="contact-item">
+                    <span class="contact-icon">📞</span>
+                    <span>+7 (999) 123-45-67</span>
+                </div>
             </div>
         </div>
     </div>
@@ -239,7 +265,9 @@
     private sealed record FaqItem(string Id, string Question, string Answer);
 
     private sealed record FaqGroup(string Label, IReadOnlyList<FaqItem> Items);
+}
 
+@code {
     private static class Icons
     {
         public const string Chevron =
