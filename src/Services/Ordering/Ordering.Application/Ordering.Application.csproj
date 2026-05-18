@@ -10,4 +10,13 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Stripe.net" Version="44.0.0" />
+    <PackageReference Include="PayPalCheckoutSdk" Version="1.0.4" />
+  </ItemGroup>
+
 </Project>

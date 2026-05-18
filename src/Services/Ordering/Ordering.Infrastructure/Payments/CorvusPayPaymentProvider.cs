@@ -1,0 +1,150 @@
+using System.Net.Http.Json;
+using System.Text;
+using System.Text.Json;
+using Ordering.Application.Payments;
+using Ordering.Domain.Payments;
+using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
+using DomainPaymentStatus = Ordering.Application.Payments.PaymentStatus;
+
+namespace Ordering.Infrastructure.Payments;
+
+public class CorvusPayPaymentProvider : IPaymentProvider
+{
+    private readonly string _storeId;
+    private readonly string _secretKey;
+    private readonly string _apiUrl;
+    private readonly HttpClient _httpClient;
+    private readonly string? _webhookSecret;
+
+    public DomainPaymentMethod Provider => DomainPaymentMethod.CorvusPay;
+
+    public CorvusPayPaymentProvider(string storeId, string secretKey, string apiUrl = "https://corvuspay.com/payment", string? webhookSecret = null)
+    {
+        _storeId = storeId;
+        _secretKey = secretKey;
+        _apiUrl = apiUrl;
+        _webhookSecret = webhookSecret;
+        _httpClient = new HttpClient();
+    }
+
+    public async Task<PaymentIntentResult> CreatePaymentIntentAsync(
+        decimal amount,
+        string currency,
+        Guid orderId,
+        CancellationToken cancellationToken)
+    {
+        var requestBody = new
+        {
+            store_id = _storeId,
+            order_number = orderId.ToString("D"),
+            amount = amount.ToString("F2"),
+            currency = currency.ToUpperInvariant(),
+            description = $"Order {orderId:D}",
+            custom = orderId.ToString("D")
+        };
+
+        var request = new HttpRequestMessage(HttpMethod.Post, $"{_apiUrl}/transaction")
+        {
+            Content = JsonContent.Create(requestBody)
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", 
+            Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_storeId}:{_secretKey}")));
+
+        var response = await _httpClient.SendAsync(request, cancellationToken);
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new InvalidOperationException($"CorvusPay payment creation failed: {content}");
+        }
+
+        using var doc = JsonDocument.Parse(content);
+        
+        string? transactionId;
+        string? checkoutUrl;
+
+        if (doc.RootElement.TryGetProperty("transaction", out var transaction))
+        {
+            transactionId = transaction.GetProperty("id").GetString();
+            checkoutUrl = transaction.GetProperty("checkout_url").GetString();
+        }
+        else
+        {
+            transactionId = doc.RootElement.GetProperty("id").GetString();
+            checkoutUrl = $"{_apiUrl}/checkout?transaction={transactionId}";
+        }
+
+        if (string.IsNullOrEmpty(checkoutUrl))
+        {
+            throw new InvalidOperationException("No checkout URL from CorvusPay");
+        }
+
+        return new PaymentIntentResult(
+            ExternalId: transactionId ?? Guid.NewGuid().ToString(),
+            CheckoutUrl: checkoutUrl,
+            Status: DomainPaymentStatus.Pending
+        );
+    }
+
+    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(_webhookSecret))
+        {
+            throw new InvalidOperationException("Webhook secret not configured.");
+        }
+
+        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
+        var payload = reader.ReadToEnd();
+
+        try
+        {
+            var json = JsonDocument.Parse(payload);
+            var root = json.RootElement;
+
+            if (root.TryGetProperty("type", out var typeElement))
+            {
+                var eventType = typeElement.GetString();
+
+                if (eventType == "payment_success" || eventType == "payment_authorized")
+                {
+                    var transactionId = root.TryGetProperty("transaction_id", out var id) ? id.GetString() : null;
+                    var orderIdStr = root.TryGetProperty("order_number", out var orderNum) ? orderNum.GetString() : null;
+
+                    var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed) 
+                        ? parsed 
+                        : Guid.NewGuid();
+
+                    return Task.FromResult(new WebhookResult(
+                        OrderId: orderId,
+                        PaymentId: Guid.NewGuid(),
+                        EventId: transactionId ?? Guid.NewGuid().ToString(),
+                        Status: "succeeded"
+                    ));
+                }
+
+                if (eventType == "payment_declined" || eventType == "payment_canceled")
+                {
+                    var transactionId = root.TryGetProperty("transaction_id", out var id) ? id.GetString() : null;
+                    var orderIdStr = root.TryGetProperty("order_number", out var orderNum) ? orderNum.GetString() : null;
+
+                    var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed) 
+                        ? parsed 
+                        : Guid.NewGuid();
+
+                    return Task.FromResult(new WebhookResult(
+                        OrderId: orderId,
+                        PaymentId: Guid.NewGuid(),
+                        EventId: transactionId ?? Guid.NewGuid().ToString(),
+                        Status: "failed"
+                    ));
+                }
+            }
+
+            throw new InvalidOperationException("Unknown CorvusPay webhook event");
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Failed to parse CorvusPay webhook: {ex.Message}");
+        }
+    }
+}
