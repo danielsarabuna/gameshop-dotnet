@@ -44,3 +44,8 @@ app.MapDelete("/api/v1/basket/{userId}", (string userId, IBasketStore store) =>
 });
 
 app.Run();
+
+namespace Basket.API
+{
+    public sealed class Program;
+}

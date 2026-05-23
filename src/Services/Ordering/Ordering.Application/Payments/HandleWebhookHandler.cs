@@ -1,3 +1,5 @@
+using EventBus;
+using IntegrationEvents;
 using Ordering.Application.Abstractions;
 using Ordering.Domain.Orders;
 using Ordering.Domain.Payments;
@@ -11,19 +13,22 @@ public sealed class HandleWebhookHandler
     private readonly IWebhookIdempotencyStore _idempotency;
     private readonly IPromoCodeStore _promoCodes;
     private readonly IPurchaseRecorder _purchases;
+    private readonly IEventBus _events;
 
     public HandleWebhookHandler(
         IOrderRepository orders,
         IPaymentStore payments,
         IWebhookIdempotencyStore idempotency,
         IPromoCodeStore promoCodes,
-        IPurchaseRecorder purchases)
+        IPurchaseRecorder purchases,
+        IEventBus events)
     {
         _orders = orders;
         _payments = payments;
         _idempotency = idempotency;
         _promoCodes = promoCodes;
         _purchases = purchases;
+        _events = events;
     }
 
     public async Task<bool> HandleAsync(PaymentMethod provider, PaymentWebhookRequest request, CancellationToken cancellationToken)
@@ -84,6 +89,18 @@ public sealed class HandleWebhookHandler
             if (!wasPaid)
             {
                 await _purchases.RecordAsync(order, cancellationToken);
+
+                var paidAtUtc = order.PaidAtUtc ?? DateTimeOffset.UtcNow;
+                var completed = new OrderCompleted(
+                    Id: Guid.NewGuid(),
+                    OccurredAtUtc: paidAtUtc,
+                    OrderId: order.Id,
+                    GameUserId: order.GameUserId,
+                    Total: order.Total,
+                    Currency: order.Currency,
+                    PaymentId: order.PaymentId ?? payment.Id.ToString("D"),
+                    PaidAtUtc: paidAtUtc);
+                await _events.PublishAsync(completed, cancellationToken);
             }
 
             return true;

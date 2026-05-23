@@ -5,7 +5,10 @@ using Ordering.Application.PromoCodes;
 using Ordering.Infrastructure.Integrations;
 using Ordering.Infrastructure.Payments;
 using Ordering.Infrastructure.Persistence;
+using Ordering.API.Consumers;
 using Logging;
+using EventBus;
+using EventBus.RabbitMq;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +37,24 @@ else
 
 builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
 builder.Services.AddSingleton<IPaymentProviderAccessor, PaymentProviderAccessor>();
+
+var eventBusProvider = builder.Configuration.GetValue<string>("EventBus:Provider");
+if (string.IsNullOrWhiteSpace(eventBusProvider))
+{
+    eventBusProvider = builder.Environment.IsEnvironment("Docker") ? "RabbitMq" : "Null";
+}
+
+if (string.Equals(eventBusProvider, "RabbitMq", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddRabbitMqEventBus(builder.Configuration, bus =>
+    {
+        bus.AddConsumer<OrderCompletedLogConsumer>();
+    });
+}
+else
+{
+    builder.Services.AddSingleton<IEventBus>(NullEventBus.Instance);
+}
 
 builder.Services.AddHttpClient<ICatalogClient, HttpCatalogClient>(client =>
 {

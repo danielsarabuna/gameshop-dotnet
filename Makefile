@@ -22,10 +22,12 @@ run-docker:
 
 test:
 	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false
+	dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Debug -p:NuGetAudit=false
 
 check:
 	dotnet build WebShop.sln -c Debug -m:1
 	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false
+	dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Debug -p:NuGetAudit=false
 
 clean-logs:
 	rm -rf .logs
