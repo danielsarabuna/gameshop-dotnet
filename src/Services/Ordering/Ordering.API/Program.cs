@@ -11,10 +11,28 @@ using System.Text.Json.Serialization;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging();
-builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
+if (string.IsNullOrWhiteSpace(storageMode))
+{
+    storageMode = builder.Environment.IsEnvironment("Docker") ? "Postgres" : "InMemory";
+}
+
+var usePostgres = string.Equals(storageMode, "Postgres", StringComparison.OrdinalIgnoreCase);
+if (usePostgres)
+{
+    builder.Services.AddSingleton<IOrderRepository, PostgresOrderRepository>();
+    builder.Services.AddSingleton<IPaymentStore, PostgresPaymentStore>();
+    builder.Services.AddSingleton<IWebhookIdempotencyStore, PostgresWebhookIdempotencyStore>();
+    builder.Services.AddSingleton<OrderingDatabaseInitializer>();
+}
+else
+{
+    builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+    builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
+    builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
+}
+
 builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
-builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
-builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
 builder.Services.AddSingleton<IPaymentProviderAccessor, PaymentProviderAccessor>();
 
 builder.Services.AddHttpClient<ICatalogClient, HttpCatalogClient>(client =>
@@ -47,6 +65,12 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+if (usePostgres)
+{
+    var initializer = app.Services.GetRequiredService<OrderingDatabaseInitializer>();
+    await initializer.InitializeAsync();
+}
 
 app.UseCors();
 
@@ -289,7 +313,7 @@ app.MapPost("/webhooks/{provider}", async (
     }
 });
 
-app.Run();
+await app.RunAsync();
 
 static bool TryParseProvider(string provider, out Ordering.Domain.Payments.PaymentMethod method)
 {

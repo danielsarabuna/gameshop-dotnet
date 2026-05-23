@@ -5,7 +5,20 @@ using ShoppingBasket = Basket.API.Storage.Basket;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging();
-builder.Services.AddSingleton<IBasketStore, InMemoryBasketStore>();
+var storageMode = builder.Configuration.GetValue<string>("Basket:Storage");
+if (string.IsNullOrWhiteSpace(storageMode))
+{
+    storageMode = builder.Environment.IsEnvironment("Docker") ? "Redis" : "InMemory";
+}
+
+if (string.Equals(storageMode, "Redis", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<IBasketStore, RedisBasketStore>();
+}
+else
+{
+    builder.Services.AddSingleton<IBasketStore, InMemoryBasketStore>();
+}
 
 var app = builder.Build();
 

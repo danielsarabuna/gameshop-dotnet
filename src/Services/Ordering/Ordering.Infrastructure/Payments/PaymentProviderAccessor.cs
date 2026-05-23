@@ -24,7 +24,10 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var payPalClientSecret = configuration["Payments:PayPal:ClientSecret"];
         var payPalMode = configuration["Payments:PayPal:Mode"] ?? "sandbox";
         var payPalWebhookSecret = configuration["Payments:PayPal:WebhookSecret"];
-        if (!string.IsNullOrEmpty(payPalClientId) && payPalClientId != "placeholder")
+        if (!string.IsNullOrEmpty(payPalClientId) &&
+            !string.IsNullOrEmpty(payPalClientSecret) &&
+            payPalClientId != "placeholder" &&
+            payPalClientSecret != "placeholder")
         {
             _providers[DomainPaymentMethod.PayPal] = new PayPalPaymentProvider(payPalClientId, payPalClientSecret, payPalMode, payPalWebhookSecret);
         }
@@ -32,7 +35,10 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var shopId = configuration["Payments:YooKassa:ShopId"];
         var secretKey = configuration["Payments:YooKassa:SecretKey"];
         var yooKassaWebhookSecret = configuration["Payments:YooKassa:WebhookSecret"];
-        if (!string.IsNullOrEmpty(shopId) && shopId != "placeholder")
+        if (!string.IsNullOrEmpty(shopId) &&
+            !string.IsNullOrEmpty(secretKey) &&
+            shopId != "placeholder" &&
+            secretKey != "placeholder")
         {
             _providers[DomainPaymentMethod.YooKassa] = new YooKassaPaymentProvider(shopId, secretKey, yooKassaWebhookSecret);
         }

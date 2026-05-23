@@ -121,7 +121,8 @@ public class XsollaPaymentProvider : IPaymentProvider
 
                 var transactionId = root.TryGetProperty("transaction_id", out var transId) 
                     ? transId.GetString() 
-                    : Guid.NewGuid().ToString();
+                    : null;
+                transactionId ??= Guid.NewGuid().ToString();
 
                 return Task.FromResult(new WebhookResult(
                     OrderId: orderId,
@@ -145,7 +146,8 @@ public class XsollaPaymentProvider : IPaymentProvider
 
                 var transactionId = root.TryGetProperty("transaction_id", out var transId)
                     ? transId.GetString()
-                    : Guid.NewGuid().ToString();
+                    : null;
+                transactionId ??= Guid.NewGuid().ToString();
 
                 return Task.FromResult(new WebhookResult(
                     OrderId: orderId,

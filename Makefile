@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: build build-all run-local run-local-api run-docker test clean-logs
+.PHONY: build build-all run-local run-local-api run-docker test clean-logs check
 
 build:
 	dotnet build src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj -c Debug -m:1
@@ -21,6 +21,10 @@ run-docker:
 	docker compose up --build
 
 test:
+	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false
+
+check:
+	dotnet build WebShop.sln -c Debug -m:1
 	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false
 
 clean-logs:

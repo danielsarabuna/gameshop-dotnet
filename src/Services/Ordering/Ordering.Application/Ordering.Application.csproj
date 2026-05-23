@@ -17,6 +17,7 @@
   <ItemGroup>
     <PackageReference Include="Stripe.net" Version="44.0.0" />
     <PackageReference Include="PayPalCheckoutSdk" Version="1.0.4" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
 </Project>
