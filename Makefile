@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: build build-all run-local run-docker test clean-logs
+.PHONY: build build-all run-local run-local-api run-docker test clean-logs
 
 build:
 	dotnet build src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj -c Debug -m:1
@@ -12,6 +12,9 @@ build-all:
 	dotnet build WebShop.sln -c Debug -m:1
 
 run-local:
+	INCLUDE_WEB=1 bash ./run-local.sh
+
+run-local-api:
 	bash ./run-local.sh
 
 run-docker:

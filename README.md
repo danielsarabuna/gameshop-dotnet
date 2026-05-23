@@ -91,25 +91,28 @@ dotnet run --project src/WebApps/Shopping.Web/Shopping.Web.csproj
 dotnet build WebShop.sln -c Release -m:1
 ```
 
-### 7.4 Запуск API + Gateway локально
+### 7.4 Запуск локально (API + Gateway + Shopping.Web)
 ```bash
 make run-local
 ```
 
-Логи пишутся в `.logs/`. Остановка — `Ctrl+C`.
+Логи пишутся в `.logs/` (в том числе `web.log` для Shopping.Web). Остановка — `Ctrl+C`.
 
 Если запускаете скрипт напрямую и получаете `Permission denied`, сделайте его исполняемым:
 ```bash
 chmod +x ./run-local.sh
 ```
 
-### 7.5 Запуск локально вместе с Web (Shopping.Web)
+Скрипт без `make` с вебом: `INCLUDE_WEB=1 ./run-local.sh`.
+
+Для **только** API + Gateway (без сборки/запуска веб-приложения):
 ```bash
-INCLUDE_WEB=1 make run-local
+make run-local-api
 ```
+(эквивалентно `bash ./run-local.sh`.)
 
 Порты (HTTP):
-- Web (Shopping.Web): `http://localhost:5200`
+- Web (Shopping.Web): `http://localhost:5200` (только `make run-local`, не `run-local-api`)
 - API Gateway: `http://localhost:5100`
 - Catalog: `http://localhost:5101`
 - Basket: `http://localhost:5102`
@@ -144,12 +147,12 @@ Webhook security (dev):
 Supabase (начисление/лог покупок):
 - Установите `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` (или `Supabase:Url`, `Supabase:ServiceRoleKey` в конфиге).
 
-### 7.6 Тесты
+### 7.5 Тесты
 ```bash
 dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release -p:NuGetAudit=false
 ```
 
-### 7.7 Docker Compose (вся система)
+### 7.6 Docker Compose (вся система)
 ```bash
 docker compose up --build
 ```
