@@ -20,7 +20,10 @@ if (string.Equals(builder.Configuration["Catalog:Storage"], "Mongo", StringCompa
 }
 builder.WebHost.ConfigureKestrel(options =>
 {
-    options.ConfigureEndpointDefaults(listen => listen.Protocols = HttpProtocols.Http1AndHttp2);
+    var httpPort = builder.Configuration.GetValue<int?>("Kestrel:HttpPort") ?? 8080;
+    var grpcPort = builder.Configuration.GetValue<int?>("Kestrel:GrpcPort") ?? 8081;
+    options.ListenAnyIP(httpPort, listen => listen.Protocols = HttpProtocols.Http1);
+    options.ListenAnyIP(grpcPort, listen => listen.Protocols = HttpProtocols.Http2);
 });
 var storageMode = builder.Configuration.GetValue<string>("Catalog:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
