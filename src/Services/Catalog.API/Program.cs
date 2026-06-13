@@ -47,7 +47,8 @@ var app = builder.Build();
 
 app.UseWebShopRequestLogging();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapWebShopHealth();
+app.MapWebShopMetrics();
 app.MapGrpcService<CatalogInternalGrpcService>();
 
 app.MapGet("/api/v1/catalog/items", (ICatalogStore store) =>

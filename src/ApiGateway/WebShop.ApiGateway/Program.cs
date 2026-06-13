@@ -7,6 +7,8 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging("Gateway");
 builder.Services.AddWebShopTracing(builder.Configuration, "Gateway");
+builder.Services.AddWebShopMetrics(builder.Configuration, "Gateway");
+builder.Services.AddHealthChecks();
 
 var authEnabled = builder.Configuration.GetValue<bool>("Auth:Enabled");
 
@@ -86,7 +88,8 @@ if (authEnabled)
 }
 app.UseAuthorization();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
+app.MapWebShopHealth();
+app.MapWebShopMetrics();
 
 app.MapReverseProxy();
 

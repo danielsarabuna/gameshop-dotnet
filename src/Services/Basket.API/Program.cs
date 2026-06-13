@@ -6,6 +6,16 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Logging.AddWebShopLogging("Basket");
 builder.Services.AddWebShopTracing(builder.Configuration, "Basket");
+builder.Services.AddWebShopMetrics(builder.Configuration, "Basket");
+
+var basketHealth = builder.Services.AddHealthChecks();
+if (string.Equals(builder.Configuration["Basket:Storage"], "Redis", StringComparison.OrdinalIgnoreCase)
+    || builder.Environment.IsEnvironment("Docker"))
+{
+    var redisConn = builder.Configuration["Basket:Redis:ConnectionString"]
+        ?? (builder.Environment.IsEnvironment("Docker") ? "redis:6379" : "localhost:6379");
+    basketHealth.AddRedis(redisConn, name: "redis", tags: new[] { "ready" });
+}
 var storageMode = builder.Configuration.GetValue<string>("Basket:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
 {
@@ -25,7 +35,8 @@ var app = builder.Build();
 
 app.UseWebShopRequestLogging();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapWebShopHealth();
+app.MapWebShopMetrics();
 
 app.MapGet("/api/v1/basket/{userId}", (string userId, IBasketStore store) =>
 {
