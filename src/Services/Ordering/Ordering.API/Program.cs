@@ -424,3 +424,8 @@ static bool TryParseProvider(string provider, out Ordering.Domain.Payments.Payme
             return false;
     }
 }
+
+namespace Ordering.API
+{
+    public sealed class Program;
+}
