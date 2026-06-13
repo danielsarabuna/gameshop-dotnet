@@ -1,0 +1,20 @@
+@inject NavigationManager Navigation
+
+<AuthorizeView>
+    <Authorized>
+        <span class="user-name" title="@context.User.Identity?.Name">@context.User.Identity?.Name</span>
+        <button class="icon-btn auth-btn" type="button" @onclick="BeginLogout">@LogoutLabel</button>
+    </Authorized>
+    <NotAuthorized>
+        <button class="icon-btn auth-btn" type="button" @onclick="BeginLogin">@LoginLabel</button>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string LoginLabel { get; set; } = "Sign in";
+    [Parameter] public string LogoutLabel { get; set; } = "Sign out";
+
+    private void BeginLogin() => Navigation.NavigateToLogin("authentication/login");
+
+    private void BeginLogout() => Navigation.NavigateToLogout("authentication/logout");
+}

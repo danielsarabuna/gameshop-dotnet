@@ -9,11 +9,13 @@ using Ordering.API.Consumers;
 using Logging;
 using EventBus;
 using EventBus.RabbitMq;
+using Catalog.Grpc;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddWebShopLogging();
+builder.Logging.AddWebShopLogging("Ordering");
+builder.Services.AddWebShopTracing(builder.Configuration, "Ordering");
 var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
 {
@@ -56,11 +58,35 @@ else
     builder.Services.AddSingleton<IEventBus>(NullEventBus.Instance);
 }
 
-builder.Services.AddHttpClient<ICatalogClient, HttpCatalogClient>(client =>
+var catalogTransport = builder.Configuration.GetValue<string>("Catalog:Transport");
+if (string.IsNullOrWhiteSpace(catalogTransport))
 {
-    var baseUrl = builder.Configuration["Catalog:BaseUrl"] ?? "http://localhost:5101";
-    client.BaseAddress = new Uri(baseUrl);
-});
+    catalogTransport = builder.Environment.IsEnvironment("Docker") ? "Grpc" : "Http";
+}
+
+if (string.Equals(catalogTransport, "Grpc", StringComparison.OrdinalIgnoreCase))
+{
+    var grpcUrl = builder.Configuration["Catalog:GrpcUrl"]
+        ?? (builder.Environment.IsEnvironment("Docker") ? "http://catalog-api:8080" : "http://localhost:5101");
+
+    // Allow HTTP/2 cleartext (h2c) without TLS for in-cluster gRPC.
+    AppContext.SetSwitch("System.Net.Http.SocketsHttpHandler.Http2UnencryptedSupport", true);
+
+    builder.Services
+        .AddGrpcClient<CatalogInternal.CatalogInternalClient>(options =>
+        {
+            options.Address = new Uri(grpcUrl);
+        });
+    builder.Services.AddScoped<ICatalogClient, GrpcCatalogClient>();
+}
+else
+{
+    builder.Services.AddHttpClient<ICatalogClient, HttpCatalogClient>(client =>
+    {
+        var baseUrl = builder.Configuration["Catalog:BaseUrl"] ?? "http://localhost:5101";
+        client.BaseAddress = new Uri(baseUrl);
+    });
+}
 
 builder.Services.AddHttpClient<IPurchaseRecorder, SupabasePurchaseRecorder>();
 
@@ -93,6 +119,7 @@ if (usePostgres)
     await initializer.InitializeAsync();
 }
 
+app.UseWebShopRequestLogging();
 app.UseCors();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));

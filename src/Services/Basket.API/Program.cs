@@ -4,7 +4,8 @@ using ShoppingBasket = Basket.API.Storage.Basket;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Logging.AddWebShopLogging();
+builder.Logging.AddWebShopLogging("Basket");
+builder.Services.AddWebShopTracing(builder.Configuration, "Basket");
 var storageMode = builder.Configuration.GetValue<string>("Basket:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
 {
@@ -21,6 +22,8 @@ else
 }
 
 var app = builder.Build();
+
+app.UseWebShopRequestLogging();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 

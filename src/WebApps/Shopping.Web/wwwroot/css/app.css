@@ -252,6 +252,27 @@ p, .body {
 .icon-btn:hover { border-color: var(--border); background: rgba(255,255,255,0.03); transform: translateY(-1px); }
 .icon-btn:active { transform: translateY(0) scale(0.98); }
 
+.auth-area {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.auth-area .user-name {
+    color: var(--muted, #aaa);
+    font-size: 14px;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.auth-btn {
+    font-size: 14px;
+    padding: 6px 12px;
+    border: 1px solid var(--border, rgba(255,255,255,0.1));
+}
+
 .menu {
     position: relative;
 }

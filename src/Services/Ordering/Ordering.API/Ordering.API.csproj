@@ -8,6 +8,7 @@
     <ProjectReference Include="../../../BuildingBlocks/EventBus/EventBus.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/EventBus.RabbitMq/EventBus.RabbitMq.csproj" />
     <ProjectReference Include="../../../Contracts/IntegrationEvents/IntegrationEvents.csproj" />
+    <ProjectReference Include="../../../Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

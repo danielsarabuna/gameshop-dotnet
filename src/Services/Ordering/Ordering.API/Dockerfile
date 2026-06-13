@@ -10,6 +10,7 @@ COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
 COPY src/BuildingBlocks/EventBus/EventBus.csproj src/BuildingBlocks/EventBus/
 COPY src/BuildingBlocks/EventBus.RabbitMq/EventBus.RabbitMq.csproj src/BuildingBlocks/EventBus.RabbitMq/
 COPY src/Contracts/IntegrationEvents/IntegrationEvents.csproj src/Contracts/IntegrationEvents/
+COPY src/Contracts/Catalog.Grpc/Catalog.Grpc.csproj src/Contracts/Catalog.Grpc/
 
 RUN dotnet restore src/Services/Ordering/Ordering.API/Ordering.API.csproj
 

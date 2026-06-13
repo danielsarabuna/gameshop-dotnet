@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+option csharp_namespace = "Catalog.Grpc";
+
+package catalog;
+
+// Contract version: 1.0.0
+// Last breaking change: never
+// Changelog:
+//   1.0.0 — initial release: CatalogInternal.GetProduct.
+//
+// Evolution rules: see docs/grpc-versioning.md.
+
+// Internal-facing gRPC service for inter-service product lookup.
+// Public client traffic continues to use REST via the API Gateway.
+service CatalogInternal {
+  // Fetch a single catalog product by id.
+  rpc GetProduct (GetProductRequest) returns (CatalogProduct);
+}
+
+message GetProductRequest {
+  // Product id formatted as a UUID string (RFC 4122).
+  string id = 1;
+}
+
+enum CatalogProductType {
+  CATALOG_PRODUCT_TYPE_UNSPECIFIED = 0;
+  CATALOG_PRODUCT_TYPE_ITEM = 1;
+  CATALOG_PRODUCT_TYPE_CURRENCY = 2;
+  CATALOG_PRODUCT_TYPE_SUBSCRIPTION = 3;
+  CATALOG_PRODUCT_TYPE_BUNDLE = 4;
+}
+
+message CatalogProduct {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  CatalogProductType type = 4;
+  // Decimal serialized as a string ("19.99") to avoid floating-point loss.
+  string price = 5;
+  string currency = 6;
+  bool is_active = 7;
+  map<string, string> metadata = 8;
+  string image_url = 9;
+}
