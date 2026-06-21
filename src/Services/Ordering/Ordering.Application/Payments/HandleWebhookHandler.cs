@@ -52,10 +52,11 @@ public sealed class HandleWebhookHandler
         order.SetPaymentMethod(provider);
 
         var payment = await _payments.GetByOrderAsync(order.Id, provider, cancellationToken);
+        var paymentId = request.PaymentId == Guid.Empty ? Guid.NewGuid() : request.PaymentId;
         if (payment is null)
         {
             payment = new Payment(
-                Id: request.PaymentId,
+                Id: paymentId,
                 OrderId: order.Id,
                 Provider: provider,
                 Status: PaymentStatus.Pending,
@@ -64,10 +65,6 @@ public sealed class HandleWebhookHandler
                 CompletedAtUtc: null
             );
             await _payments.AddAsync(payment, cancellationToken);
-        }
-        else if (payment.Id != request.PaymentId)
-        {
-            throw new ArgumentException("PaymentId mismatch.", nameof(request));
         }
 
         var status = request.Status.Trim().ToLowerInvariant();

@@ -6,6 +6,7 @@ namespace Ordering.Application.Payments;
 public interface IPaymentProviderAccessor
 {
     IPaymentProvider? GetProvider(PaymentMethod method);
+    IReadOnlyCollection<PaymentMethod> GetAvailableMethods();
 }
 
 public interface IPaymentProvider

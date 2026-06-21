@@ -16,6 +16,7 @@ public sealed class OrderingPostgresFactory : WebApplicationFactory<global::Orde
         Environment.SetEnvironmentVariable("EventBus__Provider", "Null");
         Environment.SetEnvironmentVariable("Catalog__Transport", "Http");
         Environment.SetEnvironmentVariable("Otel__Enabled", "false");
+        Environment.SetEnvironmentVariable("Payments__Stripe__SecretKey", "test-payment-token");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)

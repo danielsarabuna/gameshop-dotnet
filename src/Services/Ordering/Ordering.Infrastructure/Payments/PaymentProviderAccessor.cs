@@ -76,4 +76,9 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
     {
         return _providers.TryGetValue(method, out var provider) ? provider : null;
     }
+
+    public IReadOnlyCollection<DomainPaymentMethod> GetAvailableMethods()
+    {
+        return _providers.Keys.ToArray();
+    }
 }

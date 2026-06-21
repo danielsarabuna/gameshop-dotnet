@@ -50,7 +50,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
     }
 
     [SkippableFact]
-    public async Task Payment_methods_returns_built_in_providers()
+    public async Task Payment_methods_returns_only_configured_providers()
     {
         Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
 
@@ -60,10 +60,9 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         response.EnsureSuccessStatusCode();
 
         var methods = await response.Content.ReadFromJsonAsync<JsonElement>();
-        Assert.True(methods.GetArrayLength() >= 5);
+        Assert.Equal(1, methods.GetArrayLength());
         var codes = methods.EnumerateArray().Select(e => e.GetProperty("code").GetString()).ToList();
-        Assert.Contains("stripe", codes);
-        Assert.Contains("paypal", codes);
+        Assert.Equal(["stripe"], codes);
     }
 
     [SkippableFact]
