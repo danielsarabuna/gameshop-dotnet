@@ -1,4 +1,7 @@
+using BuildingBlocks.Exceptions;
+using Catalog.API.Configuration;
 using Catalog.API.Grpc;
+using Catalog.API.Services;
 using Catalog.API.Storage;
 using Logging;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -9,6 +12,20 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddWebShopLogging("Catalog");
 builder.Services.AddWebShopTracing(builder.Configuration, "Catalog");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Catalog");
+
+// Регистрация RemoteCatalogOptions и SupabaseOptions
+var remoteOptions = new RemoteCatalogOptions();
+builder.Configuration.GetSection(RemoteCatalogOptions.SectionName).Bind(remoteOptions);
+builder.Services.AddSingleton(remoteOptions);
+
+var supabaseOptions = new SupabaseOptions();
+builder.Configuration.GetSection(SupabaseOptions.SectionName).Bind(supabaseOptions);
+builder.Services.AddSingleton(supabaseOptions);
+
+// Регистрация HTTP-клиентов и сервисов
+builder.Services.AddHttpClient<ICatalogSyncService, CatalogSyncService>();
+builder.Services.AddHttpClient<ISupabasePlayerVerifier, SupabasePlayerVerifier>();
+builder.Services.AddHostedService<CatalogSyncBackgroundService>();
 
 var catalogHealth = builder.Services.AddHealthChecks();
 if (string.Equals(builder.Configuration["Catalog:Storage"], "Mongo", StringComparison.OrdinalIgnoreCase)
@@ -45,24 +62,54 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 
 builder.Services.AddGrpc();
+builder.Services.AddCustomExceptionHandler();
 
 var app = builder.Build();
 
+app.UseExceptionHandler();
+app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 app.MapGrpcService<CatalogInternalGrpcService>();
 
-app.MapGet("/api/v1/catalog/items", (ICatalogStore store) =>
+// Эндпоинты аутентификации игрока (диплинк через тикет vs прямой ввод ID)
+app.MapPost("/api/v1/auth/claim-ticket", async (Guid ticket, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
 {
-    return Results.Ok(store.GetAll());
+    var result = await verifier.ClaimTicketAsync(ticket, ct);
+    return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
 });
 
-app.MapGet("/api/v1/catalog/items/{id:guid}", (Guid id, ICatalogStore store) =>
+app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
 {
-    var item = store.GetById(id);
+    var result = await verifier.VerifyDirectPlayerIdAsync(userId, ct);
+    return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
+});
+
+// Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры
+app.MapGet("/api/v1/catalog/items", (string? region, string? store, string? gameVersion, ICatalogStore catalogStore) =>
+{
+    return Results.Ok(catalogStore.GetFiltered(region, store, gameVersion));
+});
+
+// Эндпоинт получения доступных провайдеров оплаты под регион и стор
+app.MapGet("/api/v1/catalog/payment-providers", (string? region, string? store, string? gameVersion, ICatalogStore catalogStore) =>
+{
+    return Results.Ok(catalogStore.GetPaymentProviders(region, store, gameVersion));
+});
+
+app.MapGet("/api/v1/catalog/items/{id:guid}", (Guid id, ICatalogStore catalogStore) =>
+{
+    var item = catalogStore.GetById(id);
     return item is null ? Results.NotFound() : Results.Ok(item);
+});
+
+// Эндпоинт ручного форсированного обновления конфигов из Supabase
+app.MapPost("/api/v1/catalog/reload", async (ICatalogSyncService syncService, CancellationToken ct) =>
+{
+    await syncService.SyncAllAsync(ct);
+    return Results.Ok(new { message = "Catalog sync completed." });
 });
 
 app.Run();

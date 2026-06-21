@@ -23,11 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../../src/Services/Ordering/Ordering.Domain/Ordering.Domain.csproj" />
-    <ProjectReference Include="../../src/Services/Ordering/Ordering.Application/Ordering.Application.csproj" />
-    <ProjectReference Include="../../src/Contracts/IntegrationEvents/IntegrationEvents.csproj" />
-    <ProjectReference Include="../../src/BuildingBlocks/EventBus/EventBus.csproj" />
-    <ProjectReference Include="../../src/BuildingBlocks/Exceptions/Exceptions.csproj" />
+    <ProjectReference Include="../../src/Services/Catalog.API/Catalog.API.csproj" />
   </ItemGroup>
 
 </Project>

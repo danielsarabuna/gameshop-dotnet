@@ -6,79 +6,126 @@
 
 <PageTitle>GameShop — @Lang.T("Подписка", "Subscription", "Abo", "Abonnement", "Suscripción")</PageTitle>
 
-<section class="page-pad">
-    <div class="container">
-        <div class="two-col">
-            <div>
-                <h1>Premium</h1>
-                <p class="muted">
-                    @Lang.T(
-                        "Premium открывает дополнительные сцены, ускоряет прогресс и даёт доступ к эксклюзивным активностям. Подписка продлевается по выбранному сроку.",
-                        "Premium unlocks extra scenes, speeds up progression, and gives access to exclusive activities. Your subscription runs for the selected period.",
-                        "Premium schaltet zusätzliche Szenen frei, beschleunigt den Fortschritt und bietet exklusive Aktivitäten. Das Abo läuft für den gewählten Zeitraum.",
-                        "Premium débloque des scènes supplémentaires, accélère la progression et donne accès à des activités exclusives. L’abonnement dure la période choisie.",
-                        "Premium desbloquea escenas extra, acelera el progreso y da acceso a actividades exclusivas. La suscripción dura el período seleccionado."
-                    )
-                </p>
+<div class="page-container">
+    <div class="page-header seq-item seq-delay-1">
+        <h1 class="page-title">
+            <span class="gradient-text">✨ GameShop Premium</span>
+        </h1>
+        <p class="page-subtitle">
+            @Lang.T(
+                "Подписка Premium открывает эксклюзивный сюжетный контент, секретные ветки диалогов и дает ежедневный бонус алмазов.",
+                "Premium subscription unlocks exclusive storyline content, secret dialogue branches, and grants daily bonus diamonds.",
+                "Das Premium-Abo schaltet exklusive Story-Inhalte und tägliche Bonus-Diamanten frei.",
+                "L'abonnement Premium débloque du contenu exclusif et des diamants bonus quotidiens.",
+                "La suscripción Premium desbloquea contenido exclusivo y diamantes de bonificación diarios."
+            )
+        </p>
+    </div>
 
-                <div class="benefits">
-                    @foreach (var benefit in CurrentBenefits)
-                    {
-                        <div class="benefit">
-                            <span class="check" aria-hidden="true">@((MarkupString)Icons.Check)</span>
-                            <span>@benefit</span>
+    <!-- TWO COLUMNS: BENEFITS & MEDIA SLOT -->
+    <div class="cards-grid seq-item seq-delay-2" style="margin-bottom: 50px;">
+        <div class="glass-card" style="display: flex; flex-direction: column; justify-content: center; gap: 20px;">
+            <h2 style="font-size: 1.4rem; font-weight: 800; color: #ffffff;">
+                @Lang.T("Что входит в подписку:", "What is included in Premium:", "Was ist im Abo enthalten:", "Ce qui est inclus dans le Premium :", "Lo que incluye Premium:")
+            </h2>
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                @foreach (var benefit in CurrentBenefits)
+                {
+                    <div style="display: flex; align-items: center; gap: 12px; font-size: 0.98rem; color: #ffffff;">
+                        <div style="width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #ff3366, #9933ff); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; box-shadow: 0 2px 10px rgba(255, 51, 102, 0.4);">
+                            ✓
                         </div>
-                    }
-                </div>
-            </div>
-
-            <div>
-                <div class="gif-slot gif-premium">
-                    <object class="gif-media" data="gifs/premium-content.gif" type="image/gif">
-                        <div class="gif gif-premium">premium-content.gif</div>
-                    </object>
-                </div>
+                        <span>@benefit</span>
+                    </div>
+                }
             </div>
         </div>
 
-        <div class="plans">
-            <div class="centered">
-                @if (Plans.Count == 0)
-                {
-                    <h2>@Lang.T("Планы временно недоступны", "Plans are temporarily unavailable", "Pläne sind vorübergehend nicht verfügbar", "Les forfaits sont temporairement indisponibles", "Los planes no están disponibles temporalmente")</h2>
-                    <p class="muted">@Lang.T("Мы не получили подписки из каталога. Обновите страницу чуть позже.", "We could not load subscription plans from catalog. Please refresh the page a bit later.", "Wir konnten die Abopläne aus dem Katalog nicht laden. Bitte aktualisiere die Seite später erneut.", "Nous n'avons pas pu charger les forfaits depuis le catalogue. Veuillez actualiser la page un peu plus tard.", "No pudimos cargar los planes desde el catálogo. Actualiza la página un poco más tarde.")</p>
-                }
-                else
-                {
-                    <h2>@Lang.T("Выберите план", "Choose a plan", "Wähle einen Plan", "Choisir un plan", "Elige un plan")</h2>
-                }
-            </div>
+        <div class="glass-card" style="display: flex; align-items: center; justify-content: center; padding: 12px; min-height: 260px;">
+            <object class="gif-media" data="gifs/premium-content.gif" type="image/gif" style="width: 100%; height: auto; max-height: 280px; object-fit: cover; border-radius: 12px;">
+                <div style="padding: 40px; text-align: center; color: var(--text-muted);">✨ Premium Content Preview</div>
+            </object>
+        </div>
+    </div>
 
-            @if (Plans.Count > 0)
+    <!-- TARIFF PLANS GRID -->
+    <div class="seq-item seq-delay-3">
+        <h2 style="text-align: center; margin-bottom: 32px;">
+            @Lang.T("Выберите подходящий тариф:", "Choose a plan that fits you:", "Wähle den passenden Tarif:", "Choisissez le forfait qui vous convient :", "Elige el plan adecuado para ti:")
+        </h2>
+
+        <div class="cards-grid-3">
+            @if (Plans.Count == 0)
             {
-                <div class="plan-row">
-                    @foreach (var plan in Plans)
-                    {
-                        <div class="card plan-card @(plan.Highlight ? "highlight" : "")">
-                            @if (!string.IsNullOrWhiteSpace(plan.Badge))
-                            {
-                                <div class="card-badge badge-gold">@plan.Badge</div>
-                            }
-
-                            <div class="plan-name">@plan.Name</div>
-                            <p class="plan-price">@plan.PriceLabel</p>
-                            <div class="plan-period">@plan.Period</div>
-
-                            <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="() => Buy(plan)">
-                                @Lang.T("Купить", "Buy", "Kaufen", "Acheter", "Comprar")
-                            </button>
-                        </div>
-                    }
+                <!-- Fallback / Default Tariffs -->
+                <div class="glass-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; position: relative;">
+                    <div style="font-size: 1.2rem; font-weight: 800; color: var(--text-muted);">
+                        @Lang.T("1 Месяц", "1 Month", "1 Monat", "1 Mois", "1 Mes")
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: 900; color: #ffffff;">€9.99</div>
+                    <div style="font-size: 0.85rem; color: var(--text-dim);">
+                        @Lang.T("Ежемесячно", "Monthly", "Monatlich", "Mensuel", "Mensual")
+                    </div>
+                    <button class="btn btn-outline" style="width: 100%; margin-top: 10px;" type="button" @onclick='() => BuyDemo("1-month", Lang.T("1 Месяц", "1 Month", "1 Monat", "1 Mois", "1 Mes"), 9.99m)'>
+                        @Lang.T("Выбрать", "Select plan", "Wählen", "Choisir", "Seleccionar")
+                    </button>
                 </div>
+
+                <div class="glass-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; position: relative; border-color: var(--accent-pink); box-shadow: 0 10px 30px rgba(255, 51, 102, 0.3);">
+                    <span class="badge-tag badge-gold" style="position: absolute; top: 16px; right: 16px;">
+                        @Lang.T("ВЫГОДНО • -30%", "POPULAR • -30%", "BELIEBT • -30%", "POPULAIRE • -30%", "POPULAR • -30%")
+                    </span>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: var(--accent-pink);">
+                        @Lang.T("3 Месяца", "3 Months", "3 Monate", "3 Mois", "3 Meses")
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: 900; color: #ffffff;">€20.99</div>
+                    <div style="font-size: 0.85rem; color: var(--text-dim);">
+                        @Lang.T("€6.99 в месяц", "€6.99 per month", "€6,99 pro Monat", "6,99 € par mois", "6.99 € al mes")
+                    </div>
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" type="button" @onclick='() => BuyDemo("3-months", Lang.T("3 Месяца", "3 Months", "3 Monate", "3 Mois", "3 Meses"), 20.99m)'>
+                        @Lang.T("Выбрать", "Select plan", "Wählen", "Choisir", "Seleccionar")
+                    </button>
+                </div>
+
+                <div class="glass-card" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; position: relative;">
+                    <span class="badge-tag badge-cyan" style="position: absolute; top: 16px; right: 16px;">
+                        @Lang.T("МАКСИМУМ • -50%", "BEST DEAL • -50%", "BESTES ANGEBOT • -50%", "MEILLEUR PRIX • -50%", "MEJOR PRECIO • -50%")
+                    </span>
+                    <div style="font-size: 1.2rem; font-weight: 800; color: var(--accent-cyan);">
+                        @Lang.T("12 Месяцев", "12 Months", "12 Monate", "12 Mois", "12 Meses")
+                    </div>
+                    <div style="font-size: 2.2rem; font-weight: 900; color: #ffffff;">€59.99</div>
+                    <div style="font-size: 0.85rem; color: var(--text-dim);">
+                        @Lang.T("€4.99 в месяц", "€4.99 per month", "€4,99 pro Monat", "4,99 € par mois", "4.99 € al mes")
+                    </div>
+                    <button class="btn btn-outline" style="width: 100%; margin-top: 10px;" type="button" @onclick='() => BuyDemo("12-months", Lang.T("12 Месяцев", "12 Months", "12 Monate", "12 Mois", "12 Meses"), 59.99m)'>
+                        @Lang.T("Выбрать", "Select plan", "Wählen", "Choisir", "Seleccionar")
+                    </button>
+                </div>
+            }
+            else
+            {
+                @foreach (var plan in Plans)
+                {
+                    <div class="glass-card @(plan.Highlight ? "highlight" : "")" style="display: flex; flex-direction: column; align-items: center; text-align: center; gap: 16px; position: relative; @(plan.Highlight ? "border-color: var(--accent-pink); box-shadow: 0 10px 30px rgba(255, 51, 102, 0.3);" : "")">
+                        @if (!string.IsNullOrWhiteSpace(plan.Badge))
+                        {
+                            <span class="badge-tag badge-gold" style="position: absolute; top: 16px; right: 16px;">@plan.Badge</span>
+                        }
+
+                        <div style="font-size: 1.2rem; font-weight: 800; color: #ffffff;">@plan.Name</div>
+                        <div style="font-size: 2.2rem; font-weight: 900; color: var(--accent-pink);">@plan.PriceLabel</div>
+                        <div style="font-size: 0.85rem; color: var(--text-dim);">@plan.Period</div>
+
+                        <button class="btn @(plan.Highlight ? "btn-primary" : "btn-outline")" style="width: 100%; margin-top: 10px;" type="button" @onclick="() => Buy(plan)">
+                            @Lang.T("Купить", "Buy", "Kaufen", "Acheter", "Comprar")
+                        </button>
+                    </div>
+                }
             }
         </div>
     </div>
-</section>
+</div>
 
 @code {
     private IReadOnlyList<string> CurrentBenefits =>
@@ -94,43 +141,44 @@
 
     private static readonly IReadOnlyList<string> RuBenefits =
     [
-        "Эксклюзивные сцены и диалоги",
-        "Бонусные алмазы каждый день",
-        "Ускоренное восстановление энергии",
-        "Уникальные предметы кастомизации"
+        "Эксклюзивные сцены и открытые финал-развязки",
+        "Ежедневный бонус +50 алмазов",
+        "Бесконечная энергия без ожиданий",
+        "Уникальная рамка профиля и статус VIP"
     ];
 
     private static readonly IReadOnlyList<string> EnBenefits =
     [
-        "Exclusive scenes and dialogues",
-        "Daily bonus diamonds",
-        "Faster energy recovery",
-        "Unique customization items"
+        "Exclusive scenes and unlocked secret endings",
+        "Daily bonus +50 diamonds",
+        "Infinite energy with zero waiting time",
+        "Unique avatar frame & VIP status"
     ];
 
     private static readonly IReadOnlyList<string> DeBenefits =
     [
-        "Exklusive Szenen und Dialoge",
-        "Tägliche Bonus‑Diamanten",
-        "Schnellere Energie‑Regeneration",
-        "Einzigartige Anpassungs‑Items"
+        "Exklusive Szenen und freigeschaltete Enden",
+        "Täglicher Bonus +50 Diamanten",
+        "Unbegrenzte Energie ohne Wartezeit",
+        "Einzigartiger Profilrahmen & VIP-Status"
     ];
 
     private static readonly IReadOnlyList<string> FrBenefits =
     [
-        "Scènes et dialogues exclusifs",
-        "Diamants bonus quotidiens",
-        "Récupération d’énergie plus rapide",
-        "Objets de personnalisation uniques"
+        "Scènes exclusives et fins secrètes débloquées",
+        "Bonus quotidien de +50 diamants",
+        "Énergie illimitée sans attente",
+        "Cadre de profil unique et statut VIP"
     ];
 
     private static readonly IReadOnlyList<string> EsBenefits =
     [
-        "Escenas y diálogos exclusivos",
-        "Diamantes extra diarios",
-        "Recuperación de energía más rápida",
-        "Objetos de personalización únicos"
+        "Escenas exclusivas y finales secretos desbloqueados",
+        "Bonificación diaria de +50 diamantes",
+        "Energía ilimitada sin tiempos de espera",
+        "Marco de perfil único y estado VIP"
     ];
+
     private IReadOnlyList<Plan> Plans => _plans;
     private IReadOnlyList<Plan> _plans = [];
 
@@ -144,15 +192,17 @@
         Cart.AddItem($"premium:{plan.Id}", $"Premium — {plan.Name}", plan.PriceValue, 1);
     }
 
+    private void BuyDemo(string id, string name, decimal price)
+    {
+        Cart.AddItem($"premium:{id}", $"Premium — {name}", price, 1);
+    }
+
     private async Task<IReadOnlyList<Plan>> LoadPlansAsync()
     {
         try
         {
             var items = await Http.GetFromJsonAsync<IReadOnlyList<CatalogItemDto>>(CatalogItemsUrl);
-            if (items is null)
-            {
-                return [];
-            }
+            if (items is null) return [];
 
             return items
                 .Where(item => string.Equals(item.Type, "Subscription", StringComparison.OrdinalIgnoreCase) && item.IsActive)
@@ -242,22 +292,10 @@
     private static string GetRuMonthsWord(int months)
     {
         var n = months % 100;
-        if (n is >= 11 and <= 14)
-        {
-            return "месяцев";
-        }
-
+        if (n is >= 11 and <= 14) return "месяцев";
         var lastDigit = months % 10;
-        if (lastDigit == 1)
-        {
-            return "месяц";
-        }
-
-        if (lastDigit == 2 || lastDigit == 3 || lastDigit == 4)
-        {
-            return "месяца";
-        }
-
+        if (lastDigit == 1) return "месяц";
+        if (lastDigit is 2 or 3 or 4) return "месяца";
         return "месяцев";
     }
 
@@ -273,10 +311,4 @@
         bool IsActive,
         Dictionary<string, string> Metadata,
         string? ImageUrl);
-
-    private static class Icons
-    {
-        public const string Check =
-            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M20 6 9 17l-5-5' stroke='currentColor' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>";
-    }
 }

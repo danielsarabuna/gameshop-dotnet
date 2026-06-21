@@ -23,6 +23,7 @@ public static class PaymentMethodsData
                 PaymentMethod.YooKassa => new PaymentMethodDto("yookassa", "YooKassa", null),
                 PaymentMethod.CorvusPay => new PaymentMethodDto("corvuspay", "CorvusPay", null),
                 PaymentMethod.Xsolla => new PaymentMethodDto("xsolla", "Xsolla", null),
+                PaymentMethod.MockProvider => new PaymentMethodDto("mockprovider", "Тестовая оплата (Sandbox)", "/images/providers/mock.svg"),
                 _ => null
             })
             .Where(method => method is not null)

@@ -2,6 +2,16 @@
 
   <ItemGroup>
     <ProjectReference Include="../../BuildingBlocks/Logging/Logging.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/EventBus/EventBus.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/EventBus.RabbitMq/EventBus.RabbitMq.csproj" />
+    <ProjectReference Include="../../BuildingBlocks/Exceptions/Exceptions.csproj" />
+    <ProjectReference Include="../../Contracts/IntegrationEvents/IntegrationEvents.csproj" />
+    <ProjectReference Include="../../Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.Net.ClientFactory" Version="2.67.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -98,6 +98,11 @@ else
     exit 1
 fi
 
+echo "[smoke] basket checkout (Basket -> RabbitMQ -> Ordering)"
+checkout_payload='{"userId":"smoke-001"}'
+curl -fsS -X POST -H 'Content-Type: application/json' -d "$checkout_payload" "$BASKET/api/v1/basket/checkout" >/dev/null
+echo "[smoke] OK  basket checkout event published"
+
 echo "[smoke] payment-methods"
 methods_count=$(curl -fsS "$ORDERING/api/v1/payment-methods" \
     | python3 -c 'import sys,json;print(len(json.load(sys.stdin)))')

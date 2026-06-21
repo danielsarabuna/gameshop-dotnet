@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 using Ordering.Application.Payments;
 using Ordering.Domain.Payments;
 using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
@@ -9,9 +10,25 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
 {
     private readonly Dictionary<DomainPaymentMethod, IPaymentProvider> _providers;
 
-    public PaymentProviderAccessor(IConfiguration configuration)
+    public PaymentProviderAccessor(IConfiguration configuration, IHostEnvironment environment)
     {
         _providers = new Dictionary<DomainPaymentMethod, IPaymentProvider>();
+
+        var mockSetting = configuration["Payments:MockProvider:Enabled"];
+        bool isMockEnabled = false;
+        if (!string.IsNullOrEmpty(mockSetting))
+        {
+            bool.TryParse(mockSetting, out isMockEnabled);
+        }
+        else if (environment != null)
+        {
+            isMockEnabled = environment.IsDevelopment();
+        }
+
+        if (isMockEnabled)
+        {
+            _providers[DomainPaymentMethod.MockProvider] = new MockPaymentProvider();
+        }
 
         var stripeKey = configuration["Payments:Stripe:SecretKey"];
         var stripeWebhookSecret = configuration["Payments:Stripe:WebhookSecret"];
@@ -61,7 +78,12 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var xsollaProjectId = configuration["Payments:Xsolla:ProjectId"];
         var xsollaMode = configuration["Payments:Xsolla:Mode"] ?? "sandbox";
         var xsollaWebhookSecret = configuration["Payments:Xsolla:WebhookSecret"];
-        if (!string.IsNullOrEmpty(xsollaMerchantId) && !string.IsNullOrEmpty(xsollaApiKey) && !string.IsNullOrEmpty(xsollaProjectId))
+        if (!string.IsNullOrEmpty(xsollaMerchantId) &&
+            !string.IsNullOrEmpty(xsollaApiKey) &&
+            !string.IsNullOrEmpty(xsollaProjectId) &&
+            xsollaMerchantId != "placeholder" &&
+            xsollaApiKey != "placeholder" &&
+            xsollaProjectId != "placeholder")
         {
             _providers[DomainPaymentMethod.Xsolla] = new XsollaPaymentProvider(
                 xsollaMerchantId,

@@ -2,67 +2,86 @@
 @inject CartState CartModel
 @inject LanguageState Lang
 
-<PageTitle>GameShop — Корзина</PageTitle>
+<PageTitle>GameShop — @Lang.T("Корзина", "Cart", "Warenkorb", "Panier", "Carrito")</PageTitle>
 
-<section class="page-pad">
-    <div class="container">
-        <h1>@Lang.T("Корзина", "Cart", "Warenkorb", "Panier", "Carrito")</h1>
+<div class="page-container" style="max-width: 800px;">
+    <div class="page-header seq-item seq-delay-1">
+        <h1 class="page-title">
+            <span class="gradient-text">🛒 @Lang.T("Ваша корзина", "Your Cart", "Dein Warenkorb", "Votre panier", "Tu carrito")</span>
+        </h1>
+    </div>
 
-        @if (CartModel.Lines.Count == 0)
-        {
-            <p class="muted">
+    @if (CartModel.Lines.Count == 0)
+    {
+        <div class="glass-card seq-item seq-delay-2" style="text-align: center; padding: 48px 24px; display: flex; flex-direction: column; align-items: center; gap: 16px;">
+            <div style="font-size: 3.5rem;">🛍️</div>
+            <h2 style="font-size: 1.4rem; color: #ffffff;">
+                @Lang.T("Корзина пуста", "Cart is empty", "Warenkorb ist leer", "Le panier est vide", "El carrito está vacío")
+            </h2>
+            <p class="muted" style="max-width: 480px;">
                 @Lang.T(
-                    "Корзина пуста. Добавьте алмазы или Premium.",
-                    "Your cart is empty. Add diamonds or Premium.",
-                    "Dein Warenkorb ist leer. Füge Diamanten oder Premium hinzu.",
-                    "Votre panier est vide. Ajoutez des diamants ou Premium.",
-                    "Tu carrito está vacío. Añade diamantes o Premium."
+                    "Добавьте алмазы или подписку Premium, чтобы оформить заказ.",
+                    "Add diamonds or Premium subscription to place an order.",
+                    "Füge Diamanten oder ein Premium-Abo hinzu, um zu bestellen.",
+                    "Ajoutez des diamants ou un abonnement Premium pour commander.",
+                    "Añade diamantes o una suscripción Premium para realizar el pedido."
                 )
             </p>
-            <div style="margin-top: 24px; display: flex; gap: 16px; flex-wrap: wrap;">
-                <a class="btn btn-primary" href="/diamonds">@Lang.NavDiamonds</a>
-                <a class="btn btn-outline-gold" href="/subscription">@Lang.Premium</a>
+            <div style="margin-top: 12px; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;">
+                <a class="btn btn-primary" href="/diamonds">💎 @Lang.NavDiamonds</a>
+                <a class="btn btn-outline" href="/subscription">✨ @Lang.Premium</a>
             </div>
-        }
-        else
-        {
-            <div class="cart-wrap" style="margin-top: 24px;">
-                @foreach (var line in CartModel.Lines)
-                {
-                    <div class="card cart-item">
+        </div>
+    }
+    else
+    {
+        <div class="seq-item seq-delay-2" style="display: flex; flex-direction: column; gap: 16px;">
+            @foreach (var line in CartModel.Lines)
+            {
+                <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 16px;">
+                        <div style="width: 50px; height: 50px; border-radius: 12px; background: rgba(255, 51, 102, 0.15); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; flex-shrink: 0;">
+                            🛍️
+                        </div>
                         <div>
-                            <div class="cart-item-title">@line.Title</div>
-                            <div class="cart-item-sub">
+                            <div style="font-weight: 800; font-size: 1.1rem; color: #ffffff;">@line.Title</div>
+                            <div style="font-size: 0.88rem; color: var(--text-dim); margin-top: 2px;">
                                 @Lang.T("Кол-во", "Qty", "Menge", "Qté", "Cant."): @line.Quantity
                             </div>
                         </div>
-
-                        <div class="cart-right">
-                            <div class="price">@FormatMoney(line.UnitPrice * line.Quantity)</div>
-                            <button class="btn btn-ghost" style="height: 44px; padding: 0 16px;" type="button" @onclick="() => CartModel.Remove(line.Sku)">
-                                @Lang.T("Удалить", "Remove", "Entfernen", "Supprimer", "Eliminar")
-                            </button>
-                        </div>
                     </div>
-                }
 
-                <div class="card cart-summary">
-                    <div class="muted">@Lang.T("Итого", "Total", "Summe", "Total", "Total")</div>
-                    <div class="price" style="font-size: 20px;">@FormatMoney(CartModel.Total)</div>
+                    <div style="display: flex; align-items: center; gap: 20px;">
+                        <div style="font-weight: 900; font-size: 1.3rem; color: var(--accent-pink);">
+                            @FormatMoney(line.UnitPrice * line.Quantity)
+                        </div>
+                        <button class="btn btn-ghost" style="padding: 6px 12px; font-size: 0.85rem;" type="button" @onclick="() => CartModel.Remove(line.Sku)">
+                            ✕ @Lang.T("Удалить", "Remove", "Entfernen", "Supprimer", "Eliminar")
+                        </button>
+                    </div>
                 </div>
+            }
 
-                <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 8px;">
-                    <button class="btn btn-ghost" type="button" @onclick="CartModel.Clear">
-                        @Lang.T("Очистить", "Clear", "Leeren", "Vider", "Vaciar")
-                    </button>
-                    <button class="btn btn-primary" type="button" disabled>
-                        @Lang.T("Оформить (скоро)", "Checkout (soon)", "Zur Kasse (bald)", "Paiement (bientôt)", "Pagar (pronto)")
-                    </button>
+            <div class="glass-card" style="display: flex; align-items: center; justify-content: space-between; padding: 24px; margin-top: 10px;">
+                <div style="font-size: 1.1rem; font-weight: 700; color: var(--text-muted);">
+                    @Lang.T("Итого к оплате:", "Total amount:", "Gesamtsumme:", "Montant total :", "Total a pagar:")
+                </div>
+                <div style="font-size: 2rem; font-weight: 900; color: #ffffff;">
+                    @FormatMoney(CartModel.Total)
                 </div>
             </div>
-        }
-    </div>
-</section>
+
+            <div style="display: flex; gap: 16px; justify-content: space-between; flex-wrap: wrap; margin-top: 10px;">
+                <button class="btn btn-outline" type="button" @onclick="CartModel.Clear">
+                    @Lang.T("Очистить корзину", "Clear cart", "Warenkorb leeren", "Vider le panier", "Vaciar carrito")
+                </button>
+                <a class="btn btn-primary" href="/">
+                    @Lang.T("Перейти к оформлению", "Proceed in drawer", "Zur Kasse", "Passer la commande", "Ir a pagar")
+                </a>
+            </div>
+        </div>
+    }
+</div>
 
 @code {
     private static string FormatMoney(decimal value) => $"€{value:0.00}";
