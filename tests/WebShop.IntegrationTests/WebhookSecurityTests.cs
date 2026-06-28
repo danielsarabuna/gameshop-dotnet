@@ -142,9 +142,7 @@ public sealed class WebhookSecurityTests
                 new FakeOrderRepository(this),
                 new FakePaymentStore(),
                 new FakeWebhookIdempotencyStore(),
-                new FakePromoCodeStore(),
-                new FakePurchaseRecorder(),
-                NullEventBus.Instance);
+                new FakePromoCodeStore());
         }
 
         private sealed class FakeOrderRepository(Harness harness) : IOrderRepository
@@ -159,17 +157,33 @@ public sealed class WebhookSecurityTests
                 harness.Order = order;
                 return Task.CompletedTask;
             }
+
+            public Task UpdateWithOutboxAsync(Order order, IReadOnlyList<OutboxMessage> outbox, CancellationToken cancellationToken)
+            {
+                harness.Order = order;
+                return Task.CompletedTask;
+            }
         }
     }
 
     private sealed class FakePaymentStore : IPaymentStore
     {
+        private Payment? _payment;
+
         public Task<Payment?> GetByOrderAsync(Guid orderId, PaymentMethod provider, CancellationToken cancellationToken)
-            => Task.FromResult<Payment?>(null);
+            => Task.FromResult(_payment);
 
-        public Task AddAsync(Payment payment, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task AddAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            _payment = payment;
+            return Task.CompletedTask;
+        }
 
-        public Task UpdateAsync(Payment payment, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            _payment = payment;
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeWebhookIdempotencyStore : IWebhookIdempotencyStore
@@ -179,12 +193,8 @@ public sealed class WebhookSecurityTests
 
     private sealed class FakePromoCodeStore : IPromoCodeStore
     {
-        public PromoCode? Get(string code) => null;
-        public bool TryConsume(string code) => true;
-    }
+        public Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken) => Task.FromResult<PromoCode?>(null);
 
-    private sealed class FakePurchaseRecorder : IPurchaseRecorder
-    {
-        public Task RecordAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken) => Task.FromResult(true);
     }
 }

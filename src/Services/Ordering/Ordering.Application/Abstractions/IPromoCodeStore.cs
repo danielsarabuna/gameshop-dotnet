@@ -4,7 +4,8 @@ namespace Ordering.Application.Abstractions;
 
 public interface IPromoCodeStore
 {
-    PromoCode? Get(string code);
-    bool TryConsume(string code);
-}
+    Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken);
 
+    /// <summary>Atomically consumes one use of the code; false when unknown, inactive or exhausted.</summary>
+    Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken);
+}

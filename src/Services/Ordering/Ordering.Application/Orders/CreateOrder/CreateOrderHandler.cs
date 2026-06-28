@@ -67,7 +67,7 @@ public sealed class CreateOrderHandler
         var subtotal = orderItems.Sum(i => i.LineTotal);
 
         var promoCode = string.IsNullOrWhiteSpace(request.PromoCode) ? null : request.PromoCode.Trim();
-        var discountAmount = promoCode is null ? 0m : CalculateDiscount(promoCode, orderItems, subtotal, currency);
+        var discountAmount = promoCode is null ? 0m : await CalculateDiscountAsync(promoCode, orderItems, subtotal, currency, cancellationToken);
 
         var orderId = Guid.NewGuid();
         var order = new Order(
@@ -85,9 +85,9 @@ public sealed class CreateOrderHandler
         return new CreateOrderResult(order.Id, order.Status, order.Subtotal, order.DiscountAmount, order.Total, order.Currency);
     }
 
-    private decimal CalculateDiscount(string code, IReadOnlyList<OrderItem> items, decimal subtotal, string currency)
+    private async Task<decimal> CalculateDiscountAsync(string code, IReadOnlyList<OrderItem> items, decimal subtotal, string currency, CancellationToken cancellationToken)
     {
-        var promo = _promoCodes.Get(code);
+        var promo = await _promoCodes.GetAsync(code, cancellationToken);
         if (promo is null)
         {
             throw new ArgumentException("Invalid promo code.", nameof(code));
