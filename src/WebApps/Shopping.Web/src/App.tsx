@@ -14,7 +14,25 @@ import { Subscription } from './pages/Subscription';
 import { Help } from './pages/Help';
 import { About } from './pages/About';
 
-const HIDDEN_FOOTER_PATHS = ['/', '/projects', '/diamonds', '/subscription'];
+const HIDDEN_FOOTER_PATHS = ['/', '/projects'];
+
+const ScrollToTop: React.FC = () => {
+  const { pathname } = useLocation();
+
+  React.useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+    const stageContainer = document.querySelector('.stage-center-container');
+    if (stageContainer) stageContainer.scrollTop = 0;
+    const snapContainers = document.querySelectorAll(
+      '.hero-snap-container, .game-showcase-container, .diamonds-snap-container, .sub-snap-container'
+    );
+    snapContainers.forEach((el) => (el.scrollTop = 0));
+  }, [pathname]);
+
+  return null;
+};
 
 const Shell: React.FC = () => {
   const { pathname } = useLocation();
@@ -22,6 +40,7 @@ const Shell: React.FC = () => {
 
   return (
     <>
+      <ScrollToTop />
       <div className="app-viewport-wrapper">
         <div className="side-gradient-vignette" />
         <Header />
