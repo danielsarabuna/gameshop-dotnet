@@ -227,7 +227,7 @@ export const CartDrawer: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', height: '100%', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {/* ITEMS LIST */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
               {lines.map((line) => (

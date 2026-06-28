@@ -22,10 +22,11 @@ export const Help: React.FC = () => {
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      <img src="/images/Story Realms-bg.jpg" alt="" className="page-bg" />
+      <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+      <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
       <div className="page-content page-container" style={{ padding: '130px 6% 80px', maxWidth: 840, margin: '0 auto' }}>
           <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 40 }}>
-            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: '2.4rem', fontWeight: 800 }}>
+            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontWeight: 800 }}>
               <HelpCircle size={36} color="var(--accent-pink)" />
               <span className="gradient-text">{t('Служба Помощи', 'Help & Support', 'Hilfe & Support', 'Aide et support', 'Ayuda y soporte')}</span>
             </h1>

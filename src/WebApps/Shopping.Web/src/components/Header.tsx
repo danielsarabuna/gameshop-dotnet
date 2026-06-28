@@ -159,6 +159,7 @@ export const Header: React.FC = () => {
             className="icon-btn hamburger-btn"
             type="button"
             aria-label="Menu"
+            aria-expanded={mobileNavOpen}
             onClick={() => setMobileNavOpen(true)}
           >
             {mobileNavOpen ? <X size={18} color="#ffffff" /> : <Menu size={18} color="#ffffff" />}

@@ -25,6 +25,7 @@ builder.Services.AddSingleton(supabaseOptions);
 // Регистрация HTTP-клиентов и сервисов (lazy catalog provider + Supabase player verifier)
 builder.Services.AddHttpClient<ICatalogProvider, CatalogProvider>();
 builder.Services.AddHttpClient<ISupabasePlayerVerifier, SupabasePlayerVerifier>();
+builder.Services.AddHostedService<CatalogPreloaderHostedService>();
 
 builder.Services.AddHealthChecks();
 builder.WebHost.ConfigureKestrel(options =>
@@ -94,14 +95,19 @@ app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? s
     return Results.Ok(new PaymentProviderConfig(config?.PaymentProviders ?? new List<PaymentProviderDto>()));
 });
 
-app.MapGet("/api/v1/catalog/items/{id:guid}", (Guid id, ICatalogStore catalogStore) =>
+app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, ICatalogStore catalogStore, ICatalogProvider provider, CancellationToken ct) =>
 {
     var item = catalogStore.GetItemById(id);
+    if (item is null)
+    {
+        await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", ct);
+        item = catalogStore.GetItemById(id);
+    }
     return item is null ? Results.NotFound() : Results.Ok(item);
 });
 
 // Стриминг закэшированных ассетов (картинки алмазов/подписок, скачанные с Supabase)
-app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", (string region, string store, string version, string file, HttpResponse response, RemoteCatalogOptions options) =>
+app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (string region, string store, string version, string file, HttpResponse response, RemoteCatalogOptions options, ICatalogProvider provider, CancellationToken ct) =>
 {
     var root = Path.GetFullPath(options.AssetCacheDir);
     if (!root.EndsWith(Path.DirectorySeparatorChar))
@@ -109,13 +115,23 @@ app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", (string 
         root += Path.DirectorySeparatorChar;
     }
     var path = Path.GetFullPath(Path.Combine(root, region, store, version, file));
-    if (!path.StartsWith(root, StringComparison.Ordinal) || !File.Exists(path))
+    if (!path.StartsWith(root, StringComparison.Ordinal))
     {
         return Results.NotFound();
     }
+
+    if (!File.Exists(path))
+    {
+        var downloaded = await provider.EnsureAssetDownloadedAsync(region, store, version, file, ct);
+        if (!downloaded || !File.Exists(path))
+        {
+            return Results.NotFound();
+        }
+    }
+
     // Path is versioned → safe to cache aggressively on the client/CDN.
     response.Headers.CacheControl = "public, max-age=86400, immutable";
-    return Results.File(path, contentType: GuessContentType(file), fileDownloadName: Path.GetFileName(file),
+    return Results.File(path, contentType: GuessContentType(file),
         lastModified: File.GetLastWriteTimeUtc(path));
 });
 

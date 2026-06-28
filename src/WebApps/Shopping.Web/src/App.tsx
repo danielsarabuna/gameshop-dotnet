@@ -14,7 +14,7 @@ import { Subscription } from './pages/Subscription';
 import { Help } from './pages/Help';
 import { About } from './pages/About';
 
-const HIDDEN_FOOTER_PATHS = ['/', '/projects'];
+const HIDDEN_FOOTER_PATHS = ['/', '/projects', '/diamonds', '/subscription'];
 
 const Shell: React.FC = () => {
   const { pathname } = useLocation();
@@ -24,8 +24,8 @@ const Shell: React.FC = () => {
     <>
       <div className="app-viewport-wrapper">
         <div className="side-gradient-vignette" />
+        <Header />
         <div className="stage-center-container">
-          <Header />
           <main style={{ minHeight: 'calc(100vh - 80px)' }}>
             <Routes>
               <Route path="/" element={<Home />} />
