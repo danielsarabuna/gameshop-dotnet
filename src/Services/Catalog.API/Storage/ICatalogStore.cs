@@ -2,11 +2,14 @@ namespace Catalog.API.Storage;
 
 public interface ICatalogStore
 {
-    IReadOnlyList<CatalogItem> GetAll();
-    IReadOnlyList<CatalogItem> GetFiltered(string? region, string? store, string? gameVersion);
-    CatalogItem? GetById(Guid id);
-    PaymentProviderConfig GetPaymentProviders(string? region, string? store, string? gameVersion);
-    void UpdateCatalogConfig(string region, string store, string gameVersion, WebShopCatalogConfig config);
+    /// <summary>Returns the cached config for the exact (region, store, gameVersion) key, or null if not cached.</summary>
+    WebShopCatalogConfig? GetConfig(string region, string store, string gameVersion);
+
+    /// <summary>Caches a freshly fetched config under its (region, store, gameVersion) key.</summary>
+    void SetConfig(string region, string store, string gameVersion, WebShopCatalogConfig config);
+
+    /// <summary>Searches all cached configs for an item by id (used by gRPC during order placement).</summary>
+    CatalogItem? GetItemById(Guid id);
 }
 
 public enum CatalogProductType

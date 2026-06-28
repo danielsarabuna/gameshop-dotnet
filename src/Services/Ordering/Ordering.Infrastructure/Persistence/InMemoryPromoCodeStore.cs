@@ -16,14 +16,12 @@ public sealed class InMemoryPromoCodeStore : IPromoCodeStore
     private static readonly IReadOnlySet<Guid> DiamondProductIds = new HashSet<Guid>
     {
         Guid.Parse("d1a00000-0000-0000-0000-000000000060"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000000120"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000000350"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000000800"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000002000"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000004500"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000009000"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000015000"),
-        Guid.Parse("d1a00000-0000-0000-0000-000000025000")
+        Guid.Parse("d1a00000-0000-0000-0000-000000000150"),
+        Guid.Parse("d1a00000-0000-0000-0000-000000000300"),
+        Guid.Parse("d1a00000-0000-0000-0000-000000000450"),
+        Guid.Parse("d1a00000-0000-0000-0000-000000000600"),
+        Guid.Parse("d1a00000-0000-0000-0000-000000001200"),
+        Guid.Parse("d1a00000-0000-0000-0000-000000002500")
     };
 
     private readonly ConcurrentDictionary<string, PromoCode> _codes = new(StringComparer.OrdinalIgnoreCase);

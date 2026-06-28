@@ -45,7 +45,7 @@ public sealed class BasketApiTests : IClassFixture<WebApplicationFactory<Basket.
 
         var update = new UpdateBasketPayload(new[]
         {
-            new BasketItemDto(Guid.NewGuid(), "Diamonds 100", 4.99m, 2)
+            new BasketItemDto(Guid.Parse("d1a00000-0000-0000-0000-000000000060"), "Diamonds 100", 4.99m, 2)
         });
 
         using var put = await client.PutAsJsonAsync($"/api/v1/basket/{userId}", update);
@@ -67,7 +67,7 @@ public sealed class BasketApiTests : IClassFixture<WebApplicationFactory<Basket.
 
         var update = new UpdateBasketPayload(new[]
         {
-            new BasketItemDto(Guid.NewGuid(), "Premium", 9.99m, 1)
+            new BasketItemDto(Guid.Parse("d1a00000-0000-0000-0000-000000000060"), "Premium", 9.99m, 1)
         });
         using var put = await client.PutAsJsonAsync($"/api/v1/basket/{userId}", update);
         Assert.Equal(HttpStatusCode.OK, put.StatusCode);

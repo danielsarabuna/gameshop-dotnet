@@ -22,19 +22,11 @@ var supabaseOptions = new SupabaseOptions();
 builder.Configuration.GetSection(SupabaseOptions.SectionName).Bind(supabaseOptions);
 builder.Services.AddSingleton(supabaseOptions);
 
-// Регистрация HTTP-клиентов и сервисов
-builder.Services.AddHttpClient<ICatalogSyncService, CatalogSyncService>();
+// Регистрация HTTP-клиентов и сервисов (lazy catalog provider + Supabase player verifier)
+builder.Services.AddHttpClient<ICatalogProvider, CatalogProvider>();
 builder.Services.AddHttpClient<ISupabasePlayerVerifier, SupabasePlayerVerifier>();
-builder.Services.AddHostedService<CatalogSyncBackgroundService>();
 
-var catalogHealth = builder.Services.AddHealthChecks();
-if (string.Equals(builder.Configuration["Catalog:Storage"], "Mongo", StringComparison.OrdinalIgnoreCase)
-    || builder.Environment.IsEnvironment("Docker"))
-{
-    var mongoConn = builder.Configuration["Catalog:Mongo:ConnectionString"]
-        ?? (builder.Environment.IsEnvironment("Docker") ? "mongodb://mongodb:27017" : "mongodb://localhost:27017");
-    catalogHealth.AddMongoDb(_ => new MongoDB.Driver.MongoClient(mongoConn), name: "mongo", tags: new[] { "ready" });
-}
+builder.Services.AddHealthChecks();
 builder.WebHost.ConfigureKestrel(options =>
 {
     var httpPort = builder.Configuration.GetValue<int?>("Kestrel:HttpPort") ?? 8080;
@@ -42,23 +34,23 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(httpPort, listen => listen.Protocols = HttpProtocols.Http1);
     options.ListenAnyIP(grpcPort, listen => listen.Protocols = HttpProtocols.Http2);
 });
-var storageMode = builder.Configuration.GetValue<string>("Catalog:Storage");
-if (string.IsNullOrWhiteSpace(storageMode))
-{
-    storageMode = builder.Environment.IsEnvironment("Docker") ? "Mongo" : "InMemory";
-}
 
-if (string.Equals(storageMode, "Mongo", StringComparison.OrdinalIgnoreCase))
-{
-    builder.Services.AddSingleton<ICatalogStore, MongoCatalogStore>();
-}
-else
-{
-    builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
-}
+// Catalog cache is in-memory only; configs are fetched lazily from Supabase per request.
+builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter());
+});
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader();
+    });
 });
 
 builder.Services.AddGrpc();
@@ -67,6 +59,7 @@ builder.Services.AddCustomExceptionHandler();
 var app = builder.Build();
 
 app.UseExceptionHandler();
+app.UseCors();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 
@@ -87,30 +80,62 @@ app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerV
     return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
 });
 
-// Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры
-app.MapGet("/api/v1/catalog/items", (string? region, string? store, string? gameVersion, ICatalogStore catalogStore) =>
+// Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры (lazy fetch from Supabase)
+app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
 {
-    return Results.Ok(catalogStore.GetFiltered(region, store, gameVersion));
+    var config = await provider.GetOrFetchAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+    return Results.Ok(config?.Items ?? new List<Catalog.API.Storage.CatalogItem>());
 });
 
 // Эндпоинт получения доступных провайдеров оплаты под регион и стор
-app.MapGet("/api/v1/catalog/payment-providers", (string? region, string? store, string? gameVersion, ICatalogStore catalogStore) =>
+app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
 {
-    return Results.Ok(catalogStore.GetPaymentProviders(region, store, gameVersion));
+    var config = await provider.GetOrFetchAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+    return Results.Ok(new PaymentProviderConfig(config?.PaymentProviders ?? new List<PaymentProviderDto>()));
 });
 
 app.MapGet("/api/v1/catalog/items/{id:guid}", (Guid id, ICatalogStore catalogStore) =>
 {
-    var item = catalogStore.GetById(id);
+    var item = catalogStore.GetItemById(id);
     return item is null ? Results.NotFound() : Results.Ok(item);
 });
 
-// Эндпоинт ручного форсированного обновления конфигов из Supabase
-app.MapPost("/api/v1/catalog/reload", async (ICatalogSyncService syncService, CancellationToken ct) =>
+// Стриминг закэшированных ассетов (картинки алмазов/подписок, скачанные с Supabase)
+app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", (string region, string store, string version, string file, HttpResponse response, RemoteCatalogOptions options) =>
 {
-    await syncService.SyncAllAsync(ct);
-    return Results.Ok(new { message = "Catalog sync completed." });
+    var root = Path.GetFullPath(options.AssetCacheDir);
+    if (!root.EndsWith(Path.DirectorySeparatorChar))
+    {
+        root += Path.DirectorySeparatorChar;
+    }
+    var path = Path.GetFullPath(Path.Combine(root, region, store, version, file));
+    if (!path.StartsWith(root, StringComparison.Ordinal) || !File.Exists(path))
+    {
+        return Results.NotFound();
+    }
+    // Path is versioned → safe to cache aggressively on the client/CDN.
+    response.Headers.CacheControl = "public, max-age=86400, immutable";
+    return Results.File(path, contentType: GuessContentType(file), fileDownloadName: Path.GetFileName(file),
+        lastModified: File.GetLastWriteTimeUtc(path));
 });
+
+// Эндпоинт ручного форсированного обновления конфига для конкретной версии
+app.MapPost("/api/v1/catalog/reload", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+{
+    var config = await provider.ForceRefreshAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+    return Results.Ok(new { message = "Catalog reloaded.", items = config?.Items.Count ?? 0 });
+});
+
+static string GuessContentType(string fileName)
+    => Path.GetExtension(fileName).ToLowerInvariant() switch
+    {
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".svg" => "image/svg+xml",
+        _ => "application/octet-stream"
+    };
 
 app.Run();
 

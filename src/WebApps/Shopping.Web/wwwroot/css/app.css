@@ -1,8 +1,7 @@
 /* ==========================================================================
    GameShop SHOPPING.WEB — PREMIUM DESIGN SYSTEM (BASED ON WEBSITE DESIGN)
+   Fonts are loaded via <link> in index.html (faster than CSS @import).
    ========================================================================== */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap');
 
 :root {
   --bg-dark: #120e17;                 /* Deep purple-black central stage background */
@@ -65,17 +64,6 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: transparent !important;
-}
-
-/* Floating particle background canvas */
-#shards-bg {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 0;
-  pointer-events: none;
-  display: block;
 }
 
 /* OUTER VIEWPORT WRAPPER (SOLID PITCH BLACK #000000 BACKGROUND) */
@@ -336,6 +324,10 @@ p, .body-text {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.25s var(--ease);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .filter-btn:hover {
@@ -391,6 +383,12 @@ p, .body-text {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+}
+
+@media (min-width: 1024px) and (max-width: 1200px) {
+  .cards-grid-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
 }
 
 .page-container {
@@ -465,22 +463,38 @@ p, .body-text {
   justify-content: space-between;
 }
 
-.logo-link {
-  display: flex;
+.brand-logo-box {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
+  padding: 6px 16px;
+  background: rgba(14, 11, 20, 0.95);
+  border: 1.5px solid var(--accent-pink);
+  box-shadow: 0 0 12px rgba(255, 51, 102, 0.5), inset 0 0 8px rgba(255, 51, 102, 0.2);
+  border-radius: 6px;
   text-decoration: none;
+  transition: all 0.3s ease;
 }
 
-.logo-text {
+.brand-logo-box:hover {
+  border-color: #ff6688;
+  box-shadow: 0 0 18px rgba(255, 51, 102, 0.7);
+}
+
+.brand-logo-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent-purple);
+  border-radius: 2px;
+  box-shadow: 0 0 6px var(--accent-purple);
+}
+
+.brand-logo-title {
   font-family: var(--font-serif);
-  font-size: 1.6rem;
-  font-weight: 900;
-  letter-spacing: -0.5px;
+  font-size: 1.5rem;
+  font-weight: 800;
   color: #ffffff;
-  background: linear-gradient(135deg, #ffffff 0%, var(--text-muted) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.3px;
 }
 
 .nav-links {
@@ -491,13 +505,13 @@ p, .body-text {
 }
 
 .nav-item {
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
-  font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  padding: 8px 16px;
+  padding: 8px 18px;
   border-radius: 20px;
   white-space: nowrap;
   display: inline-flex;
@@ -513,29 +527,62 @@ p, .body-text {
   border-color: rgba(255, 255, 255, 0.15);
 }
 
-/* ACTIVE NAVIGATION PILL */
+/* ACTIVE NAVIGATION PILL — bright pink/purple glass, aligned with Website reference */
 .nav-item.active {
   color: #ffffff !important;
   font-weight: 800 !important;
   background: linear-gradient(135deg, rgba(255, 51, 102, 0.32), rgba(153, 51, 255, 0.32)) !important;
   border: 1px solid rgba(255, 51, 102, 0.6) !important;
   box-shadow: 0 4px 18px rgba(255, 51, 102, 0.4) !important;
+  border-radius: 20px !important;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+}
+
+.lang-pill-btn, .auth-pill-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 20px !important;
+  height: 38px !important;
+  padding: 0 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.auth-pill-btn span {
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cart-square-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 12px !important;
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
 }
 
 /* Equal button styling for header icons (Lang, Cart, Hamburger) */
 .icon-btn {
   height: 38px;
+  min-width: 38px;
   padding: 0 14px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.25);
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
@@ -546,14 +593,23 @@ p, .body-text {
   transition: all 0.25s var(--ease);
 }
 
+.icon-btn .icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+}
+
+.icon-btn .icon svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .icon-btn:hover {
   background: rgba(255, 255, 255, 0.22);
   border-color: rgba(255, 255, 255, 0.4);
-}
-
-.icon-btn.cart {
-  position: relative;
-  padding: 0 12px;
 }
 
 .cart-badge {
@@ -643,6 +699,8 @@ p, .body-text {
   gap: 28px;
   padding: 60px 24px 40px;
   animation: fadeIn 0.25s ease-out;
+  overflow-y: auto !important;
+  max-height: 100vh !important;
 }
 
 .mobile-close-btn {
@@ -668,12 +726,47 @@ p, .body-text {
   transform: scale(1.08);
 }
 
+.cart-close-btn {
+  position: static;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--border-color);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.cart-close-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
 .mobile-nav-list {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 22px;
   list-style: none;
+}
+
+.mobile-logo {
+  height: 50px;
+  width: auto;
+  margin: 0 auto 10px auto;
+  display: block;
+  align-self: center;
+}
+
+.mobile-social-bar {
+  display: flex;
+  gap: 14px;
+  margin-top: 14px;
 }
 
 .mobile-nav-item {
@@ -701,8 +794,9 @@ p, .body-text {
 .cart-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 1200;
   opacity: 0;
   pointer-events: none;
@@ -710,8 +804,8 @@ p, .body-text {
 }
 
 .cart-overlay.open {
-  opacity: 1;
-  pointer-events: auto;
+  opacity: 1 !important;
+  pointer-events: auto !important;
 }
 
 .cart-drawer {
@@ -719,21 +813,98 @@ p, .body-text {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 440px;
+  width: 420px;
   max-width: 90vw;
-  background: #181222;
+  background: #140e1b;
   border-left: 1px solid var(--border-color);
   z-index: 1300;
   transform: translateX(100%);
-  transition: transform 0.35s var(--ease);
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease, visibility 0.35s ease;
   display: flex;
   flex-direction: column;
   padding: 24px;
   box-shadow: -10px 0 40px rgba(0, 0, 0, 0.7);
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
 }
 
 .cart-drawer.open {
-  transform: translateX(0);
+  transform: translateX(0) !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+@media (max-width: 480px) {
+  .cart-drawer {
+    padding: 16px !important;
+  }
+}
+
+/* ==========================================================================
+   EMPTY CART STATE STYLES
+   ========================================================================== */
+.cart-empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.cart-empty-icon {
+  font-size: 3.2rem;
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: rgba(255, 51, 102, 0.12);
+  border: 1px solid rgba(255, 51, 102, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  box-shadow: 0 0 25px rgba(255, 51, 102, 0.2);
+}
+
+.cart-empty-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #ffffff;
+  margin-bottom: 8px;
+}
+
+.cart-empty-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  max-width: 280px;
+  margin-bottom: 24px;
+}
+
+.cart-empty-btn {
+  background: linear-gradient(135deg, var(--accent-pink) 0%, #e02454 100%);
+  color: #ffffff;
+  border: none;
+  border-radius: 20px;
+  padding: 12px 28px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(255, 51, 102, 0.35);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cart-empty-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 51, 102, 0.5);
 }
 
 .cart-drawer-header {
@@ -853,9 +1024,30 @@ p, .body-text {
   gap: 14px;
 }
 
+/* Desktop cart overlay covers fullscreen and drawer docks to right edge */
+
 /* ==========================================================================
    RESPONSIVE LAYOUT MEDIA QUERIES
    ========================================================================== */
+@media (max-width: 1180px) {
+  .header-wrapper {
+    padding: 10px 20px;
+  }
+
+  .nav-item {
+    padding: 6px 12px;
+    font-size: 0.78rem;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+
+  .logo-img {
+    height: 30px;
+  }
+}
+
 @media (max-width: 1023px) {
   .nav-links {
     display: none;
@@ -872,16 +1064,568 @@ p, .body-text {
     gap: 16px;
   }
 
+  .page-title {
+    font-size: 2rem !important;
+  }
+
   .page-container {
     padding: 100px 16px 50px !important;
   }
 
   .header-wrapper {
-    padding: 10px 16px;
+    padding: 8px 10px !important;
+  }
+
+  .logo-img {
+    height: 26px !important;
+    max-width: 110px !important;
+    object-fit: contain !important;
+  }
+
+  .header-actions {
+    gap: 4px !important;
+  }
+
+  .lang-selector,
+  .lang-pill,
+  .lang-pill-btn,
+  .auth-pill-btn {
+    height: 34px !important;
+    min-width: 32px !important;
+    padding: 0 5px !important;
+    gap: 3px !important;
+  }
+
+  .lang-code-text,
+  .auth-pill-btn span {
+    display: none !important;
+  }
+
+  .cart-square-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
+  }
+
+  .hamburger-btn {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px !important;
+    padding: 0 !important;
   }
 
   .cart-drawer {
     width: 100vw;
     max-width: 100vw;
   }
+}
+
+@media (max-width: 480px) {
+  .cards-grid,
+  .cards-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .glass-card,
+  .location-card,
+  .game-showcase-container,
+  .hero-snap-container {
+    padding: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .glass-card {
+    min-height: auto !important;
+  }
+
+  .hero-section,
+  .showcase-section {
+    height: auto !important;
+    min-height: 100vh !important;
+    padding: 70px 12px 30px !important;
+  }
+
+  .location-card {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .cards-grid,
+  .cards-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .glass-card,
+  .location-card,
+  .game-showcase-container,
+  .hero-snap-container {
+    padding: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .glass-card {
+    min-height: auto !important;
+  }
+
+  .page-title, h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+  }
+
+  h3 {
+    font-size: 1.05rem !important;
+  }
+
+  .btn {
+    padding: 8px 12px !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* ==========================================================================
+   GLOBAL POPUP MODALS & DEEPLINK TOAST NOTIFICATIONS
+   ========================================================================== */
+.modal-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 10000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(0, 0, 0, 0.8) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.modal-card {
+  position: relative !important;
+  z-index: 10001 !important;
+  width: 90% !important;
+  max-width: 480px !important;
+  max-height: 85vh !important;
+  overflow-y: auto !important;
+  margin: auto !important;
+  padding: 30px !important;
+  border-radius: 24px !important;
+  background: rgba(22, 17, 30, 0.98) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(255, 51, 102, 0.2) !important;
+  color: #ffffff !important;
+}
+
+.deeplink-toast {
+  position: fixed !important;
+  top: 80px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 10005 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+  padding: 14px 24px !important;
+  border-radius: 30px !important;
+  background: rgba(25, 20, 36, 0.95) !important;
+  border: 1px solid var(--accent-pink) !important;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.8), 0 0 20px rgba(255,51,102,0.3) !important;
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  animation: slideDownToast 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+@keyframes slideDownToast {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -20px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+/* ==========================================================================
+   SOCIAL ICON LINKS (Home hero) — circular glass with pink/purple hover,
+   aligned with Website reference. Pages set the <img> size inline.
+   ========================================================================== */
+.social-icon-link {
+  color: #ffffff;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.social-icon-link img,
+.social-icon-link svg {
+  width: 18px;
+  height: 18px;
+  filter: brightness(0) invert(1);
+}
+
+.social-icon-link:hover {
+  background: linear-gradient(135deg, var(--accent-pink), var(--accent-purple));
+  border-color: #ffffff;
+  transform: translateY(-3px) scale(1.1);
+  box-shadow: 0 8px 22px rgba(255, 51, 102, 0.7);
+}
+
+/* ==========================================================================
+   HERO MOTION (Home / Game / Help / Diamonds / Subscription)
+   Pages apply these classNames; keyframes + bases live here so the reference
+   entrance/float/fade motion plays. Inline styles on elements still win where set.
+   ========================================================================== */
+.showcase-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 1;
+  filter: brightness(0.7) contrast(1.1);
+  animation: bgFadeIn 0.8s ease-out forwards;
+}
+
+.hero-desc {
+  color: var(--text-muted);
+  animation: seqReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.hero-char {
+  position: absolute;
+  right: 4%;
+  bottom: 0;
+  height: 90vh;
+  max-height: 900px;
+  z-index: 3;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.85));
+  opacity: 0;
+  animation: charEntranceRight 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             floatSlow 7s ease-in-out 1.2s infinite;
+}
+
+@keyframes charEntranceRight {
+  0% { opacity: 0; transform: translateX(70px) scale(0.95); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(0.8deg); }
+}
+
+@keyframes bgFadeIn {
+  0% { opacity: 0; filter: brightness(0.4); }
+  100% { opacity: 1; filter: brightness(0.7) contrast(1.1); }
+}
+
+/* ==========================================================================
+   FORMALIZED HERO/STAGE VOCABULARY (was inline-only; now real classes)
+   ========================================================================== */
+.hero-snap-container,
+.game-showcase-container {
+  height: 100vh;
+  width: 100%;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  scroll-behavior: smooth;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.hero-snap-container::-webkit-scrollbar,
+.game-showcase-container::-webkit-scrollbar {
+  width: 0 !important;
+  display: none !important;
+}
+
+.hero-section,
+.showcase-section {
+  position: relative;
+  height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 110px 7% 60px;
+  overflow: hidden;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 4;
+  max-width: 580px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+/* ==========================================================================
+   IMAGE LOGO (replaces text brand box) — matches Website .logo-link/.logo-img
+   ========================================================================== */
+.logo-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  transition: transform 0.3s ease;
+}
+
+.logo-img {
+  height: 44px;
+  width: auto;
+  transition: transform 0.3s ease;
+}
+
+.logo-link:hover .logo-img {
+  transform: scale(1.03);
+}
+
+/* ==========================================================================
+   STORE BADGES (Projects finale + Home)
+   ========================================================================== */
+.store-badges {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.badge-img {
+  height: 48px;
+  width: auto;
+  transition: transform 0.25s ease;
+}
+
+.badge-img:hover {
+  transform: scale(1.06);
+}
+
+/* ==========================================================================
+   SCROLL-MOUSE INDICATOR (cinematic scroll-snap nav)
+   ========================================================================== */
+.scroll-mouse {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: none;
+  border: none;
+  transition: color 0.3s ease, transform 0.3s ease;
+}
+
+.scroll-mouse:hover {
+  color: #ffffff;
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.mouse-shape {
+  width: 22px;
+  height: 36px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 12px;
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.mouse-wheel {
+  width: 4px;
+  height: 8px;
+  background: var(--accent-pink);
+  border-radius: 2px;
+  animation: scrollWheel 2s infinite;
+}
+
+@keyframes scrollWheel {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(12px); opacity: 0; }
+}
+
+/* Left-side character art (About / alt heroes) */
+.hero-char-left {
+  position: absolute;
+  left: 4%;
+  bottom: 0;
+  height: 85vh;
+  max-height: 850px;
+  z-index: 3;
+  object-fit: contain;
+  pointer-events: none;
+  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.85));
+  opacity: 0;
+  animation: charEntranceLeft 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards,
+             floatSlow 7s ease-in-out 1.2s infinite;
+}
+
+@keyframes charEntranceLeft {
+  0% { opacity: 0; transform: translateX(-70px) scale(0.95); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ==========================================================================
+   CONTENT PAGE PATTERN — dimmed fixed wallpaper + page-container
+   (matches Website Careers/About: calm dark backdrop so cards pop)
+   ========================================================================== */
+.page-bg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.15;
+  filter: contrast(1.1) brightness(0.8);
+  pointer-events: none;
+}
+
+.page-content {
+  position: relative;
+  z-index: 2;
+}
+
+/* ==========================================================================
+   VACANCY-STYLE CARDS (Help FAQ, About pillars) — lift + pink hover
+   ========================================================================== */
+.vacancy-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  padding: 26px;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.vacancy-card:hover {
+  border-color: var(--accent-pink);
+  background: rgba(42, 34, 54, 0.95);
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(255, 51, 102, 0.25);
+}
+
+.perks-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 22px;
+}
+
+@media (max-width: 900px) {
+  .perks-grid {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+}
+
+/* Location showcase card (Projects §3) — 2-col on desktop, collapses on narrow screens */
+.location-card {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 24px;
+}
+
+@media (max-width: 820px) {
+  .location-card {
+    grid-template-columns: 1fr !important;
+  }
+  .location-card .location-media {
+    min-height: 220px !important;
+  }
+}
+
+/* Compact paddings on short viewports so scroll-snap sections fit 100vh */
+@media (max-height: 760px) {
+  .hero-section,
+  .showcase-section {
+    padding: 90px 6% 40px;
+  }
+}
+
+/* ==========================================================================
+   FOOTER (ported from Website)
+   ========================================================================== */
+.footer {
+  background: var(--bg-darker);
+  border-top: 1px solid var(--border-color);
+  padding: 40px 6%;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  position: relative;
+  z-index: 2;
+}
+
+.footer-content {
+  max-width: 1180px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.footer-logo {
+  height: 42px;
+  width: auto;
+}
+
+/* ==========================================================================
+   CART BUMP (header badge pop on add) — was a referenced-but-undefined class
+   ========================================================================== */
+.icon-btn.bump {
+  animation: cartBump 0.3s var(--ease);
+}
+
+@keyframes cartBump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+
+/* Skeleton card formalization (was relying on glass-card + inline only) */
+.skeleton-card {
+  pointer-events: none;
 }

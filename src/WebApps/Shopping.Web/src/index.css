@@ -1,0 +1,162 @@
+/* Global CSS Overrides & Shimmer Skeleton Loading */
+
+@keyframes shimmerPulse {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.99);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.005);
+  }
+  100% {
+    opacity: 0.4;
+    transform: scale(0.99);
+  }
+}
+
+.shimmer {
+  animation: shimmerPulse 1.6s ease-in-out infinite;
+}
+
+/* Tablet & smaller: hide floating character art (matches Website: char is desktop ≥1024px only) */
+@media (max-width: 1023px) {
+  .hero-char,
+  .hero-char-left {
+    display: none !important;
+  }
+
+  .hero-section,
+  .showcase-section {
+    flex-direction: column !important;
+    justify-content: center !important;
+    text-align: center !important;
+    padding: 100px 24px 50px !important;
+  }
+
+  .hero-content {
+    align-items: center !important;
+    text-align: center !important;
+    max-width: 680px !important;
+    margin: 0 auto;
+  }
+
+  .store-badges {
+    justify-content: center !important;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .cards-grid,
+  .cards-grid-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 20px !important;
+  }
+}
+
+@media (max-width: 767px) {
+  .cards-grid,
+  .cards-grid-3,
+  .project-card {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .project-card > div:first-child {
+    min-height: 220px !important;
+  }
+
+  .project-card > div:last-child {
+    padding: 24px !important;
+  }
+
+  .page-title {
+    font-size: 1.8rem !important;
+  }
+
+  .hero-section,
+  .showcase-section {
+    padding: 85px 16px 40px !important;
+  }
+
+  .cart-drawer {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  .modal-card {
+    width: 95vw !important;
+    padding: 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cards-grid,
+  .cards-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .glass-card,
+  .location-card,
+  .game-showcase-container,
+  .hero-snap-container {
+    padding: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .glass-card {
+    min-height: auto !important;
+  }
+
+  .hero-section,
+  .showcase-section {
+    height: auto !important;
+    min-height: 100vh !important;
+    padding: 70px 12px 30px !important;
+  }
+
+  .location-card {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .cards-grid,
+  .cards-grid-3 {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .glass-card,
+  .location-card,
+  .game-showcase-container,
+  .hero-snap-container {
+    padding: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .glass-card {
+    min-height: auto !important;
+  }
+
+  .page-title, h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+  }
+
+  h3 {
+    font-size: 1.05rem !important;
+  }
+
+  .btn {
+    padding: 8px 12px !important;
+    font-size: 0.85rem !important;
+  }
+}
