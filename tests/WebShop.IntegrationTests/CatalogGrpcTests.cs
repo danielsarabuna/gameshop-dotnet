@@ -6,11 +6,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace WebShop.IntegrationTests;
 
-public sealed class CatalogGrpcTests : IClassFixture<WebApplicationFactory<Catalog.API.Program>>
+public sealed class CatalogGrpcTests : IClassFixture<SeededCatalogFactory>
 {
-    private readonly WebApplicationFactory<Catalog.API.Program> _factory;
+    private readonly SeededCatalogFactory _factory;
 
-    public CatalogGrpcTests(WebApplicationFactory<Catalog.API.Program> factory)
+    public CatalogGrpcTests(SeededCatalogFactory factory)
     {
         _factory = factory;
     }

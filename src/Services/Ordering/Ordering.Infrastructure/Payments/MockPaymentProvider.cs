@@ -24,10 +24,11 @@ public sealed class MockPaymentProvider : IPaymentProvider
         ));
     }
 
-    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
+        // Dev-only provider; the API layer blocks it outside Development.
         var orderId = Guid.NewGuid();
-        return Task.FromResult(new WebhookResult(
+        return Task.FromResult<WebhookResult?>(new WebhookResult(
             OrderId: orderId,
             PaymentId: Guid.NewGuid(),
             EventId: $"mock_evt_{Guid.NewGuid():N}",

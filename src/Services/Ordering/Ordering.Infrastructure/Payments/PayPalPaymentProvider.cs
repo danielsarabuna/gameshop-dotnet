@@ -83,75 +83,11 @@ public class PayPalPaymentProvider : IPaymentProvider
         );
     }
 
-    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(_webhookSecret))
-        {
-            throw new InvalidOperationException("Webhook secret not configured.");
-        }
-
-        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
-        var payload = reader.ReadToEnd();
-
-        try
-        {
-            var json = JsonDocument.Parse(payload);
-            var root = json.RootElement;
-
-            var eventType = root.GetProperty("event_type").GetString();
-
-            if (eventType == "CHECKOUT.ORDER.APPROVED" || eventType == "PAYMENT.CAPTURE.COMPLETED" || eventType == "PAYMENT.CAPTURE.SUCCEEDED")
-            {
-                var resource = root.GetProperty("resource");
-                var orderId = resource.GetProperty("id").GetString();
-
-                Guid parsedOrderId;
-                if (resource.TryGetProperty("custom_id", out var customId))
-                {
-                    parsedOrderId = Guid.Parse(customId.GetString()!);
-                }
-                else
-                {
-                    parsedOrderId = Guid.NewGuid();
-                }
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: parsedOrderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: orderId ?? Guid.NewGuid().ToString(),
-                    Status: "succeeded"
-                ));
-            }
-
-            if (eventType == "PAYMENT.CAPTURE.DENIED" || eventType == "PAYMENT.CAPTURE.REFUNDED" || eventType == "CHECKOUT.ORDER.CANCELLED")
-            {
-                var resource = root.GetProperty("resource");
-                var orderId = resource.GetProperty("id").GetString();
-
-                Guid parsedOrderId;
-                if (resource.TryGetProperty("custom_id", out var customId))
-                {
-                    parsedOrderId = Guid.Parse(customId.GetString()!);
-                }
-                else
-                {
-                    parsedOrderId = Guid.NewGuid();
-                }
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: parsedOrderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: orderId ?? Guid.NewGuid().ToString(),
-                    Status: "failed"
-                ));
-            }
-
-            throw new InvalidOperationException($"Unhandled event type: {eventType}");
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Failed to parse PayPal webhook: {ex.Message}");
-        }
+        // Not a production provider (see docs/payments): webhook verification is intentionally
+        // unimplemented so it can never be trusted by accident.
+        throw new NotImplementedException("PayPal webhook verification is not implemented.");
     }
 
     private async Task EnsureAccessTokenAsync(CancellationToken cancellationToken)

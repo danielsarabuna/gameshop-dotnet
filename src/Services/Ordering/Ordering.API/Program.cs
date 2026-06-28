@@ -11,8 +11,11 @@ using EventBus;
 using EventBus.RabbitMq;
 using Catalog.Grpc;
 using System.Text.Json.Serialization;
+using System.Text.Json;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using BuildingBlocks.Exceptions;
+using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -160,56 +163,15 @@ app.UseCors();
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 
-app.MapPost("/api/v1/orders", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
-{
-    ValidateUserAuthorization(httpContext, request.GameUserId);
-    var result = await handler.HandleAsync(request, cancellationToken);
-    return Results.Created($"/api/v1/orders/{result.OrderId}", result);
-});
+app.MapPost("/api/v1/orders", CreateOrder);
+app.MapPost("/api/v1/orders/create", CreateOrder);
+app.MapPost("/orders/create", CreateOrder);
 
-app.MapPost("/api/v1/orders/create", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
-{
-    ValidateUserAuthorization(httpContext, request.GameUserId);
-    var result = await handler.HandleAsync(request, cancellationToken);
-    return Results.Created($"/api/v1/orders/{result.OrderId}", result);
-});
+app.MapGet("/api/v1/orders/{id:guid}", GetOrder);
+app.MapGet("/orders/{id:guid}", GetOrder);
 
-app.MapPost("/orders/create", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
-{
-    ValidateUserAuthorization(httpContext, request.GameUserId);
-    var result = await handler.HandleAsync(request, cancellationToken);
-    return Results.Created($"/orders/{result.OrderId}", result);
-});
-
-app.MapGet("/api/v1/orders/{id:guid}", async (Guid id, HttpContext httpContext, IOrderRepository repository, CancellationToken cancellationToken) =>
-{
-    var order = await repository.GetAsync(id, cancellationToken);
-    if (order is null) return Results.NotFound();
-
-    ValidateUserAuthorization(httpContext, order.GameUserId);
-    return Results.Ok(order);
-});
-
-app.MapGet("/orders/{id:guid}", async (Guid id, HttpContext httpContext, IOrderRepository repository, CancellationToken cancellationToken) =>
-{
-    var order = await repository.GetAsync(id, cancellationToken);
-    if (order is null) return Results.NotFound();
-
-    ValidateUserAuthorization(httpContext, order.GameUserId);
-    return Results.Ok(order);
-});
-
-app.MapPost("/api/v1/promocodes/apply", async (ApplyPromoCodeRequest request, ApplyPromoCodeHandler handler, CancellationToken cancellationToken) =>
-{
-    var result = await handler.HandleAsync(request, cancellationToken);
-    return Results.Ok(result);
-});
-
-app.MapPost("/promocodes/apply", async (ApplyPromoCodeRequest request, ApplyPromoCodeHandler handler, CancellationToken cancellationToken) =>
-{
-    var result = await handler.HandleAsync(request, cancellationToken);
-    return Results.Ok(result);
-});
+app.MapPost("/api/v1/promocodes/apply", ApplyPromoCode);
+app.MapPost("/promocodes/apply", ApplyPromoCode);
 
 app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 {
@@ -217,183 +179,153 @@ app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
     return Results.Ok(methods);
 });
 
-app.MapPost("/api/v1/payments/{provider}", async (
-    string provider,
-    CreatePaymentRequest request,
-    CreatePaymentHandler handler,
-    CancellationToken cancellationToken) =>
-{
-    if (!TryParseProvider(provider, out var method))
-    {
-        return Results.BadRequest(new { error = "Unknown provider." });
-    }
+app.MapPost("/api/v1/payments/{provider}", CreatePayment);
+app.MapPost("/payments/{provider}", CreatePayment);
 
-    try
-    {
-        var result = await handler.HandleAsync(request.OrderId, method, cancellationToken);
-        return Results.Ok(result);
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-});
-
-app.MapPost("/payments/{provider}", async (
-    string provider,
-    CreatePaymentRequest request,
-    CreatePaymentHandler handler,
-    CancellationToken cancellationToken) =>
-{
-    if (!TryParseProvider(provider, out var method))
-    {
-        return Results.BadRequest(new { error = "Unknown provider." });
-    }
-
-    try
-    {
-        var result = await handler.HandleAsync(request.OrderId, method, cancellationToken);
-        return Results.Ok(result);
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-});
-
-app.MapPost("/api/v1/webhooks/{provider}", async (
-    HttpRequest httpRequest,
-    string provider,
-    HandleWebhookHandler handler,
-    IPaymentProviderAccessor accessor,
-    IConfiguration configuration,
-    CancellationToken cancellationToken) =>
-{
-    if (!TryParseProvider(provider, out var method))
-    {
-        return Results.BadRequest(new { error = "Unknown provider." });
-    }
-
-    var secret = configuration[$"Webhooks:{provider}:Secret"] ?? configuration["Webhooks:Secret"];
-    var signature = httpRequest.Headers["X-Webhook-Secret"].ToString();
-
-    if (!string.IsNullOrWhiteSpace(secret) && !string.Equals(signature, secret, StringComparison.Ordinal))
-    {
-        return Results.Unauthorized();
-    }
-
-    using var reader = new StreamReader(httpRequest.Body);
-    var body = await reader.ReadToEndAsync(cancellationToken);
-    var bodyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body));
-
-    var providerInstance = accessor.GetProvider(method);
-    WebhookResult? webhookResult = null;
-
-    if (providerInstance is not null)
-    {
-        try
-        {
-            webhookResult = await providerInstance.ParseWebhookAsync(bodyStream, signature, cancellationToken);
-        }
-        catch (NotImplementedException)
-        {
-        }
-    }
-
-    if (webhookResult is null)
-    {
-        return Results.BadRequest(new { error = "Webhook parsing not implemented." });
-    }
-
-    var request = new PaymentWebhookRequest(
-        webhookResult.EventId,
-        webhookResult.OrderId,
-        webhookResult.PaymentId,
-        webhookResult.Status
-    );
-
-    try
-    {
-        var processed = await handler.HandleAsync(method, request, cancellationToken);
-        return Results.Ok(new { processed });
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-});
-
-app.MapPost("/webhooks/{provider}", async (
-    HttpRequest httpRequest,
-    string provider,
-    HandleWebhookHandler handler,
-    IPaymentProviderAccessor accessor,
-    IConfiguration configuration,
-    CancellationToken cancellationToken) =>
-{
-    if (!TryParseProvider(provider, out var method))
-    {
-        return Results.BadRequest(new { error = "Unknown provider." });
-    }
-
-    var secret = configuration[$"Webhooks:{provider}:Secret"] ?? configuration["Webhooks:Secret"];
-    var signature = httpRequest.Headers["X-Webhook-Secret"].ToString();
-
-    if (!string.IsNullOrWhiteSpace(secret) && !string.Equals(signature, secret, StringComparison.Ordinal))
-    {
-        return Results.Unauthorized();
-    }
-
-    using var reader = new StreamReader(httpRequest.Body);
-    var body = await reader.ReadToEndAsync(cancellationToken);
-    var bodyStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(body));
-
-    var providerInstance = accessor.GetProvider(method);
-    WebhookResult? webhookResult = null;
-
-    if (providerInstance is not null)
-    {
-        try
-        {
-            webhookResult = await providerInstance.ParseWebhookAsync(bodyStream, signature, cancellationToken);
-        }
-        catch (NotImplementedException)
-        {
-        }
-    }
-
-    if (webhookResult is null)
-    {
-        return Results.BadRequest(new { error = "Webhook parsing not implemented." });
-    }
-
-    var request = new PaymentWebhookRequest(
-        webhookResult.EventId,
-        webhookResult.OrderId,
-        webhookResult.PaymentId,
-        webhookResult.Status
-    );
-
-    try
-    {
-        var processed = await handler.HandleAsync(method, request, cancellationToken);
-        return Results.Ok(new { processed });
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-});
+app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook);
+app.MapPost("/webhooks/{provider}", HandleWebhook);
 
 await app.RunAsync();
+
+static async Task<IResult> CreateOrder(CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken)
+{
+    ValidateUserAuthorization(httpContext, request.GameUserId);
+    var result = await handler.HandleAsync(request, cancellationToken);
+    return Results.Created($"/api/v1/orders/{result.OrderId}", result);
+}
+
+static async Task<IResult> GetOrder(Guid id, HttpContext httpContext, IOrderRepository repository, CancellationToken cancellationToken)
+{
+    var order = await repository.GetAsync(id, cancellationToken);
+    if (order is null) return Results.NotFound();
+
+    ValidateUserAuthorization(httpContext, order.GameUserId);
+    return Results.Ok(order);
+}
+
+static async Task<IResult> ApplyPromoCode(ApplyPromoCodeRequest request, ApplyPromoCodeHandler handler, CancellationToken cancellationToken)
+{
+    var result = await handler.HandleAsync(request, cancellationToken);
+    return Results.Ok(result);
+}
+
+static async Task<IResult> CreatePayment(
+    string provider,
+    CreatePaymentRequest request,
+    CreatePaymentHandler handler,
+    CancellationToken cancellationToken)
+{
+    if (!TryParseProvider(provider, out var method))
+    {
+        return Results.BadRequest(new { error = "Unknown provider." });
+    }
+
+    try
+    {
+        var result = await handler.HandleAsync(request.OrderId, method, cancellationToken);
+        return Results.Ok(result);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}
+
+// Fail-closed webhook pipeline:
+//   1. provider unknown → 400
+//   2. provider not configured (no credentials) → 503
+//   3. cryptographic/source verification fails inside ParseWebhookAsync → 401
+//   4. valid signature but malformed payload → 400
+// There is deliberately NO shared-secret bypass: every provider must pass its own verification.
+static async Task<IResult> HandleWebhook(
+    HttpContext httpContext,
+    string provider,
+    HandleWebhookHandler handler,
+    IPaymentProviderAccessor accessor,
+    CancellationToken cancellationToken)
+{
+    if (!TryParseProvider(provider, out var method))
+    {
+        return Results.BadRequest(new { error = "Unknown provider." });
+    }
+
+    if (method == DomainPaymentMethod.MockProvider && !httpContext.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment())
+    {
+        return Results.NotFound();
+    }
+
+    var providerInstance = accessor.GetProvider(method);
+    if (providerInstance is null)
+    {
+        return Results.Json(new { error = "Provider not configured." }, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    using var reader = new StreamReader(httpContext.Request.Body);
+    var body = await reader.ReadToEndAsync(cancellationToken);
+
+    var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    foreach (var (key, values) in httpContext.Request.Headers)
+    {
+        headers[key] = values.ToString();
+    }
+
+    var envelope = new WebhookEnvelope(
+        Body: body,
+        Headers: headers,
+        RemoteIp: httpContext.Connection.RemoteIpAddress?.ToString());
+
+    WebhookResult? webhookResult;
+    try
+    {
+        webhookResult = await providerInstance.ParseWebhookAsync(envelope, cancellationToken);
+    }
+    catch (OperationCanceledException)
+    {
+        throw;
+    }
+    catch (NotImplementedException)
+    {
+        return Results.Json(new { error = "Webhook verification not implemented for this provider." }, statusCode: StatusCodes.Status501NotImplemented);
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException or CryptographicException)
+    {
+        // Authenticity failure — do not leak details to the caller.
+        return Results.Unauthorized();
+    }
+    catch (Exception ex) when (ex is InvalidOperationException or JsonException or FormatException)
+    {
+        // Verified source but unusable payload — non-2xx makes the provider retry.
+        return Results.BadRequest(new { error = "Invalid webhook payload." });
+    }
+
+    if (webhookResult is null)
+    {
+        // Authentic but non-terminal notification (e.g. waiting_for_capture) — acknowledge it.
+        return Results.Ok(new { processed = false });
+    }
+
+    var request = new PaymentWebhookRequest(
+        webhookResult.EventId,
+        webhookResult.OrderId,
+        webhookResult.PaymentId,
+        webhookResult.Status,
+        webhookResult.Amount,
+        webhookResult.Currency);
+
+    try
+    {
+        var processed = await handler.HandleAsync(method, request, cancellationToken);
+        return Results.Ok(new { processed });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+}
 
 static bool TryParseProvider(string provider, out Ordering.Domain.Payments.PaymentMethod method)
 {

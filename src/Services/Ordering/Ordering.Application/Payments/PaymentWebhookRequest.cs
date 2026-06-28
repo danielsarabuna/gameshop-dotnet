@@ -4,6 +4,8 @@ public sealed record PaymentWebhookRequest(
     string EventId,
     Guid OrderId,
     Guid PaymentId,
-    string Status
+    string Status,
+    decimal? Amount = null,
+    string? Currency = null
 );
 

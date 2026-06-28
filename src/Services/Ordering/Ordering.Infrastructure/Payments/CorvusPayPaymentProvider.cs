@@ -86,65 +86,10 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         );
     }
 
-    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrEmpty(_webhookSecret))
-        {
-            throw new InvalidOperationException("Webhook secret not configured.");
-        }
-
-        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
-        var payload = reader.ReadToEnd();
-
-        try
-        {
-            var json = JsonDocument.Parse(payload);
-            var root = json.RootElement;
-
-            if (root.TryGetProperty("type", out var typeElement))
-            {
-                var eventType = typeElement.GetString();
-
-                if (eventType == "payment_success" || eventType == "payment_authorized")
-                {
-                    var transactionId = root.TryGetProperty("transaction_id", out var id) ? id.GetString() : null;
-                    var orderIdStr = root.TryGetProperty("order_number", out var orderNum) ? orderNum.GetString() : null;
-
-                    var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed) 
-                        ? parsed 
-                        : Guid.NewGuid();
-
-                    return Task.FromResult(new WebhookResult(
-                        OrderId: orderId,
-                        PaymentId: Guid.NewGuid(),
-                        EventId: transactionId ?? Guid.NewGuid().ToString(),
-                        Status: "succeeded"
-                    ));
-                }
-
-                if (eventType == "payment_declined" || eventType == "payment_canceled")
-                {
-                    var transactionId = root.TryGetProperty("transaction_id", out var id) ? id.GetString() : null;
-                    var orderIdStr = root.TryGetProperty("order_number", out var orderNum) ? orderNum.GetString() : null;
-
-                    var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed) 
-                        ? parsed 
-                        : Guid.NewGuid();
-
-                    return Task.FromResult(new WebhookResult(
-                        OrderId: orderId,
-                        PaymentId: Guid.NewGuid(),
-                        EventId: transactionId ?? Guid.NewGuid().ToString(),
-                        Status: "failed"
-                    ));
-                }
-            }
-
-            throw new InvalidOperationException("Unknown CorvusPay webhook event");
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException($"Failed to parse CorvusPay webhook: {ex.Message}");
-        }
+        // Not a production provider (see docs/payments): webhook verification is intentionally
+        // unimplemented so it can never be trusted by accident.
+        throw new NotImplementedException("CorvusPay webhook verification is not implemented.");
     }
 }

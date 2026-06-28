@@ -1,4 +1,4 @@
-using System.Text;
+using System.Security.Cryptography;
 using Ordering.Application.Payments;
 using Ordering.Domain.Payments;
 using Stripe;
@@ -46,77 +46,55 @@ public class StripePaymentProvider : IPaymentProvider
         );
     }
 
-    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_webhookSecret))
         {
-            throw new InvalidOperationException("Webhook secret not configured.");
+            throw new InvalidOperationException("Stripe webhook secret is not configured.");
         }
 
-        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
-        var payload = reader.ReadToEnd();
+        if (!envelope.Headers.TryGetValue("Stripe-Signature", out var signature))
+        {
+            throw new UnauthorizedAccessException("Missing Stripe-Signature header.");
+        }
 
+        // Official SDK check: HMAC-SHA256 over (timestamp + body) with replay-window tolerance.
+        Event stripeEvent;
         try
         {
-            var json = System.Text.Json.JsonDocument.Parse(payload);
-            var root = json.RootElement;
-
-            var eventType = root.GetProperty("type").GetString();
-
-            if (eventType == "payment_intent.succeeded")
-            {
-                var data = root.GetProperty("data").GetProperty("object");
-                var paymentIntentId = data.GetProperty("id").GetString();
-                var amount = data.GetProperty("amount").GetInt64();
-                var metadata = data.GetProperty("metadata");
-
-                Guid orderId;
-                if (metadata.TryGetProperty("order_id", out var orderIdElement))
-                {
-                    orderId = Guid.Parse(orderIdElement.GetString()!);
-                }
-                else
-                {
-                    orderId = Guid.NewGuid();
-                }
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: orderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: paymentIntentId ?? Guid.NewGuid().ToString(),
-                    Status: "succeeded"
-                ));
-            }
-
-            if (eventType == "payment_intent.payment_failed")
-            {
-                var data = root.GetProperty("data").GetProperty("object");
-                var paymentIntentId = data.GetProperty("id").GetString();
-                var metadata = data.GetProperty("metadata");
-
-                Guid orderId;
-                if (metadata.TryGetProperty("order_id", out var orderIdElement))
-                {
-                    orderId = Guid.Parse(orderIdElement.GetString()!);
-                }
-                else
-                {
-                    orderId = Guid.NewGuid();
-                }
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: orderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: paymentIntentId ?? Guid.NewGuid().ToString(),
-                    Status: "failed"
-                ));
-            }
-
-            throw new InvalidOperationException($"Unhandled event type: {eventType}");
+            stripeEvent = EventUtility.ConstructEvent(envelope.Body, signature, _webhookSecret);
         }
-        catch (Exception ex)
+        catch (StripeException ex)
         {
-            throw new InvalidOperationException($"Failed to parse Stripe webhook: {ex.Message}");
+            throw new CryptographicException("Stripe signature verification failed.", ex);
+        }
+
+        switch (stripeEvent.Type)
+        {
+            case Events.PaymentIntentSucceeded:
+            case Events.PaymentIntentPaymentFailed:
+                var intent = stripeEvent.Data.Object as PaymentIntent
+                    ?? throw new InvalidOperationException($"Cannot deserialize {stripeEvent.Type} payload.");
+
+                var orderId = intent.Metadata is not null && intent.Metadata.TryGetValue("order_id", out var rawOrderId)
+                    && Guid.TryParse(rawOrderId, out var parsedOrderId)
+                        ? parsedOrderId
+                        : throw new InvalidOperationException("Stripe event is missing metadata.order_id.");
+
+                // Amount arrives in minor units; convert for order-total validation.
+                var amount = intent.Amount / 100m;
+
+                return Task.FromResult<WebhookResult?>(new WebhookResult(
+                    OrderId: orderId,
+                    PaymentId: Guid.NewGuid(),
+                    EventId: stripeEvent.Id,
+                    Status: stripeEvent.Type == Events.PaymentIntentSucceeded ? "succeeded" : "failed",
+                    Amount: amount,
+                    Currency: string.IsNullOrWhiteSpace(intent.Currency) ? null : intent.Currency.ToUpperInvariant()));
+
+            default:
+                // Authentic but non-terminal events are acknowledged without side effects.
+                return Task.FromResult<WebhookResult?>(null);
         }
     }
 

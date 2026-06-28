@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Ordering.Application.Payments;
@@ -10,6 +11,7 @@ namespace Ordering.Infrastructure.Payments;
 
 public class XsollaPaymentProvider : IPaymentProvider
 {
+    private const string SignaturePrefix = "Signature ";
     private readonly string _merchantId;
     private readonly string _apiKey;
     private readonly string _projectId;
@@ -86,82 +88,98 @@ public class XsollaPaymentProvider : IPaymentProvider
         );
     }
 
-    public Task<WebhookResult> ParseWebhookAsync(Stream body, string? signature, CancellationToken cancellationToken)
+    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
         if (string.IsNullOrEmpty(_webhookSecret))
         {
-            throw new InvalidOperationException("Webhook secret not configured.");
+            throw new InvalidOperationException("Xsolla webhook secret is not configured.");
         }
 
-        using var reader = new StreamReader(body, Encoding.UTF8, leaveOpen: true);
-        var payload = reader.ReadToEnd();
+        // Documented Xsolla scheme: Authorization: "Signature <sha1_hex(md5_hex(body + secret))>".
+        if (!envelope.Headers.TryGetValue("Authorization", out var authorization)
+            || !VerifySignature(envelope.Body, _webhookSecret, authorization))
+        {
+            throw new CryptographicException("Xsolla webhook signature verification failed.");
+        }
 
         try
         {
-            var json = JsonDocument.Parse(payload);
-            var root = json.RootElement;
+            var root = JsonDocument.Parse(envelope.Body).RootElement;
 
-            var eventType = root.TryGetProperty("event", out var eventProp) 
-                ? eventProp.GetString() 
-                : root.TryGetProperty("notification_type", out var notifProp) 
-                    ? notifProp.GetString() 
-                    : null;
+            var notificationType = root.TryGetProperty("notification_type", out var notifProp)
+                ? notifProp.GetString()
+                : null;
 
-            if (eventType == "payment" || eventType == "payment_success" || eventType == "order_paid")
+            switch (notificationType)
             {
-                var orderIdStr = root.TryGetProperty("external_id", out var extId) 
-                    ? extId.GetString() 
-                    : root.TryGetProperty("custom_parameters", out var custom) && custom.TryGetProperty("order_id", out var orderIdProp)
-                        ? orderIdProp.GetString()
-                        : null;
-
-                var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed)
-                    ? parsed
-                    : Guid.NewGuid();
-
-                var transactionId = root.TryGetProperty("transaction_id", out var transId) 
-                    ? transId.GetString() 
-                    : null;
-                transactionId ??= Guid.NewGuid().ToString();
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: orderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: transactionId,
-                    Status: "succeeded"
-                ));
+                case "payment":
+                    return Task.FromResult<WebhookResult?>(BuildResult(root, "succeeded"));
+                case "refund":
+                case "canceled":
+                    return Task.FromResult<WebhookResult?>(BuildResult(root, "failed"));
+                default:
+                    // user_validation / user_search etc. — acknowledged, no side effects.
+                    return Task.FromResult<WebhookResult?>(null);
             }
-
-            if (eventType == "payment_declined" || eventType == "payment_canceled" || eventType == "refund")
-            {
-                var orderIdStr = root.TryGetProperty("external_id", out var extId)
-                    ? extId.GetString()
-                    : root.TryGetProperty("custom_parameters", out var custom) && custom.TryGetProperty("order_id", out var orderIdProp)
-                        ? orderIdProp.GetString()
-                        : null;
-
-                var orderId = !string.IsNullOrEmpty(orderIdStr) && Guid.TryParse(orderIdStr, out var parsed)
-                    ? parsed
-                    : Guid.NewGuid();
-
-                var transactionId = root.TryGetProperty("transaction_id", out var transId)
-                    ? transId.GetString()
-                    : null;
-                transactionId ??= Guid.NewGuid().ToString();
-
-                return Task.FromResult(new WebhookResult(
-                    OrderId: orderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: transactionId,
-                    Status: "failed"
-                ));
-            }
-
-            throw new InvalidOperationException($"Unhandled Xsolla event type: {eventType}");
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or FormatException)
         {
             throw new InvalidOperationException($"Failed to parse Xsolla webhook: {ex.Message}");
         }
+    }
+
+    private static WebhookResult BuildResult(JsonElement root, string status)
+    {
+        var orderIdStr =
+            root.TryGetProperty("external_id", out var extId) ? extId.GetString()
+            : root.TryGetProperty("custom_parameters", out var custom) && custom.TryGetProperty("order_id", out var orderIdProp)
+                ? orderIdProp.GetString()
+                : null;
+
+        if (string.IsNullOrEmpty(orderIdStr) || !Guid.TryParse(orderIdStr, out var orderId))
+        {
+            throw new InvalidOperationException("Xsolla webhook is missing a valid order reference.");
+        }
+
+        var transactionId = root.TryGetProperty("transaction_id", out var transId)
+            ? transId.GetString()
+            : null;
+        transactionId ??= Guid.NewGuid().ToString();
+
+        decimal? amount = null;
+        string? currency = null;
+        if (root.TryGetProperty("purchase", out var purchase)
+            && purchase.TryGetProperty("checkout", out var checkout)
+            && checkout.TryGetProperty("amount", out var amountEl)
+            && amountEl.TryGetDecimal(out var parsedAmount))
+        {
+            amount = parsedAmount;
+            currency = checkout.TryGetProperty("currency", out var curEl) ? curEl.GetString() : null;
+        }
+
+        return new WebhookResult(
+            OrderId: orderId,
+            PaymentId: Guid.NewGuid(),
+            EventId: transactionId,
+            Status: status,
+            Amount: amount,
+            Currency: currency);
+    }
+
+    public static bool VerifySignature(string body, string secret, string? authorizationHeader)
+    {
+        if (string.IsNullOrEmpty(authorizationHeader)
+            || !authorizationHeader.StartsWith(SignaturePrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        var provided = authorizationHeader[SignaturePrefix.Length..].Trim();
+        var md5Hex = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(body + secret)));
+        var expected = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(md5Hex)));
+
+        return CryptographicOperations.FixedTimeEquals(
+            Encoding.UTF8.GetBytes(expected),
+            Encoding.UTF8.GetBytes(provided));
     }
 }
