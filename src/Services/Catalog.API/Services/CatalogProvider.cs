@@ -180,8 +180,53 @@ public sealed class CatalogProvider : ICatalogProvider
         return null;
     }
 
+    /// <summary>
+    /// Structural validation of a fetched remote config (see docs/webshop-config.schema.json).
+    /// Invalid configs are treated as absent so a broken deploy can never poison the shop.
+    /// </summary>
     private static bool IsValidCatalog(WebShopCatalogJsonDto? dto)
-        => dto is { Items: { Count: > 0 } };
+    {
+        if (dto is not { Items: { Count: > 0 } })
+        {
+            return false;
+        }
+
+        foreach (var item in dto.Items)
+        {
+            if (string.IsNullOrWhiteSpace(item.Id) || string.IsNullOrWhiteSpace(item.Title))
+            {
+                return false;
+            }
+
+            if (item.Price < 0m)
+            {
+                return false;
+            }
+
+            if (string.IsNullOrEmpty(item.Currency) || item.Currency.Length != 3)
+            {
+                return false;
+            }
+
+            if (!Enum.TryParse<CatalogProductType>(item.Type, ignoreCase: true, out _))
+            {
+                return false;
+            }
+        }
+
+        if (dto.PaymentProviders is not null)
+        {
+            foreach (var provider in dto.PaymentProviders)
+            {
+                if (string.IsNullOrWhiteSpace(provider.Id))
+                {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
 
     private async Task<List<CatalogItem>> BuildDomainItemsAsync(WebShopCatalogJsonDto dto, string region, string store, string gameVersion, CancellationToken ct)
     {
