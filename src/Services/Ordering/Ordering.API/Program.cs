@@ -216,9 +216,9 @@ app.MapPost("/promocodes/apply", async (ApplyPromoCodeRequest request, ApplyProm
     return Results.Ok(result);
 });
 
-app.MapGet("/api/v1/payment-methods", () =>
+app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 {
-    var methods = PaymentMethodsData.GetAvailableMethods();
+    var methods = PaymentMethodsData.GetAvailableMethods(accessor.GetAvailableMethods());
     return Results.Ok(methods);
 });
 
@@ -242,6 +242,10 @@ app.MapPost("/api/v1/payments/{provider}", async (
     {
         return Results.BadRequest(new { error = ex.Message });
     }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
 });
 
 app.MapPost("/payments/{provider}", async (
@@ -261,6 +265,10 @@ app.MapPost("/payments/{provider}", async (
         return Results.Ok(result);
     }
     catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
     }

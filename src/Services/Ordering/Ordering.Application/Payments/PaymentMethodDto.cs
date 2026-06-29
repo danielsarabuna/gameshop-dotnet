@@ -10,15 +10,23 @@ public sealed record PaymentMethodDto(
 
 public static class PaymentMethodsData
 {
-    public static IReadOnlyList<PaymentMethodDto> GetAvailableMethods()
+    public static IReadOnlyList<PaymentMethodDto> GetAvailableMethods(IEnumerable<PaymentMethod> methods)
     {
-        return
-        [
-            new PaymentMethodDto("stripe", "Stripe", null),
-            new PaymentMethodDto("paypal", "PayPal", null),
-            new PaymentMethodDto("yookassa", "YooKassa", null),
-            new PaymentMethodDto("corvuspay", "CorvusPay", null),
-            new PaymentMethodDto("xsolla", "Xsolla", null)
-        ];
+        return methods
+            .Where(method => method != PaymentMethod.Unspecified)
+            .Distinct()
+            .OrderBy(method => (int)method)
+            .Select(method => method switch
+            {
+                PaymentMethod.Stripe => new PaymentMethodDto("stripe", "Stripe", null),
+                PaymentMethod.PayPal => new PaymentMethodDto("paypal", "PayPal", null),
+                PaymentMethod.YooKassa => new PaymentMethodDto("yookassa", "YooKassa", null),
+                PaymentMethod.CorvusPay => new PaymentMethodDto("corvuspay", "CorvusPay", null),
+                PaymentMethod.Xsolla => new PaymentMethodDto("xsolla", "Xsolla", null),
+                _ => null
+            })
+            .Where(method => method is not null)
+            .Cast<PaymentMethodDto>()
+            .ToArray();
     }
 }

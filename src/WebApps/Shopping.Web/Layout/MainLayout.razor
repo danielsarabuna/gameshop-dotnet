@@ -194,7 +194,7 @@
 	                    @Lang.T("Скидка:", "Discount:", "Rabatt:", "Remise :", "Descuento:") @FormatMoney(PromoDiscountAmount)
 	                </div>
 	            }
-	            <button class="cart-checkout" type="button" disabled="@(!CanCheckout)" @onclick="Checkout">@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
+	            <button class="cart-checkout" type="button" disabled="@(!CanCheckout || CheckoutBusy)" @onclick="Checkout">@Lang.T("Оформить заказ", "Checkout", "Bestellen", "Commander", "Finalizar")</button>
 	            @if (!string.IsNullOrWhiteSpace(CheckoutMessage))
 	            {
 	                <div class="muted" style="margin-top: 10px;">@CheckoutMessage</div>
@@ -220,6 +220,7 @@
 	    private string PlayerEmail = string.Empty;
 	    private string SelectedPaymentMethod = string.Empty;
 	    private string? CheckoutMessage;
+	    private bool CheckoutBusy;
 	    private IReadOnlyList<PaymentMethodInfo> _paymentMethods = [];
 	    private bool PaymentMethodsLoadFailed;
 
@@ -474,19 +475,82 @@
 
     private void OnPaymentMethodChanged() => CheckoutMessage = null;
 
-    private void Checkout()
+    private async Task Checkout()
     {
         if (!CanCheckout)
         {
             return;
         }
 
-        CheckoutMessage = Lang.T(
-            "Данные для заказа заполнены. Далее можно отправлять запрос на оплату.",
-            "Checkout details are complete. You can now send the payment request.",
-            "Die Checkout-Daten sind vollständig. Der Zahlungsrequest kann jetzt gesendet werden.",
-            "Les informations de commande sont completees. Vous pouvez maintenant envoyer la demande de paiement.",
-            "Los datos de checkout estan completos. Ahora puedes enviar la solicitud de pago.");
+        var lines = new List<CreateOrderLinePayload>(Cart.Lines.Count);
+        foreach (var line in Cart.Lines)
+        {
+            if (!TryParseProductId(line.Sku, out var productId))
+            {
+                CheckoutMessage = Lang.T(
+                    "Не удалось распознать товар в корзине. Обновите страницу и попробуйте снова.",
+                    "Could not resolve a cart item. Refresh the page and try again.",
+                    "Ein Warenkorb-Artikel konnte nicht erkannt werden. Bitte Seite neu laden und erneut versuchen.",
+                    "Un article du panier n’a pas pu être identifié. Rechargez la page et réessayez.",
+                    "No se pudo identificar un artículo del carrito. Recarga la página e inténtalo de nuevo.");
+                return;
+            }
+
+            lines.Add(new CreateOrderLinePayload(productId, line.Quantity));
+        }
+
+        CheckoutBusy = true;
+        CheckoutMessage = null;
+
+        try
+        {
+            var orderRequest = new CreateOrderPayload(
+                PlayerId.Trim(),
+                ToApiPaymentMethod(SelectedPaymentMethod),
+                lines,
+                string.IsNullOrWhiteSpace(AppliedPromoCode) ? null : AppliedPromoCode);
+
+            var orderResult = await Payments.CreateOrderAsync(orderRequest);
+            if (!orderResult.IsSuccess || orderResult.Value is null)
+            {
+                CheckoutMessage = orderResult.Error ?? Lang.T(
+                    "Не удалось создать заказ.",
+                    "Could not create the order.",
+                    "Die Bestellung konnte nicht erstellt werden.",
+                    "Impossible de créer la commande.",
+                    "No se pudo crear el pedido.");
+                return;
+            }
+
+            var paymentResult = await Payments.CreatePaymentAsync(orderResult.Value.OrderId, SelectedPaymentMethod);
+            if (!paymentResult.IsSuccess || paymentResult.Value is null)
+            {
+                CheckoutMessage = paymentResult.Error ?? Lang.T(
+                    "Заказ создан, но платёж не удалось подготовить.",
+                    "The order was created, but the payment could not be prepared.",
+                    "Die Bestellung wurde erstellt, aber die Zahlung konnte nicht vorbereitet werden.",
+                    "La commande a été créée, mais le paiement n’a pas pu être préparé.",
+                    "El pedido se creó, pero no se pudo preparar el pago.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(paymentResult.Value.CheckoutUrl))
+            {
+                CheckoutMessage = Lang.T(
+                    "Платёж создан, но ссылка на оплату не пришла.",
+                    "The payment was created, but no checkout URL was returned.",
+                    "Die Zahlung wurde erstellt, aber es wurde keine Checkout-URL zurückgegeben.",
+                    "Le paiement a été créé, mais aucune URL de paiement n’a été renvoyée.",
+                    "El pago se creó, pero no se devolvió ningún enlace de pago.");
+                return;
+            }
+
+            Nav.NavigateTo(paymentResult.Value.CheckoutUrl, forceLoad: true);
+        }
+        finally
+        {
+            CheckoutBusy = false;
+        }
     }
 
     private static bool IsValidEmail(string value)
@@ -535,6 +599,16 @@
 	        var idText = sku[(idx + 1)..].Trim();
 	        return Guid.TryParse(idText, out productId);
 	    }
+
+	    private static string ToApiPaymentMethod(string paymentMethodCode) => paymentMethodCode.Trim().ToLowerInvariant() switch
+	    {
+	        "stripe" => "Stripe",
+	        "paypal" => "PayPal",
+	        "yookassa" => "YooKassa",
+	        "corvuspay" => "CorvusPay",
+	        "xsolla" => "Xsolla",
+	        _ => paymentMethodCode
+	    };
 
 	    private static string FormatMoney(decimal value) => $"€{value:0.00}";
 
