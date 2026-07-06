@@ -155,7 +155,7 @@ public static class LoggingBuilderExtensions
     {
         if (app.Configuration.GetValue<bool>("Otel:Enabled"))
         {
-            app.MapPrometheusScrapingEndpoint();
+            app.MapPrometheusScrapingEndpoint().AllowAnonymous();
         }
         return app;
     }

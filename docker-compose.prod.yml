@@ -1,0 +1,271 @@
+# Production topology: one VPS, docker compose -f docker-compose.prod.yml up -d
+#
+# Differences from the dev docker-compose.yml:
+#   - only Caddy publishes ports (80/443); every service and database lives on
+#     the internal `backend` network and is unreachable from the host
+#   - Basket/Ordering validate Keycloak JWTs themselves (Auth__Enabled=true),
+#     so a compromised container cannot impersonate users
+#   - payment provider credentials and the Supabase service key come from
+#     .env.prod (see .env.prod.example) — never commit real values
+#
+# Secrets matrix (all required unless noted):
+#   SHOP_DOMAIN                      public DNS name, e.g. shop.example.com
+#   POSTGRES_PASSWORD / MONGO creds  databases (dev defaults are NOT used here)
+#   KEYCLOAK_ADMIN(_PASSWORD)        realm administration
+#   Payments__YooKassa__*            shopId + secretKey (+ optional TrustedIps)
+#   Payments__Stripe__SecretKey      sk_live_… (+ WebhookSecret whsec_…)
+#   Payments__Xsolla__*              merchantId + apiKey + projectId (+ WebhookSecret)
+#   Supabase__Url / __ServiceRoleKey game backend writes (orders delivery, identity)
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SHOP_DOMAIN: ${SHOP_DOMAIN}
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+      - apigateway
+    networks:
+      - frontend
+
+  web:
+    build:
+      context: .
+      dockerfile: src/WebApps/Shopping.Web/Dockerfile
+    restart: unless-stopped
+    networks:
+      - frontend
+
+  apigateway:
+    build:
+      context: .
+      dockerfile: src/ApiGateway/WebShop.ApiGateway/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      Otel__Enabled: "true"
+      Otel__Endpoint: http://jaeger:4317
+      Auth__Enabled: "true"
+      Auth__Authority: http://keycloak:8080/realms/webshop
+      Auth__Audience: webshop-api
+      # Tokens carry the PUBLIC issuer; services reach Keycloak internally.
+      Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
+      Auth__RequireHttpsMetadata: "false" # internal discovery call is plain http
+      Cors__Origins__0: https://${SHOP_DOMAIN}
+    depends_on:
+      catalog-api:
+        condition: service_healthy
+      basket-api:
+        condition: service_healthy
+      ordering-api:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - frontend
+      - backend
+
+  catalog-api:
+    build:
+      context: .
+      dockerfile: src/Services/Catalog.API/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      Catalog__Storage: Mongo
+      Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
+      Otel__Enabled: "true"
+      Otel__Endpoint: http://jaeger:4317
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - backend
+
+  basket-api:
+    build:
+      context: .
+      dockerfile: src/Services/Basket.API/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      Basket__Storage: Redis
+      Basket__Redis__ConnectionString: redis:6379
+      EventBus__Provider: RabbitMq
+      EventBus__RabbitMq__Host: rabbitmq
+      EventBus__RabbitMq__Username: ${RABBITMQ_USER}
+      EventBus__RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Auth__Enabled: "true"
+      Auth__Authority: http://keycloak:8080/realms/webshop
+      Auth__Audience: webshop-api
+      Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
+      Auth__RequireHttpsMetadata: "false"
+      Otel__Enabled: "true"
+      Otel__Endpoint: http://jaeger:4317
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+
+  ordering-api:
+    build:
+      context: .
+      dockerfile: src/Services/Ordering/Ordering.API/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      Ordering__Storage: Postgres
+      Ordering__Postgres__ConnectionString: Host=postgres;Port=5432;Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD};Database=${POSTGRES_DB}
+      EventBus__Provider: RabbitMq
+      EventBus__RabbitMq__Host: rabbitmq
+      EventBus__RabbitMq__Username: ${RABBITMQ_USER}
+      EventBus__RabbitMq__Password: ${RABBITMQ_PASSWORD}
+      Catalog__Transport: Grpc
+      Catalog__GrpcUrl: http://catalog-api:8081
+      Auth__Enabled: "true"
+      Auth__Authority: http://keycloak:8080/realms/webshop
+      Auth__Audience: webshop-api
+      Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
+      Auth__RequireHttpsMetadata: "false"
+      Supabase__Url: ${SUPABASE_URL}
+      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY}
+      Payments__YooKassa__ShopId: ${PAYMENTS_YOOKASSA_SHOPID:-}
+      Payments__YooKassa__SecretKey: ${PAYMENTS_YOOKASSA_SECRETKEY:-}
+      Payments__Stripe__SecretKey: ${PAYMENTS_STRIPE_SECRETKEY:-}
+      Payments__Stripe__WebhookSecret: ${PAYMENTS_STRIPE_WEBHOOKSECRET:-}
+      Payments__Xsolla__MerchantId: ${PAYMENTS_XSOLLA_MERCHANTID:-}
+      Payments__Xsolla__ApiKey: ${PAYMENTS_XSOLLA_APIKEY:-}
+      Payments__Xsolla__ProjectId: ${PAYMENTS_XSOLLA_PROJECTID:-}
+      Payments__Xsolla__WebhookSecret: ${PAYMENTS_XSOLLA_WEBHOOKSECRET:-}
+      Payments__MockProvider__Enabled: "false"
+      Otel__Enabled: "true"
+      Otel__Endpoint: http://jaeger:4317
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - backend
+
+  mongodb:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.1
+    restart: unless-stopped
+    command: ["start-dev", "--import-realm"] # start-dev: switch to production start with TLS terminator once domain routing is finalized
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      - ./infra/keycloak/import:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/webshop/.well-known/openid-configuration HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - backend
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.62.0
+    restart: unless-stopped
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    networks:
+      - backend
+    # Jaeger UI stays internal; access via SSH tunnel when needed:
+    #   ssh -L 16686:localhost:16686 vps
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mongo_data:
+  postgres_data:
+  rabbitmq_data:
+
+networks:
+  frontend:
+  backend:
+    internal: true

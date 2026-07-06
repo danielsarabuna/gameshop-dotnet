@@ -6,6 +6,7 @@ using Ordering.Infrastructure.Integrations;
 using Ordering.Infrastructure.Payments;
 using Ordering.Infrastructure.Persistence;
 using Ordering.API.Consumers;
+using BuildingBlocks.Auth;
 using Logging;
 using EventBus;
 using EventBus.RabbitMq;
@@ -22,6 +23,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging.AddWebShopLogging("Ordering");
 builder.Services.AddWebShopTracing(builder.Configuration, "Ordering");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Ordering");
+builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
 
 var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
@@ -173,6 +175,7 @@ app.UseExceptionHandler();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 app.UseCors();
+app.UseWebShopAuth();
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
@@ -196,8 +199,8 @@ app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 app.MapPost("/api/v1/payments/{provider}", CreatePayment);
 app.MapPost("/payments/{provider}", CreatePayment);
 
-app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook);
-app.MapPost("/webhooks/{provider}", HandleWebhook);
+app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook).AllowAnonymous();
+app.MapPost("/webhooks/{provider}", HandleWebhook).AllowAnonymous();
 
 await app.RunAsync();
 

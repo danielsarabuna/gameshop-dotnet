@@ -1,11 +1,9 @@
+using BuildingBlocks.Auth;
 using BuildingBlocks.Exceptions;
 using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Logging;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.IdentityModel.Tokens;
 using Yarp.ReverseProxy.Transforms;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,17 +13,21 @@ builder.Services.AddWebShopTracing(builder.Configuration, "Gateway");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Gateway");
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomExceptionHandler();
+builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
 
-var authEnabled = builder.Configuration.GetValue<bool>("Auth:Enabled");
-
+// CORS: production domains come from configuration; localhost defaults keep dev frictionless.
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
+        var configuredOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
         policy
-            .WithOrigins("http://localhost:5173", "http://localhost:5200", "https://localhost:5200")
+            .WithOrigins(configuredOrigins.Length > 0
+                ? configuredOrigins
+                : ["http://localhost:5173", "http://localhost:5200", "https://localhost:5200"])
             .AllowAnyMethod()
-            .AllowAnyHeader();
+            .AllowAnyHeader()
+            .WithExposedHeaders("X-User-Id");
     });
 });
 
@@ -40,56 +42,6 @@ builder.Services.AddRateLimiter(options =>
         limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
         limiterOptions.QueueLimit = 10;
     });
-});
-
-if (authEnabled)
-{
-    var authority = builder.Configuration["Auth:Authority"]
-        ?? throw new InvalidOperationException("Auth:Enabled=true but Auth:Authority is missing.");
-    var audience = builder.Configuration["Auth:Audience"]
-        ?? throw new InvalidOperationException("Auth:Enabled=true but Auth:Audience is missing.");
-    var requireHttpsMetadata = builder.Configuration.GetValue("Auth:RequireHttpsMetadata", false);
-
-    var validIssuers = new List<string> { authority.TrimEnd('/') };
-    var extraIssuers = builder.Configuration.GetSection("Auth:ValidIssuers").Get<string[]>() ?? Array.Empty<string>();
-    foreach (var issuer in extraIssuers)
-    {
-        if (!string.IsNullOrWhiteSpace(issuer))
-        {
-            validIssuers.Add(issuer.TrimEnd('/'));
-        }
-    }
-
-    builder.Services
-        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
-        {
-            options.Authority = authority;
-            options.Audience = audience;
-            options.RequireHttpsMetadata = requireHttpsMetadata;
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidIssuers = validIssuers,
-                ValidateAudience = true,
-                ValidAudience = audience,
-                ValidateLifetime = true,
-                ClockSkew = TimeSpan.FromSeconds(30)
-            };
-        });
-}
-
-builder.Services.AddAuthorization(options =>
-{
-    options.DefaultPolicy = authEnabled
-        ? new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
-            .RequireAuthenticatedUser()
-            .Build()
-        : new AuthorizationPolicyBuilder()
-            .RequireAssertion(_ => true)
-            .Build();
-
-    options.FallbackPolicy = options.DefaultPolicy;
 });
 
 // Configure YARP with Header Transformations (Prevent spoofing and forward verified claims)
@@ -124,12 +76,7 @@ app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 app.UseCors();
 app.UseRateLimiter();
-
-if (authEnabled)
-{
-    app.UseAuthentication();
-}
-app.UseAuthorization();
+app.UseWebShopAuth();
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();

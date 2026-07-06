@@ -1,4 +1,4 @@
-
+﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
@@ -50,6 +50,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.Grpc", "src\Contracts\Catalog.Grpc\Catalog.Grpc.csproj", "{78CCBE51-B89E-4587-BC81-63DB6D119BFC}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.API.Tests", "tests\Catalog.API.Tests\Catalog.API.Tests.csproj", "{9F86F5F4-23C4-4E24-B585-24374EB74B04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Auth", "src\BuildingBlocks\Auth\Auth.csproj", "{C123F3AD-8571-4663-B590-F547920A4072}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -120,6 +122,10 @@ Global
 		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C123F3AD-8571-4663-B590-F547920A4072}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C123F3AD-8571-4663-B590-F547920A4072}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C123F3AD-8571-4663-B590-F547920A4072}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C123F3AD-8571-4663-B590-F547920A4072}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{44DB65CF-5F34-4BDA-985E-2DEACD3DA6AE} = {318F05AF-B950-4ACD-80F4-B4BB0A8C47AA}
@@ -143,5 +149,6 @@ Global
 		{3F665E1D-2DF7-4C97-86F4-482E31D0FF5F} = {54AA51E1-CD4D-4ED4-8AFC-59A778452EB4}
 		{78CCBE51-B89E-4587-BC81-63DB6D119BFC} = {7DAE2267-BD7A-46A9-8F19-DE5BC7566221}
 		{9F86F5F4-23C4-4E24-B585-24374EB74B04} = {54AA51E1-CD4D-4ED4-8AFC-59A778452EB4}
+		{C123F3AD-8571-4663-B590-F547920A4072} = {1D00528B-8E1C-47C7-BDD9-CB969056D043}
 	EndGlobalSection
 EndGlobal

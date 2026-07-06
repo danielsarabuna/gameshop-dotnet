@@ -1,5 +1,8 @@
 using System.Net;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace WebShop.IntegrationTests;
 
@@ -60,6 +63,9 @@ public sealed class GatewayAuthTests : IClassFixture<GatewayAuthTests.AuthEnable
         // composes its IConfiguration. ConfigureAppConfiguration callbacks
         // from WebApplicationFactory are applied later (after Program.cs has
         // already read Auth:Enabled), so they wouldn't take effect.
+        //
+        // Because this mutates process state, test parallelization is disabled
+        // assembly-wide (see AssemblyInfo.cs) while these vars are set.
         //
         // The Authority points at a non-resolvable host: JwtBearer only
         // fetches metadata when a token is presented. Tests here only send

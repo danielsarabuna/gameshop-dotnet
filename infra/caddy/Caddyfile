@@ -1,0 +1,15 @@
+# WebShop production entrypoint.
+# - https://{$SHOP_DOMAIN}/        -> React shop (web)
+# - https://{$SHOP_DOMAIN}/api/*   -> API gateway (YARP)
+# TLS certificates are issued and renewed automatically by Caddy (ACME).
+{$SHOP_DOMAIN} {
+	encode gzip zstd
+
+	handle /api/* {
+		reverse_proxy apigateway:8080
+	}
+
+	handle {
+		reverse_proxy web:8080
+	}
+}
