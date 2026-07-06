@@ -189,6 +189,8 @@ public sealed class WebhookSecurityTests
     private sealed class FakeWebhookIdempotencyStore : IWebhookIdempotencyStore
     {
         public bool TryBegin(string provider, string eventId) => true;
+
+        public void Release(string provider, string eventId) { }
     }
 
     private sealed class FakePromoCodeStore : IPromoCodeStore

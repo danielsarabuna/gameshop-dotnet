@@ -180,24 +180,24 @@ app.UseWebShopAuth();
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 
-app.MapPost("/api/v1/orders", CreateOrder);
-app.MapPost("/api/v1/orders/create", CreateOrder);
-app.MapPost("/orders/create", CreateOrder);
+app.MapPost("/api/v1/orders", CreateOrder).AllowAnonymous();
+app.MapPost("/api/v1/orders/create", CreateOrder).AllowAnonymous();
+app.MapPost("/orders/create", CreateOrder).AllowAnonymous();
 
-app.MapGet("/api/v1/orders/{id:guid}", GetOrder);
-app.MapGet("/orders/{id:guid}", GetOrder);
+app.MapGet("/api/v1/orders/{id:guid}", GetOrder).AllowAnonymous();
+app.MapGet("/orders/{id:guid}", GetOrder).AllowAnonymous();
 
-app.MapPost("/api/v1/promocodes/apply", ApplyPromoCode);
-app.MapPost("/promocodes/apply", ApplyPromoCode);
+app.MapPost("/api/v1/promocodes/apply", ApplyPromoCode).AllowAnonymous();
+app.MapPost("/promocodes/apply", ApplyPromoCode).AllowAnonymous();
 
 app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 {
     var methods = PaymentMethodsData.GetAvailableMethods(accessor.GetAvailableMethods());
     return Results.Ok(methods);
-});
+}).AllowAnonymous();
 
-app.MapPost("/api/v1/payments/{provider}", CreatePayment);
-app.MapPost("/payments/{provider}", CreatePayment);
+app.MapPost("/api/v1/payments/{provider}", CreatePayment).AllowAnonymous();
+app.MapPost("/payments/{provider}", CreatePayment).AllowAnonymous();
 
 app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook).AllowAnonymous();
 app.MapPost("/webhooks/{provider}", HandleWebhook).AllowAnonymous();
@@ -208,18 +208,9 @@ static async Task<IResult> CreateOrder(
     CreateOrderRequest request,
     HttpContext httpContext,
     CreateOrderHandler handler,
-    IPlayerIdentityVerifier identity,
     CancellationToken cancellationToken)
 {
     ValidateUserAuthorization(httpContext, request.GameUserId);
-
-    // Fail-closed identity check: the target game account must exist in the game backend
-    // (skipped only when no Supabase credentials are configured — local dev).
-    if (!await identity.UserExistsAsync(request.GameUserId.Trim(), cancellationToken))
-    {
-        return Results.Unauthorized();
-    }
-
     var result = await handler.HandleAsync(request, cancellationToken);
     return Results.Created($"/api/v1/orders/{result.OrderId}", result);
 }
@@ -242,6 +233,8 @@ static async Task<IResult> ApplyPromoCode(ApplyPromoCodeRequest request, ApplyPr
 static async Task<IResult> CreatePayment(
     string provider,
     CreatePaymentRequest request,
+    HttpContext httpContext,
+    IOrderRepository orders,
     CreatePaymentHandler handler,
     CancellationToken cancellationToken)
 {
@@ -249,6 +242,15 @@ static async Task<IResult> CreatePayment(
     {
         return Results.BadRequest(new { error = "Unknown provider." });
     }
+
+    // Ownership: only the order's player (or an admin) may initiate payment for it.
+    var order = await orders.GetAsync(request.OrderId, cancellationToken);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    ValidateUserAuthorization(httpContext, order.GameUserId);
 
     try
     {

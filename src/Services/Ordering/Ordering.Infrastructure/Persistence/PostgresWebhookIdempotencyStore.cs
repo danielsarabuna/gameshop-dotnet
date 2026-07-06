@@ -34,4 +34,13 @@ public sealed class PostgresWebhookIdempotencyStore : IWebhookIdempotencyStore
 
         return rows > 0;
     }
+
+    public void Release(string provider, string eventId)
+    {
+        const string sql = "DELETE FROM webhook_events WHERE provider = @Provider AND event_id = @EventId;";
+
+        using var connection = new NpgsqlConnection(_connectionString);
+        connection.Open();
+        connection.Execute(sql, new { Provider = provider, EventId = eventId });
+    }
 }
