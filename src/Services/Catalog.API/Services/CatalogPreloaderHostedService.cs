@@ -18,8 +18,10 @@ public sealed class CatalogPreloaderHostedService : BackgroundService
         try
         {
             using var scope = _services.CreateScope();
+            var options = scope.ServiceProvider.GetRequiredService<Configuration.SupabaseOptions>();
             var provider = scope.ServiceProvider.GetRequiredService<ICatalogProvider>();
-            await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", stoppingToken);
+            // Warm the Global config — the one anonymous visitors land on.
+            await provider.GetOrFetchAsync(options.DefaultRegion, options.DefaultStore, options.DefaultGameVersion, stoppingToken);
         }
         catch (Exception ex)
         {

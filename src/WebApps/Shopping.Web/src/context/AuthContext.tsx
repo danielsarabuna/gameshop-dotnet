@@ -31,9 +31,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [playerName, setPlayerName] = useState('');
   const [playerEmail, setPlayerEmail] = useState('');
   const [authTicket, setAuthTicket] = useState('');
-  const [region, setRegion] = useState('russia');
-  const [storeChannel, setStoreChannel] = useState('ru_store');
-  const [gameVersion, setGameVersion] = useState('0.0.36');
+  // No deeplink context → Global config (backend resolves bucket/global/global).
+  // Real values arrive from the game deeplink / ticket verification.
+  const [region, setRegion] = useState('global');
+  const [storeChannel, setStoreChannel] = useState('global');
+  const [gameVersion, setGameVersion] = useState('');
 
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
