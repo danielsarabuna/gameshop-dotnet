@@ -14,7 +14,9 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 5000,
+  // Order creation fans out to Supabase identity + catalog gRPC; payment creation
+  // calls the provider API. 5s was too tight on cold starts.
+  timeout: 15000,
 });
 
 export const getPaymentMethods = async (): Promise<PaymentMethodInfo[] | null> => {
@@ -111,5 +113,20 @@ export const createPayment = async (
   } catch (error: any) {
     const message = error.response?.data?.error || 'Could not create payment.';
     return { success: false, error: message };
+  }
+};
+
+// Lightweight status probe for the post-payment landing page.
+export const getOrderStatus = async (
+  orderId: string
+): Promise<'Pending' | 'Paid' | 'Failed' | null> => {
+  try {
+    const response = await api.get<{ status: string }>(`api/v1/orders/${orderId}`);
+    const raw = String(response.data?.status ?? '');
+    if (raw.toLowerCase() === 'paid') return 'Paid';
+    if (raw.toLowerCase() === 'failed') return 'Failed';
+    return 'Pending';
+  } catch {
+    return null;
   }
 };

@@ -13,6 +13,7 @@ import { Diamonds } from './pages/Diamonds';
 import { Subscription } from './pages/Subscription';
 import { Help } from './pages/Help';
 import { About } from './pages/About';
+import { OrderResult } from './pages/OrderResult';
 
 const HIDDEN_FOOTER_PATHS = ['/', '/projects'];
 
@@ -53,6 +54,8 @@ const Shell: React.FC = () => {
               <Route path="/subscription" element={<Subscription />} />
               <Route path="/help" element={<Help />} />
               <Route path="/about" element={<About />} />
+              <Route path="/order/complete" element={<OrderResult outcome="complete" />} />
+              <Route path="/order/cancelled" element={<OrderResult outcome="cancelled" />} />
             </Routes>
           </main>
           {showFooter && <Footer />}
