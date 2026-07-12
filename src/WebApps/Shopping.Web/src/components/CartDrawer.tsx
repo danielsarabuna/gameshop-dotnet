@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { PaymentMethodInfo } from '../types';
-import { getPaymentMethods, applyPromoCode, createOrder, createPayment } from '../services/api';
+import { getPaymentMethods, applyPromoCode, createOrder, createPayment, verifyPlayer } from '../services/api';
 import { ShoppingBagIcon } from './Icons';
 import { ShoppingCart, X, Minus, Plus, Tag, User, CreditCard } from 'lucide-react';
 import { formatPrice } from '../utils/format';
@@ -21,7 +21,17 @@ export const CartDrawer: React.FC = () => {
   } = useCart();
 
   const { t } = useLanguage();
-  const { playerId, setPlayerId, playerName, setPlayerName, playerEmail, setPlayerEmail } = useAuth();
+  const {
+    playerId,
+    setPlayerId,
+    playerName,
+    setPlayerName,
+    playerEmail,
+    setPlayerEmail,
+    setRegion,
+    setStoreChannel,
+    setGameVersion,
+  } = useAuth();
 
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromoCode, setAppliedPromoCode] = useState<string | null>(null);
@@ -35,6 +45,31 @@ export const CartDrawer: React.FC = () => {
 
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+
+  // Player ID verification (on blur): resolves the player's region/store/version,
+  // updates the auth context → catalog pages refetch the regional config →
+  // cart lines are re-priced via reconcile(). Invalid IDs are rejected here
+  // with immediate feedback instead of failing later on order creation.
+  const [idCheck, setIdCheck] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const lastVerifiedId = React.useRef<string>('');
+
+  const handlePlayerIdCommit = async () => {
+    const id = playerId.trim();
+    if (!id || id === lastVerifiedId.current || idCheck === 'checking') return;
+
+    setIdCheck('checking');
+    const ctx = await verifyPlayer(id);
+    if (ctx?.isValid) {
+      setPlayerId(ctx.userId);
+      if (ctx.region) setRegion(ctx.region);
+      if (ctx.store) setStoreChannel(ctx.store);
+      if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
+      lastVerifiedId.current = ctx.userId;
+      setIdCheck('valid');
+    } else {
+      setIdCheck('invalid');
+    }
+  };
 
   const FALLBACK_PAYMENT_METHODS: PaymentMethodInfo[] = [
     { code: 'card', name: 'Банковская карта (Visa / MasterCard / МИР)' },
@@ -377,17 +412,51 @@ export const CartDrawer: React.FC = () => {
                 <input
                   type="text"
                   value={playerId}
-                  onChange={(e) => setPlayerId(e.target.value)}
+                  onChange={(e) => {
+                    setPlayerId(e.target.value);
+                    if (idCheck !== 'idle') setIdCheck('idle');
+                  }}
+                  onBlur={handlePlayerIdCommit}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                  }}
                   placeholder={`${t('ID игрока', 'Player ID', 'Spieler-ID', 'ID joueur', 'ID de jugador')} *`}
                   style={{
                     background: 'rgba(255,255,255,0.06)',
-                    border: '1px solid var(--border-color)',
+                    border: `1px solid ${idCheck === 'invalid' ? '#ff4d4d' : 'var(--border-color)'}`,
                     borderRadius: '10px',
                     padding: '8px 12px',
                     color: '#fff',
                     fontSize: '0.88rem',
                   }}
                 />
+                {idCheck === 'checking' && (
+                  <div style={{ fontSize: '0.76rem', color: 'var(--text-muted)' }}>
+                    {t('Проверяем ID…', 'Verifying ID…', 'ID wird geprüft…', 'Vérification de l’ID…', 'Verificando ID…')}
+                  </div>
+                )}
+                {idCheck === 'valid' && (
+                  <div style={{ fontSize: '0.76rem', color: '#00f2fe' }}>
+                    {t(
+                      'ID подтверждён — цены и регион обновлены.',
+                      'ID verified — region and prices updated.',
+                      'ID bestätigt — Region und Preise aktualisiert.',
+                      'ID vérifié — région et prix mis à jour.',
+                      'ID verificado: región y precios actualizados.'
+                    )}
+                  </div>
+                )}
+                {idCheck === 'invalid' && (
+                  <div style={{ fontSize: '0.76rem', color: '#ff4d4d' }}>
+                    {t(
+                      'Игрок с таким ID не найден.',
+                      'No player found with this ID.',
+                      'Kein Spieler mit dieser ID gefunden.',
+                      'Aucun joueur trouvé avec cet ID.',
+                      'No se encontró ningún jugador con este ID.'
+                    )}
+                  </div>
+                )}
                 <input
                   type="text"
                   value={playerName}

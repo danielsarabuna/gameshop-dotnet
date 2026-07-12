@@ -12,6 +12,9 @@ interface AuthContextType {
   region: string;
   storeChannel: string;
   gameVersion: string;
+  setRegion: (value: string) => void;
+  setStoreChannel: (value: string) => void;
+  setGameVersion: (value: string) => void;
   loginModalOpen: boolean;
   openLoginModal: () => void;
   closeLoginModal: () => void;
@@ -163,10 +166,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPlayerName,
         playerEmail,
         setPlayerEmail,
-        authTicket,
-        region,
-        storeChannel,
-        gameVersion,
+    authTicket,
+    region,
+    storeChannel,
+    gameVersion,
+    setRegion,
+    setStoreChannel,
+    setGameVersion,
         loginModalOpen,
         openLoginModal,
         closeLoginModal,

@@ -94,7 +94,7 @@ const FALLBACK_DIAMOND_PACKS: DiamondPack[] = [
 
 export const Diamonds: React.FC = () => {
   const { t } = useLanguage();
-  const { addItem, openCartDrawer } = useCart();
+  const { addItem, openCartDrawer, reconcile } = useCart();
   const { region, storeChannel, gameVersion } = useAuth();
   const [catalogItems, setCatalogItems] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,7 +106,11 @@ export const Diamonds: React.FC = () => {
       setLoading(false);
       if (items !== null) {
         setIsBackendConnected(true);
-        setCatalogItems(items.filter((i) => i.type === 'Currency'));
+        const currencyItems = items.filter((i) => i.type === 'Currency');
+        setCatalogItems(currencyItems);
+        // Identity-driven context switch (e.g. player ID entered in cart):
+        // re-price cart lines against the freshly loaded regional config.
+        reconcile(items);
       } else {
         // Backend offline / unavailable
         setIsBackendConnected(false);
@@ -117,7 +121,8 @@ export const Diamonds: React.FC = () => {
 
   useEffect(() => {
     fetchCatalog();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, storeChannel, gameVersion]);
 
   const packs = React.useMemo<DiamondPack[]>(() => {
     const rawPacks = (isBackendConnected === false || catalogItems === null)

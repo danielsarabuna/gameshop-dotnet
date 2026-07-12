@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem } from '../types';
 
+interface CatalogItemLike {
+  id: string;
+  title?: string;
+  price?: number;
+  imageUrl?: string | null;
+  currency?: string;
+}
+
 interface CartContextType {
   lines: CartItem[];
   count: number;
@@ -15,6 +23,12 @@ interface CartContextType {
   decrement: (sku: string) => void;
   removeItem: (sku: string) => void;
   clearCart: () => void;
+  /**
+   * Re-price existing lines against a freshly loaded catalog (identity-driven
+   * region switch): unit price, title, image and currency follow the new config,
+   * quantities are preserved. Lines whose product vanished stay untouched.
+   */
+  reconcile: (items: CatalogItemLike[]) => void;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
@@ -100,6 +114,24 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     triggerBump();
   };
 
+  const reconcile = (items: CatalogItemLike[]) => {
+    if (!items || items.length === 0) return;
+    const byId = new Map(items.map((i) => [String(i.id), i]));
+    setLines((prev) =>
+      prev.map((line) => {
+        const fresh = byId.get(line.sku);
+        if (!fresh) return line;
+        return {
+          ...line,
+          title: fresh.title ?? line.title,
+          unitPrice: typeof fresh.price === 'number' ? fresh.price : line.unitPrice,
+          imageUrl: fresh.imageUrl ?? line.imageUrl,
+          currency: fresh.currency ?? line.currency,
+        };
+      })
+    );
+  };
+
   return (
     <CartContext.Provider
       value={{
@@ -116,6 +148,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         decrement,
         removeItem,
         clearCart,
+        reconcile,
       }}
     >
       {children}
