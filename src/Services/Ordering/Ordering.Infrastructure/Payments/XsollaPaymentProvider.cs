@@ -18,10 +18,11 @@ public class XsollaPaymentProvider : IPaymentProvider
     private readonly string _baseUrl;
     private readonly HttpClient _httpClient;
     private readonly string? _webhookSecret;
+    private readonly string _returnUrl;
 
     public DomainPaymentMethod Provider => DomainPaymentMethod.Xsolla;
 
-    public XsollaPaymentProvider(string merchantId, string apiKey, string projectId, string mode = "sandbox", string? webhookSecret = null)
+    public XsollaPaymentProvider(string merchantId, string apiKey, string projectId, string mode = "sandbox", string? webhookSecret = null, string? returnUrl = null)
     {
         _merchantId = merchantId;
         _apiKey = apiKey;
@@ -30,6 +31,7 @@ public class XsollaPaymentProvider : IPaymentProvider
             ? "https://api.xsolla.com"
             : "https://api.xsolla.com";
         _webhookSecret = webhookSecret;
+        _returnUrl = returnUrl ?? "https://GameShop.local/order/complete";
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("X-Secret-Id", _merchantId);
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
@@ -47,7 +49,7 @@ public class XsollaPaymentProvider : IPaymentProvider
             {
                 currency = currency.ToUpperInvariant(),
                 language = "en",
-                return_url = "https://GameShop.local/order/complete"
+                return_url = _returnUrl
             },
             purchase = new
             {

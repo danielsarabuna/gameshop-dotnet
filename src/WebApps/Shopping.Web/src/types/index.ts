@@ -61,8 +61,8 @@ export interface ApplyPromoLine {
 }
 
 export interface ApplyPromoRequest {
-  promoCode: string;
-  lines: ApplyPromoLine[];
+  code: string;
+  items: ApplyPromoLine[];
 }
 
 export interface ApplyPromoResponse {

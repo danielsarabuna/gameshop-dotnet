@@ -34,7 +34,11 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var stripeWebhookSecret = configuration["Payments:Stripe:WebhookSecret"];
         if (!string.IsNullOrEmpty(stripeKey) && stripeKey != "test-payment-placeholder")
         {
-            _providers[DomainPaymentMethod.Stripe] = new StripePaymentProvider(stripeKey, stripeWebhookSecret);
+            _providers[DomainPaymentMethod.Stripe] = new StripePaymentProvider(
+                stripeKey,
+                stripeWebhookSecret,
+                configuration["Payments:Stripe:SuccessUrl"],
+                configuration["Payments:Stripe:CancelUrl"]);
         }
 
         var payPalClientId = configuration["Payments:PayPal:ClientId"];
@@ -58,7 +62,8 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
             shopId != "placeholder" &&
             secretKey != "placeholder")
         {
-            _providers[DomainPaymentMethod.YooKassa] = new YooKassaPaymentProvider(shopId, secretKey, yooKassaTrustedIps);
+            _providers[DomainPaymentMethod.YooKassa] = new YooKassaPaymentProvider(
+                shopId, secretKey, yooKassaTrustedIps, configuration["Payments:YooKassa:ReturnUrl"]);
         }
 
         var corvusPayStoreId = configuration["Payments:CorvusPay:StoreId"];
@@ -91,7 +96,8 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
                 xsollaApiKey,
                 xsollaProjectId,
                 xsollaMode,
-                xsollaWebhookSecret);
+                xsollaWebhookSecret,
+                configuration["Payments:Xsolla:ReturnUrl"]);
         }
     }
 

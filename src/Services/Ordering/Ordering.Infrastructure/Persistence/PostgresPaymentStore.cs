@@ -20,7 +20,7 @@ public sealed class PostgresPaymentStore : IPaymentStore
     public async Task<Payment?> GetByOrderAsync(Guid orderId, PaymentMethod provider, CancellationToken cancellationToken)
     {
         const string sql = """
-                           SELECT id, order_id, provider, status, external_id, created_at_utc, completed_at_utc
+                           SELECT id, order_id, provider, status, external_id, created_at_utc, completed_at_utc, checkout_url
                            FROM payments
                            WHERE order_id = @OrderId AND provider = @Provider
                            ORDER BY created_at_utc DESC
@@ -41,16 +41,16 @@ public sealed class PostgresPaymentStore : IPaymentStore
         var completedAt = row.CompletedAtUtc.HasValue
             ? new DateTimeOffset(DateTime.SpecifyKind(row.CompletedAtUtc.Value, DateTimeKind.Utc))
             : (DateTimeOffset?)null;
-        return new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, createdAt, completedAt);
+        return new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, createdAt, completedAt, row.CheckoutUrl);
     }
 
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken)
     {
         const string sql = """
                            INSERT INTO payments
-                               (id, order_id, provider, status, external_id, created_at_utc, completed_at_utc)
+                               (id, order_id, provider, status, external_id, created_at_utc, completed_at_utc, checkout_url)
                            VALUES
-                               (@Id, @OrderId, @Provider, @Status, @ExternalId, @CreatedAtUtc, @CompletedAtUtc);
+                               (@Id, @OrderId, @Provider, @Status, @ExternalId, @CreatedAtUtc, @CompletedAtUtc, @CheckoutUrl);
                            """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
@@ -63,7 +63,8 @@ public sealed class PostgresPaymentStore : IPaymentStore
             Status = (int)payment.Status,
             payment.ExternalId,
             payment.CreatedAtUtc,
-            payment.CompletedAtUtc
+            payment.CompletedAtUtc,
+            payment.CheckoutUrl
         }, cancellationToken: cancellationToken));
     }
 
@@ -73,7 +74,8 @@ public sealed class PostgresPaymentStore : IPaymentStore
                            UPDATE payments
                            SET status = @Status,
                                external_id = @ExternalId,
-                               completed_at_utc = @CompletedAtUtc
+                               completed_at_utc = @CompletedAtUtc,
+                               checkout_url = COALESCE(@CheckoutUrl, checkout_url)
                            WHERE id = @Id;
                            """;
 
@@ -84,7 +86,8 @@ public sealed class PostgresPaymentStore : IPaymentStore
             payment.Id,
             Status = (int)payment.Status,
             payment.ExternalId,
-            payment.CompletedAtUtc
+            payment.CompletedAtUtc,
+            payment.CheckoutUrl
         }, cancellationToken: cancellationToken));
     }
 
@@ -95,5 +98,6 @@ public sealed class PostgresPaymentStore : IPaymentStore
         int Status,
         string? ExternalId,
         DateTime CreatedAtUtc,
-        DateTime? CompletedAtUtc);
+        DateTime? CompletedAtUtc,
+        string? CheckoutUrl);
 }

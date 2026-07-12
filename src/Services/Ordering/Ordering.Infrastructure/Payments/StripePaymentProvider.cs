@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Ordering.Application.Payments;
 using Ordering.Domain.Payments;
 using Stripe;
+using Stripe.Checkout;
 using PaymentIntent = Stripe.PaymentIntent;
 using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
 using DomainPaymentStatus = Ordering.Application.Payments.PaymentStatus;
@@ -12,13 +13,22 @@ public class StripePaymentProvider : IPaymentProvider
 {
     private readonly StripeClient _client;
     private readonly string? _webhookSecret;
+    private readonly string _successUrl;
+    private readonly string _cancelUrl;
 
     public DomainPaymentMethod Provider => DomainPaymentMethod.Stripe;
 
-    public StripePaymentProvider(string secretKey, string? webhookSecret = null)
+    public StripePaymentProvider(
+        string secretKey,
+        string? webhookSecret = null,
+        string? successUrl = null,
+        string? cancelUrl = null)
     {
         _client = new StripeClient(secretKey);
         _webhookSecret = webhookSecret;
+        // Hosted Checkout returns the player to these pages after paying / cancelling.
+        _successUrl = successUrl ?? "https://GameShop.local/order/complete";
+        _cancelUrl = cancelUrl ?? "https://GameShop.local/order/cancelled";
     }
 
     public async Task<PaymentIntentResult> CreatePaymentIntentAsync(
@@ -27,22 +37,42 @@ public class StripePaymentProvider : IPaymentProvider
         Guid orderId,
         CancellationToken cancellationToken)
     {
-        var service = new PaymentIntentService(_client);
-
-        var intent = await service.CreateAsync(new PaymentIntentCreateOptions
+        // A bare PaymentIntent has NO payable URL; the redirect model requires a
+        // hosted Checkout Session. checkout.session.completed is our primary
+        // success signal (payment_intent.succeeded remains supported as backup).
+        var sessionService = new SessionService(_client);
+        var session = await sessionService.CreateAsync(new SessionCreateOptions
         {
-            Amount = (long)(amount * 100),
-            Currency = currency.ToLowerInvariant(),
+            Mode = "payment",
+            SuccessUrl = $"{_successUrl}?order_id={orderId:D}",
+            CancelUrl = $"{_cancelUrl}?order_id={orderId:D}",
+            ClientReferenceId = orderId.ToString("D"),
             Metadata = new Dictionary<string, string>
             {
                 ["order_id"] = orderId.ToString("D")
-            }
+            },
+            LineItems =
+            [
+                new SessionLineItemOptions
+                {
+                    Quantity = 1,
+                    PriceData = new SessionLineItemPriceDataOptions
+                    {
+                        Currency = currency.ToLowerInvariant(),
+                        UnitAmount = (long)(amount * 100),
+                        ProductData = new SessionLineItemPriceDataProductDataOptions
+                        {
+                            Name = $"Order {orderId:D}"
+                        }
+                    }
+                }
+            ]
         }, cancellationToken: cancellationToken);
 
         return new PaymentIntentResult(
-            ExternalId: intent.Id,
-            CheckoutUrl: $"https://pay.stripe.com/c/{intent.Id}",
-            Status: MapStatus(intent.Status)
+            ExternalId: session.Id,
+            CheckoutUrl: session.Url,
+            Status: MapStatus(session.Status)
         );
     }
 
@@ -71,31 +101,62 @@ public class StripePaymentProvider : IPaymentProvider
 
         switch (stripeEvent.Type)
         {
-            case Events.PaymentIntentSucceeded:
-            case Events.PaymentIntentPaymentFailed:
-                var intent = stripeEvent.Data.Object as PaymentIntent
+            case Events.CheckoutSessionCompleted:
+            {
+                var session = stripeEvent.Data.Object as Session
                     ?? throw new InvalidOperationException($"Cannot deserialize {stripeEvent.Type} payload.");
 
-                var orderId = intent.Metadata is not null && intent.Metadata.TryGetValue("order_id", out var rawOrderId)
-                    && Guid.TryParse(rawOrderId, out var parsedOrderId)
-                        ? parsedOrderId
-                        : throw new InvalidOperationException("Stripe event is missing metadata.order_id.");
-
+                var orderId = ResolveOrderId(session.Metadata, session.ClientReferenceId);
                 // Amount arrives in minor units; convert for order-total validation.
-                var amount = intent.Amount / 100m;
+                var amount = session.AmountTotal.HasValue ? session.AmountTotal.Value / 100m : (decimal?)null;
 
                 return Task.FromResult<WebhookResult?>(new WebhookResult(
                     OrderId: orderId,
                     PaymentId: Guid.NewGuid(),
                     EventId: stripeEvent.Id,
-                    Status: stripeEvent.Type == Events.PaymentIntentSucceeded ? "succeeded" : "failed",
+                    Status: "succeeded",
                     Amount: amount,
+                    Currency: string.IsNullOrWhiteSpace(session.Currency) ? null : session.Currency.ToUpperInvariant()));
+            }
+            case Events.PaymentIntentSucceeded:
+            case Events.PaymentIntentPaymentFailed:
+                var intent = stripeEvent.Data.Object as PaymentIntent
+                    ?? throw new InvalidOperationException($"Cannot deserialize {stripeEvent.Type} payload.");
+
+                var piOrderId = intent.Metadata is not null && intent.Metadata.TryGetValue("order_id", out var rawOrderId)
+                    && Guid.TryParse(rawOrderId, out var parsedOrderId)
+                        ? parsedOrderId
+                        : throw new InvalidOperationException("Stripe event is missing metadata.order_id.");
+
+                // Amount arrives in minor units; convert for order-total validation.
+                var piAmount = intent.Amount / 100m;
+
+                return Task.FromResult<WebhookResult?>(new WebhookResult(
+                    OrderId: piOrderId,
+                    PaymentId: Guid.NewGuid(),
+                    EventId: stripeEvent.Id,
+                    Status: stripeEvent.Type == Events.PaymentIntentSucceeded ? "succeeded" : "failed",
+                    Amount: piAmount,
                     Currency: string.IsNullOrWhiteSpace(intent.Currency) ? null : intent.Currency.ToUpperInvariant()));
 
             default:
                 // Authentic but non-terminal events are acknowledged without side effects.
                 return Task.FromResult<WebhookResult?>(null);
         }
+    }
+
+    private static Guid ResolveOrderId(IReadOnlyDictionary<string, string>? metadata, string? clientReferenceId)
+    {
+        var raw = metadata is not null && metadata.TryGetValue("order_id", out var fromMetadata)
+            ? fromMetadata
+            : clientReferenceId;
+
+        if (Guid.TryParse(raw, out var parsed))
+        {
+            return parsed;
+        }
+
+        throw new InvalidOperationException("Stripe event is missing order reference (metadata.order_id / client_reference_id).");
     }
 
     private static DomainPaymentStatus MapStatus(string? stripeStatus) => stripeStatus switch

@@ -40,7 +40,10 @@ public sealed class CreatePaymentHandler
         var existing = await _payments.GetByOrderAsync(orderId, provider, cancellationToken);
         if (existing is not null && !string.IsNullOrEmpty(existing.ExternalId))
         {
-            return new CreatePaymentResult(existing.Id, existing.Provider, existing.Status, BuildCheckoutUrl(existing));
+            // Idempotent re-entry (double click / page reload): hand back the SAME
+            // payment with its real hosted-checkout URL, never a fabricated link.
+            return new CreatePaymentResult(existing.Id, existing.Provider, existing.Status,
+                string.IsNullOrWhiteSpace(existing.CheckoutUrl) ? BuildCheckoutUrl(existing) : existing.CheckoutUrl);
         }
 
         var paymentProvider = _providerAccessor.GetProvider(provider)
@@ -59,7 +62,8 @@ public sealed class CreatePaymentHandler
             Status: intentResult.Status,
             ExternalId: intentResult.ExternalId,
             CreatedAtUtc: DateTimeOffset.UtcNow,
-            CompletedAtUtc: null
+            CompletedAtUtc: null,
+            CheckoutUrl: intentResult.CheckoutUrl
         );
 
         await _payments.AddAsync(payment, cancellationToken);

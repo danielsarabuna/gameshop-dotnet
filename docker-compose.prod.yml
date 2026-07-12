@@ -156,12 +156,16 @@ services:
       Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY}
       Payments__YooKassa__ShopId: ${PAYMENTS_YOOKASSA_SHOPID:-}
       Payments__YooKassa__SecretKey: ${PAYMENTS_YOOKASSA_SECRETKEY:-}
+      Payments__YooKassa__ReturnUrl: https://${SHOP_DOMAIN}/order/complete
       Payments__Stripe__SecretKey: ${PAYMENTS_STRIPE_SECRETKEY:-}
       Payments__Stripe__WebhookSecret: ${PAYMENTS_STRIPE_WEBHOOKSECRET:-}
+      Payments__Stripe__SuccessUrl: https://${SHOP_DOMAIN}/order/complete
+      Payments__Stripe__CancelUrl: https://${SHOP_DOMAIN}/order/cancelled
       Payments__Xsolla__MerchantId: ${PAYMENTS_XSOLLA_MERCHANTID:-}
       Payments__Xsolla__ApiKey: ${PAYMENTS_XSOLLA_APIKEY:-}
       Payments__Xsolla__ProjectId: ${PAYMENTS_XSOLLA_PROJECTID:-}
       Payments__Xsolla__WebhookSecret: ${PAYMENTS_XSOLLA_WEBHOOKSECRET:-}
+      Payments__Xsolla__ReturnUrl: https://${SHOP_DOMAIN}/order/complete
       Payments__MockProvider__Enabled: "false"
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317

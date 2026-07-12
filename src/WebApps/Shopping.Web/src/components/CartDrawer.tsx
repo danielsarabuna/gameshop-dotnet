@@ -97,8 +97,8 @@ export const CartDrawer: React.FC = () => {
     }));
 
     const res = await applyPromoCode({
-      promoCode: promoCode.trim(),
-      lines: apiLines,
+      code: promoCode.trim(),
+      items: apiLines,
     });
 
     setPromoBusy(false);
