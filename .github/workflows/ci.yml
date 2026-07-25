@@ -22,6 +22,8 @@ jobs:
         run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release -p:NuGetAudit=true --no-build
       - name: Catalog tests
         run: dotnet test tests/Catalog.API.Tests/Catalog.API.Tests.csproj -c Release -p:NuGetAudit=true --no-build
+      - name: Supabase schema migrations
+        run: bash scripts/test-supabase-schema.sh
 
   e2e:
     runs-on: ubuntu-latest
