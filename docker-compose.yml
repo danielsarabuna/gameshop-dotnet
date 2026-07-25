@@ -48,6 +48,7 @@ services:
       Kestrel__GrpcPort: "8081"
       Catalog__Remote__SupabaseBaseUrl: ${SUPABASE_URL:?set SUPABASE_URL in .env.local}
       Catalog__Remote__Bucket: ${CATALOG_BUCKET:-dev}
+      Catalog__CacheInvalidation__SharedSecret: ${CATALOG_CACHE_INVALIDATION_SECRET:?run make local-init}
       Supabase__Url: ${SUPABASE_URL}
       Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?set SUPABASE_SERVICE_ROLE_KEY in .env.local}
       Supabase__DefaultRegion: global

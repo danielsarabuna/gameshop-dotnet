@@ -7,6 +7,8 @@ using Catalog.API.Storage;
 using Logging;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using System.Text;
+using System.Text.Json;
 using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 
@@ -32,9 +34,10 @@ builder.Configuration.GetSection(SupabaseOptions.SectionName).Bind(supabaseOptio
 builder.Services.AddSingleton(supabaseOptions);
 
 // Регистрация HTTP-клиентов и сервисов (lazy catalog provider + Supabase player verifier)
-builder.Services.AddHttpClient<ICatalogProvider, CatalogProvider>();
+builder.Services.AddHttpClient<CatalogProvider>();
+builder.Services.AddSingleton<ICatalogProvider>(services => services.GetRequiredService<CatalogProvider>());
 builder.Services.AddHttpClient<ISupabasePlayerVerifier, SupabasePlayerVerifier>();
-builder.Services.AddHostedService<CatalogPreloaderHostedService>();
+builder.Services.AddSingleton<CatalogCacheInvalidationAuthenticator>();
 builder.Services.AddGameTicketTokenIssuer(builder.Configuration);
 
 builder.Services.AddHealthChecks();
@@ -46,7 +49,7 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(grpcPort, listen => listen.Protocols = HttpProtocols.Http2);
 });
 
-// Catalog cache is in-memory only; configs are fetched lazily from Supabase per request.
+// Catalog cache is in-memory only; configs are fetched lazily from Supabase on first access.
 builder.Services.AddSingleton<ICatalogStore, InMemoryCatalogStore>();
 builder.Services.ConfigureHttpJsonOptions(options =>
 {
@@ -125,7 +128,7 @@ app.MapPost("/api/v1/auth/resolve-player", async (
 }).RequireRateLimiting("player-resolution");
 
 // Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры (lazy fetch from Supabase)
-app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, string? locale, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
 {
     // No context params → Global config (anonymous visitor, not from the game deeplink).
     var config = await provider.GetOrFetchAsync(
@@ -133,7 +136,7 @@ app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string
         string.IsNullOrWhiteSpace(store) ? options.DefaultStore : store,
         string.IsNullOrWhiteSpace(gameVersion) ? options.DefaultGameVersion : gameVersion,
         ct);
-    return Results.Ok(config?.Items ?? new List<Catalog.API.Storage.CatalogItem>());
+    return Results.Ok(config?.Items.Select(item => item.Localize(locale)) ?? []);
 });
 
 // Эндпоинт получения доступных провайдеров оплаты под регион и стор
@@ -147,14 +150,14 @@ app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? s
     return Results.Ok(new PaymentProviderConfig(config?.PaymentProviders ?? new List<PaymentProviderDto>()));
 });
 
-app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, string? region, string? store, string? gameVersion, string? locale, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
 {
     var catalog = await provider.GetOrFetchAsync(
         string.IsNullOrWhiteSpace(region) ? options.DefaultRegion : region,
         string.IsNullOrWhiteSpace(store) ? options.DefaultStore : store,
         string.IsNullOrWhiteSpace(gameVersion) ? options.DefaultGameVersion : gameVersion,
         ct);
-    var item = catalog?.Items.FirstOrDefault(candidate => candidate.Id == id);
+    var item = catalog?.Items.FirstOrDefault(candidate => candidate.Id == id)?.Localize(locale);
     return item is null ? Results.NotFound() : Results.Ok(item);
 });
 
@@ -187,15 +190,57 @@ app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (s
         lastModified: File.GetLastWriteTimeUtc(path));
 });
 
-// Manual cache invalidation is a local-development aid, not a public production API.
-if (app.Environment.IsDevelopment())
+app.MapPost("/api/v1/catalog/cache-invalidation", async (
+    HttpRequest request,
+    CatalogCacheInvalidationAuthenticator authenticator,
+    ICatalogProvider provider,
+    CancellationToken ct) =>
 {
-    app.MapPost("/api/v1/catalog/reload", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+    if (!authenticator.IsConfigured)
     {
-        var config = await provider.ForceRefreshAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
-        return Results.Ok(new { message = "Catalog reloaded.", items = config?.Items.Count ?? 0 });
-    });
-}
+        return Results.Problem(statusCode: StatusCodes.Status503ServiceUnavailable, title: "Catalog invalidation is not configured.");
+    }
+
+    if (request.ContentLength is > 4096)
+    {
+        return Results.BadRequest(new { error = "Payload is too large." });
+    }
+
+    using var reader = new StreamReader(request.Body, Encoding.UTF8, detectEncodingFromByteOrderMarks: false, leaveOpen: false);
+    var body = await reader.ReadToEndAsync(ct);
+    if (!authenticator.TryValidate(
+            request.Headers[CatalogCacheInvalidationAuthenticator.TimestampHeader],
+            request.Headers[CatalogCacheInvalidationAuthenticator.SignatureHeader],
+            body,
+            DateTimeOffset.UtcNow,
+            out var isReplay))
+    {
+        return Results.Unauthorized();
+    }
+
+    if (isReplay)
+    {
+        return Results.Ok(new { message = "Catalog cache invalidation already processed." });
+    }
+
+    CatalogCacheInvalidationRequest? payload;
+    try
+    {
+        payload = JsonSerializer.Deserialize<CatalogCacheInvalidationRequest>(body);
+    }
+    catch (JsonException)
+    {
+        return Results.BadRequest(new { error = "Payload must be valid JSON." });
+    }
+
+    if (!IsCatalogKeyPart(payload?.Region) || !IsCatalogKeyPart(payload?.Store) || !IsCatalogKeyPart(payload?.GameVersion))
+    {
+        return Results.BadRequest(new { error = "region, store, and gameVersion must contain only letters, digits, dots, underscores, or hyphens." });
+    }
+
+    var invalidated = await provider.InvalidateAsync(payload!.Region.Trim(), payload.Store.Trim(), payload.GameVersion.Trim(), ct);
+    return Results.Ok(new { message = "Catalog cache invalidated.", invalidated });
+}).AllowAnonymous();
 
 static string GuessContentType(string fileName)
     => Path.GetExtension(fileName).ToLowerInvariant() switch
@@ -207,6 +252,9 @@ static string GuessContentType(string fileName)
         ".svg" => "image/svg+xml",
         _ => "application/octet-stream"
     };
+
+static bool IsCatalogKeyPart(string? value) => value is { Length: > 0 and <= 80 }
+    && value.All(character => char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-');
 
 app.Run();
 
@@ -230,3 +278,7 @@ public sealed record PlayerSessionResult(PlayerContextResult Player, string Acce
 
 public sealed record ClaimTicketRequest(Guid Ticket);
 public sealed record ResolvePlayerRequest(string PlayerId);
+public sealed record CatalogCacheInvalidationRequest(
+    [property: JsonPropertyName("region")] string Region,
+    [property: JsonPropertyName("store")] string Store,
+    [property: JsonPropertyName("gameVersion")] string GameVersion);

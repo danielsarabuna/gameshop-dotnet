@@ -18,13 +18,18 @@ public class CatalogProviderTests
 
     /// <summary>
     /// Routes each request to a canned response based on the URL substring (fileName),
-    /// emulating Supabase serving both webshop_config_*.json and config_*.json.
+    /// emulating Supabase Storage serving a webshop catalog.
     /// </summary>
     private sealed class PerUrlHandler : HttpMessageHandler
     {
         private readonly Dictionary<string, HttpResponseMessage> _responses;
+        private readonly IReadOnlyList<string> _publishedVersions;
 
-        public PerUrlHandler(Dictionary<string, HttpResponseMessage> responses) => _responses = responses;
+        public PerUrlHandler(Dictionary<string, HttpResponseMessage> responses, params string[] publishedVersions)
+        {
+            _responses = responses;
+            _publishedVersions = publishedVersions.Length == 0 ? ["0.0.36"] : publishedVersions;
+        }
 
         // Track which URLs were actually hit (asset downloads, config fetches).
         public List<string> HitUrls { get; } = new();
@@ -33,6 +38,10 @@ public class CatalogProviderTests
         {
             var uri = request.RequestUri?.AbsoluteUri ?? "";
             HitUrls.Add(uri);
+            if (request.Method == HttpMethod.Post && uri.Contains("/object/list/", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(JsonOk(JsonSerializer.Serialize(_publishedVersions.Select(version => new { name = $"webshop_config_{version}.json" }))));
+            }
             foreach (var kv in _responses)
             {
                 if (uri.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
@@ -70,17 +79,33 @@ public class CatalogProviderTests
         }
         """;
 
-    /// <summary>The game's content config — HTTP 200 but no items/providers (must be rejected).</summary>
-    private const string GameContentConfigJson = """
-        { "version": "0.0.36", "content_version": 1, "content_releases": {} }
+    private const string UnityLocalizedCatalogJson = """
+        {
+          "gameVersion": "0.0.1",
+          "defaultLocale": "en-US",
+          "items": [
+            {
+              "id": "d1a00000-0000-0000-0000-000000000060",
+              "sku": "diamonds_60",
+              "type": "Currency",
+              "price": 120.00,
+              "currency": "RUB",
+              "isActive": true,
+              "metadata": { "diamonds": "60" },
+              "locales": {
+                "en-US": { "title": "60 Diamonds", "description": "Currency pack" },
+                "ru-RU": { "title": "60 алмазов", "description": "Набор алмазов" }
+              }
+            }
+          ]
+        }
         """;
 
     private static RemoteCatalogOptions TempOptions(string assetDir) => new()
     {
         SupabaseBaseUrl = "https://mock.supabase.co",
         Bucket = "dev",
-        AssetCacheDir = assetDir,
-        CacheTtlSeconds = 300
+        AssetCacheDir = assetDir
     };
 
     [Fact]
@@ -115,27 +140,24 @@ public class CatalogProviderTests
         using var tmp = new TempAssetDir();
         var handler = new PerUrlHandler(new Dictionary<string, HttpResponseMessage>
         {
-            // Both candidates return Supabase's "missing object" status (400).
             ["webshop_config_0.0.99.json"] = new HttpResponseMessage(HttpStatusCode.BadRequest),
-            ["config_0.0.99.json"] = new HttpResponseMessage(HttpStatusCode.BadRequest),
-        });
+        }, Array.Empty<string>());
         var store = new InMemoryCatalogStore();
         var provider = new CatalogProvider(new HttpClient(handler), store, TempOptions(tmp.Path), NullLogger<CatalogProvider>.Instance);
 
         var config = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.99", CancellationToken.None);
 
         Assert.Null(config);
-        Assert.Null(store.GetConfig("russia", "ru_store", "0.0.99"));
+        Assert.Null(store.GetConfig("russia", "ru_store", "__latest__"));
     }
 
     [Fact]
-    public async Task GetOrFetchAsync_ShouldPreferWebshopConfig_WhenBothFilesExist()
+    public async Task GetOrFetchAsync_ShouldLoadOnlyTheWebshopConfig()
     {
         using var tmp = new TempAssetDir();
         var handler = new PerUrlHandler(new Dictionary<string, HttpResponseMessage>
         {
             ["webshop_config_0.0.36.json"] = JsonOk(ValidCatalogJson),
-            ["config_0.0.36.json"] = JsonOk(GameContentConfigJson),
             ["diamonds_60.png"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("X")) },
         });
         var store = new InMemoryCatalogStore();
@@ -144,8 +166,26 @@ public class CatalogProviderTests
         var config = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
 
         Assert.NotNull(config);
-        Assert.Single(config!.Items); // the real catalog item, NOT the empty game config
+        Assert.Single(config!.Items);
         Assert.Contains("YooKassa", config.PaymentProviders.Select(p => p.Id));
+    }
+
+    [Fact]
+    public async Task GetOrFetchAsync_ShouldAcceptUnityLocalizedOffers_AndSelectRequestedLocale()
+    {
+        using var tmp = new TempAssetDir();
+        var handler = new PerUrlHandler(new Dictionary<string, HttpResponseMessage>
+        {
+            ["webshop_config_0.0.1.json"] = JsonOk(UnityLocalizedCatalogJson),
+        }, "0.0.1");
+        var provider = new CatalogProvider(
+            new HttpClient(handler), new InMemoryCatalogStore(), TempOptions(tmp.Path), NullLogger<CatalogProvider>.Instance);
+
+        var config = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.1", CancellationToken.None);
+
+        var item = Assert.Single(config!.Items).Localize("ru-RU");
+        Assert.Equal("60 алмазов", item.Title);
+        Assert.Equal("Набор алмазов", item.Description);
     }
 
     [Fact]
@@ -170,53 +210,65 @@ public class CatalogProviderTests
     }
 
     [Fact]
-    public async Task GetOrFetchAsync_ShouldReturnStaleCache_WhenRevalidationFailsWithNetworkException()
+    public async Task GetOrFetchAsync_ShouldFetchAgain_AfterInvalidation()
     {
         using var tmp = new TempAssetDir();
-        var options = TempOptions(tmp.Path);
-        options.CacheTtlSeconds = 0; // Force immediate revalidation on subsequent calls
-
-        var handler = new ThrowingHandler(new Dictionary<string, HttpResponseMessage>
-        {
-            ["webshop_config_0.0.36.json"] = JsonOk(ValidCatalogJson),
-            ["diamonds_60.png"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("X")) },
-        });
+        var handler = new CountingCatalogHandler();
         var store = new InMemoryCatalogStore();
-        var provider = new CatalogProvider(new HttpClient(handler), store, options, NullLogger<CatalogProvider>.Instance);
+        var provider = new CatalogProvider(new HttpClient(handler), store, TempOptions(tmp.Path), NullLogger<CatalogProvider>.Instance);
 
-        // Initial fetch populates cache
-        var initialConfig = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
-        Assert.NotNull(initialConfig);
+        await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
+        // The event names the newly published version, while the cached key is regional latest.
+        Assert.True(await provider.InvalidateAsync("russia", "ru_store", "0.0.37", CancellationToken.None));
+        await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
 
-        // Turn on network throwing behavior
-        handler.ShouldThrow = true;
-
-        // Revalidation attempt encounters network error, but returns stale cached config
-        var staleConfig = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
-        Assert.NotNull(staleConfig);
-        Assert.Equal(initialConfig!.GameVersion, staleConfig!.GameVersion);
+        Assert.Equal(2, handler.ConfigRequestCount);
     }
 
-    private sealed class ThrowingHandler : HttpMessageHandler
+    [Fact]
+    public async Task GetOrFetchAsync_ShouldChooseLatestPublishedVersion_RegardlessOfRequestedVersion()
     {
-        private readonly Dictionary<string, HttpResponseMessage> _responses;
-        public bool ShouldThrow { get; set; }
+        using var tmp = new TempAssetDir();
+        var oldCatalog = ValidCatalogJson.Replace("0.0.36", "0.0.1").Replace("120.00", "1.00");
+        var handler = new PerUrlHandler(new Dictionary<string, HttpResponseMessage>
+        {
+            ["webshop_config_0.0.1.json"] = JsonOk(oldCatalog),
+            ["webshop_config_0.0.36.json"] = JsonOk(ValidCatalogJson),
+            ["diamonds_60.png"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("X")) },
+        }, "0.0.1", "0.0.36");
 
-        public ThrowingHandler(Dictionary<string, HttpResponseMessage> responses) => _responses = responses;
+        var provider = new CatalogProvider(new HttpClient(handler), new InMemoryCatalogStore(), TempOptions(tmp.Path), NullLogger<CatalogProvider>.Instance);
+        var config = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.1", CancellationToken.None);
+
+        Assert.NotNull(config);
+        Assert.Equal("0.0.36", config!.GameVersion);
+        Assert.Equal(120.00m, Assert.Single(config.Items).Price);
+        Assert.Contains(handler.HitUrls, url => url.Contains("webshop_config_0.0.36.json", StringComparison.Ordinal));
+        Assert.DoesNotContain(handler.HitUrls, url => url.Contains("webshop_config_0.0.1.json", StringComparison.Ordinal));
+    }
+
+    private sealed class CountingCatalogHandler : HttpMessageHandler
+    {
+        public int ConfigRequestCount { get; private set; }
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            if (ShouldThrow)
-            {
-                throw new HttpRequestException("Network unreachable");
-            }
             var uri = request.RequestUri?.AbsoluteUri ?? "";
-            foreach (var kv in _responses)
+            if (request.Method == HttpMethod.Post && uri.Contains("/object/list/", StringComparison.OrdinalIgnoreCase))
             {
-                if (uri.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
+                return Task.FromResult(JsonOk("[{\"name\":\"webshop_config_0.0.36.json\"}]"));
+            }
+            if (uri.Contains("webshop_config", StringComparison.OrdinalIgnoreCase))
+            {
+                ConfigRequestCount++;
+                return Task.FromResult(JsonOk(ValidCatalogJson));
+            }
+            if (uri.Contains("diamonds_60.png", StringComparison.OrdinalIgnoreCase))
+            {
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    return Task.FromResult(kv.Value);
-                }
+                    Content = new ByteArrayContent(Encoding.UTF8.GetBytes("X"))
+                });
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest));
         }

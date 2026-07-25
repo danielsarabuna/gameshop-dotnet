@@ -23,7 +23,8 @@ EXPOSE 8081
 HEALTHCHECK --interval=10s --timeout=3s --retries=10 --start-period=15s \
     CMD curl -fsS http://localhost:8080/health || exit 1
 
-COPY --from=build /app/publish .
+COPY --chown=app:app --from=build /app/publish .
+RUN mkdir -p /app/App_Data/catalog-assets \
+    && chown -R app:app /app/App_Data
 USER app
 ENTRYPOINT ["dotnet", "Catalog.API.dll"]
-

@@ -3,6 +3,7 @@ import {
   PaymentMethodInfo,
   CatalogPaymentProvider,
   CatalogItem,
+  LanguageCode,
   CreateOrderPayload,
   CreateOrderResult,
   PaymentResult,
@@ -67,13 +68,15 @@ export const getPaymentMethods = async (): Promise<PaymentMethodInfo[] | null> =
 export const getCatalogItems = async (
   region?: string,
   store?: string,
-  gameVersion?: string
+  gameVersion?: string,
+  locale?: string
 ): Promise<CatalogItem[] | null> => {
   try {
     const params = new URLSearchParams();
     if (region) params.set('region', region);
     if (store) params.set('store', store);
     if (gameVersion) params.set('gameVersion', gameVersion);
+    if (locale) params.set('locale', locale);
     const qs = params.toString();
     const url = qs ? `api/v1/catalog/items?${qs}` : 'api/v1/catalog/items';
     const response = await api.get<CatalogItem[]>(url);
@@ -81,6 +84,14 @@ export const getCatalogItems = async (
   } catch {
     return null;
   }
+};
+
+export const catalogLocaleForLanguage: Record<LanguageCode, string> = {
+  RU: 'ru-RU',
+  EN: 'en-US',
+  DE: 'de-DE',
+  FR: 'fr-FR',
+  ES: 'es-ES',
 };
 
 // Player-context resolution via backend (authoritative region/store/version from Supabase)

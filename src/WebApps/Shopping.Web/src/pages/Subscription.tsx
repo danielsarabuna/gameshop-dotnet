@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { getCatalogItems } from '../services/api';
+import { catalogLocaleForLanguage, getCatalogItems } from '../services/api';
 import { SkeletonCard } from '../components/Skeleton';
 import { SparklesIcon, CrownIcon } from '../components/Icons';
 import { CheckCircle2, Zap, Volume2, Lock, ShoppingCart, RefreshCw, AlertCircle, ChevronDown } from 'lucide-react';
@@ -68,7 +68,7 @@ const FALLBACK_PLANS: SubPlan[] = [
 ];
 
 export const Subscription: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { addItem, openCartDrawer, reconcile } = useCart();
   const { region, storeChannel, gameVersion } = useAuth();
   const [catalogItems, setCatalogItems] = useState<any[] | null>(null);
@@ -77,7 +77,7 @@ export const Subscription: React.FC = () => {
 
   const fetchPlans = () => {
     setLoading(true);
-    getCatalogItems(region, storeChannel, gameVersion).then((items) => {
+    getCatalogItems(region, storeChannel, gameVersion, catalogLocaleForLanguage[language]).then((items) => {
       setLoading(false);
       if (items !== null) {
         setIsBackendConnected(true);
@@ -95,7 +95,7 @@ export const Subscription: React.FC = () => {
   useEffect(() => {
     fetchPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [region, storeChannel, gameVersion]);
+  }, [region, storeChannel, gameVersion, language]);
 
   const plans = React.useMemo<SubPlan[]>(() => {
     const rawPlans = (isBackendConnected === false || catalogItems === null)

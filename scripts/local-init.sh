@@ -44,6 +44,13 @@ if [[ -z "$private_key" || -z "$public_key" ]]; then
   echo "Generated a local-only game-ticket RSA key pair."
 fi
 
+cache_invalidation_secret="$(awk -F= '$1 == "CATALOG_CACHE_INVALIDATION_SECRET" { sub(/^[^=]*=/, ""); print; exit }' "$env_file")"
+if [[ -z "$cache_invalidation_secret" ]]; then
+  cache_invalidation_secret="$(openssl rand -hex 32)"
+  upsert_env CATALOG_CACHE_INVALIDATION_SECRET "$cache_invalidation_secret"
+  echo "Generated a local-only catalog cache-invalidation secret."
+fi
+
 if rg -q 'replace-with-development-service-role-key|your-project\.supabase\.co' "$env_file"; then
   echo "Action required: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local."
   exit 1

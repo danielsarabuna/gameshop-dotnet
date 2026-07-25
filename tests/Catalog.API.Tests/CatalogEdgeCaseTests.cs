@@ -20,8 +20,7 @@ public class CatalogEdgeCaseTests
         {
             SupabaseBaseUrl = "https://invalid-supabase.co",
             Bucket = "dev",
-            AssetCacheDir = tmp.Path,
-            CacheTtlSeconds = 300
+            AssetCacheDir = tmp.Path
         };
         var provider = new CatalogProvider(new HttpClient(handler), store, options, NullLogger<CatalogProvider>.Instance);
 
@@ -39,8 +38,7 @@ public class CatalogEdgeCaseTests
         {
             SupabaseBaseUrl = "https://mock.supabase.co",
             Bucket = "dev",
-            AssetCacheDir = tmp.Path,
-            CacheTtlSeconds = 300
+            AssetCacheDir = tmp.Path
         };
         var provider = new CatalogProvider(new HttpClient(), store, options, NullLogger<CatalogProvider>.Instance);
 
@@ -62,8 +60,7 @@ public class CatalogEdgeCaseTests
         {
             SupabaseBaseUrl = "https://mock.supabase.co",
             Bucket = "dev",
-            AssetCacheDir = tmp.Path,
-            CacheTtlSeconds = 300
+            AssetCacheDir = tmp.Path
         };
         var provider = new CatalogProvider(new HttpClient(handler), store, options, NullLogger<CatalogProvider>.Instance);
 

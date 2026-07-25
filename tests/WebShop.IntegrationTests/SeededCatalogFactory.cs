@@ -24,14 +24,15 @@ public sealed class SeededCatalogFactory : WebApplicationFactory<Catalog.API.Pro
         {
             // Replace the empty store with a seeded one (last registration wins).
             services.AddSingleton<ICatalogStore>(_ => CreateSeededStore());
-            services.AddSingleton(new RemoteCatalogOptions { CacheTtlSeconds = 3600 });
+            services.AddSingleton(new RemoteCatalogOptions());
         });
     }
 
     internal static InMemoryCatalogStore CreateSeededStore()
     {
         var store = new InMemoryCatalogStore();
-        store.SetConfig(DefaultRegion, DefaultStore, DefaultVersion, new WebShopCatalogConfig(
+        // Production caches the selected maximum Unity version under this regional key.
+        store.SetConfig(DefaultRegion, DefaultStore, "__latest__", new WebShopCatalogConfig(
             GameVersion: DefaultVersion,
             Environment: "test",
             Region: DefaultRegion,

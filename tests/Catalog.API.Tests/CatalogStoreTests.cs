@@ -56,4 +56,17 @@ public class CatalogStoreTests
         Assert.NotNull(found);
         Assert.Equal("Diamond Pack", found!.Title);
     }
+
+    [Fact]
+    public void RemoveConfig_ShouldRemoveOnlyTheRequestedKey()
+    {
+        var store = new InMemoryCatalogStore();
+        var config = new WebShopCatalogConfig("0.0.36", "dev", "russia", "ru_store", "", [], []);
+        store.SetConfig("russia", "ru_store", "0.0.36", config);
+        store.SetConfig("global", "global", "global", config);
+
+        Assert.True(store.RemoveConfig("russia", "ru_store", "0.0.36"));
+        Assert.Null(store.GetConfig("russia", "ru_store", "0.0.36"));
+        Assert.NotNull(store.GetConfig("global", "global", "global"));
+    }
 }
