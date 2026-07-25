@@ -90,29 +90,30 @@ export interface PlayerContext {
   region: string;
   store: string;
   gameVersion: string;
+  deliveryContractVersion?: number;
   playerName?: string;
   errorMessage?: string;
+  errorCode?: string;
   accessToken?: string;
   expiresAtUtc?: string;
+  sessionKind?: 'game' | 'recipient';
 }
 
 export const claimTicket = async (ticket: string): Promise<PlayerContext | null> => {
   try {
     const response = await api.post<PlayerContext>('api/v1/auth/claim-ticket', { ticket });
     return response.data;
-  } catch {
-    return null;
+  } catch (error: any) {
+    return error.response?.data ?? null;
   }
 };
 
-export const verifyPlayer = async (userId: string): Promise<PlayerContext | null> => {
+export const resolvePlayer = async (playerId: string): Promise<PlayerContext | null> => {
   try {
-    const response = await api.post<PlayerContext>('api/v1/auth/verify-player', null, {
-      params: { userId },
-    });
+    const response = await api.post<PlayerContext>('api/v1/auth/resolve-player', { playerId });
     return response.data;
-  } catch {
-    return null;
+  } catch (error: any) {
+    return error.response?.data ?? null;
   }
 };
 
@@ -129,10 +130,11 @@ export const applyPromoCode = async (
 };
 
 export const createOrder = async (
-  payload: CreateOrderPayload
+  payload: CreateOrderPayload,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; data?: CreateOrderResult; error?: string }> => {
   try {
-    const response = await api.post<CreateOrderResult>('api/v1/orders/create', payload);
+    const response = await api.post<CreateOrderResult>('api/v1/orders/create', payload, { signal });
     return { success: true, data: response.data };
   } catch (error: any) {
     const message = error.response?.data?.error || 'Could not create order.';
@@ -142,10 +144,11 @@ export const createOrder = async (
 
 export const createPayment = async (
   orderId: string,
-  provider: string
+  provider: string,
+  signal?: AbortSignal
 ): Promise<{ success: boolean; data?: PaymentResult; error?: string }> => {
   try {
-    const response = await api.post<PaymentResult>(`api/v1/payments/${provider}`, { orderId });
+    const response = await api.post<PaymentResult>(`api/v1/payments/${provider}`, { orderId }, { signal });
     return { success: true, data: response.data };
   } catch (error: any) {
     const message = error.response?.data?.error || 'Could not create payment.';
@@ -155,10 +158,11 @@ export const createPayment = async (
 
 export const completeMockPayment = async (
   orderId: string,
-  status: 'succeeded' | 'failed'
+  status: 'succeeded' | 'failed',
+  signal?: AbortSignal
 ): Promise<boolean> => {
   try {
-    await api.post(`api/v1/payments/mockprovider/${orderId}/complete`, { status });
+    await api.post(`api/v1/payments/mockprovider/${orderId}/complete`, { status }, { signal });
     return true;
   } catch {
     return false;

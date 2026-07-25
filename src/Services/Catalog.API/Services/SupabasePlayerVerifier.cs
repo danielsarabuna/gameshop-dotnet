@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Net;
 using System.Text;
 using System.Text.Json;
 using Catalog.API.Configuration;
@@ -12,13 +13,15 @@ public sealed record PlayerContextResult(
     string Store,
     string GameVersion,
     string? ErrorMessage = null,
-    string? PlayerName = null
+    string? PlayerName = null,
+    string? ErrorCode = null,
+    int DeliveryContractVersion = 1
 );
 
 public interface ISupabasePlayerVerifier
 {
     Task<PlayerContextResult> ClaimTicketAsync(Guid ticketId, CancellationToken cancellationToken);
-    Task<PlayerContextResult> VerifyDirectPlayerIdAsync(string rawUserId, CancellationToken cancellationToken);
+    Task<PlayerContextResult> ResolvePlayerAsync(string rawUserId, CancellationToken cancellationToken);
 }
 
 public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
@@ -70,9 +73,12 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
                 var region = item.GetProperty("region").GetString() ?? _options.DefaultRegion;
                 var store = item.GetProperty("store_channel").GetString() ?? _options.DefaultStore;
                 var version = item.GetProperty("game_version").GetString() ?? _options.DefaultGameVersion;
+                var deliveryVersion = item.TryGetProperty("delivery_contract_version", out var deliveryVersionProp)
+                    ? Math.Max(1, deliveryVersionProp.GetInt32())
+                    : 1;
                 var playerName = await GetPlayerNameAsync(userId, cancellationToken);
 
-                return new PlayerContextResult(true, userId, region, store, version, PlayerName: playerName);
+                return new PlayerContextResult(true, userId, region, store, version, PlayerName: playerName, DeliveryContractVersion: deliveryVersion);
             }
 
             return new PlayerContextResult(false, "", "", "", "", "Invalid ticket response structure.");
@@ -88,15 +94,20 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
         }
     }
 
-    public async Task<PlayerContextResult> VerifyDirectPlayerIdAsync(string rawUserId, CancellationToken cancellationToken)
+    public async Task<PlayerContextResult> ResolvePlayerAsync(string rawUserId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(rawUserId))
         {
-            return new PlayerContextResult(false, "", "", "", "", "Player ID cannot be empty.");
+            return new PlayerContextResult(false, "", "", "", "", "Player ID is required.", ErrorCode: "invalid_player");
         }
 
         var trimmedId = rawUserId.Trim();
-        var queryUrl = $"{_options.Url.TrimEnd('/')}/rest/v1/user_profile?user_id=eq.{Uri.EscapeDataString(trimmedId)}&select=user_id,updated_at";
+        if (!Guid.TryParse(trimmedId, out _))
+        {
+            return new PlayerContextResult(false, "", "", "", "", "Player could not be resolved.", ErrorCode: "invalid_player");
+        }
+
+        var queryUrl = $"{_options.Url.TrimEnd('/')}/rest/v1/webshop_player_context?user_id=eq.{Uri.EscapeDataString(trimmedId)}&select=user_id,region,store_channel,game_version,delivery_contract_version&limit=1";
 
         try
         {
@@ -106,7 +117,15 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                return ValidateFallbackPlayerId(trimmedId);
+                var error = await response.Content.ReadAsStringAsync(cancellationToken);
+                if (response.StatusCode == HttpStatusCode.NotFound
+                    || error.Contains("PGRST205", StringComparison.Ordinal)
+                    || error.Contains("delivery_contract_version", StringComparison.Ordinal))
+                {
+                    return await ResolveFromTicketHistoryAsync(trimmedId, cancellationToken);
+                }
+
+                return new PlayerContextResult(false, "", "", "", "", "Player lookup is temporarily unavailable.", ErrorCode: "lookup_unavailable");
             }
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -114,16 +133,26 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
 
             if (doc.RootElement.ValueKind == JsonValueKind.Array && doc.RootElement.GetArrayLength() > 0)
             {
-                var verifiedId = doc.RootElement[0].GetProperty("user_id").GetString() ?? trimmedId;
-                return new PlayerContextResult(true, verifiedId, _options.DefaultRegion, _options.DefaultStore, _options.DefaultGameVersion);
+                var item = doc.RootElement[0];
+                var verifiedId = item.GetProperty("user_id").GetString() ?? trimmedId;
+                var region = item.GetProperty("region").GetString() ?? _options.DefaultRegion;
+                var store = item.GetProperty("store_channel").GetString() ?? _options.DefaultStore;
+                var version = item.GetProperty("game_version").GetString() ?? _options.DefaultGameVersion;
+                var deliveryVersion = item.TryGetProperty("delivery_contract_version", out var deliveryVersionProp)
+                    ? Math.Max(1, deliveryVersionProp.GetInt32())
+                    : 1;
+                var playerName = await GetPlayerNameAsync(verifiedId, cancellationToken);
+                return new PlayerContextResult(true, verifiedId, region, store, version, PlayerName: playerName, DeliveryContractVersion: deliveryVersion);
             }
 
-            if (Guid.TryParse(trimmedId, out _))
-            {
-                return new PlayerContextResult(true, trimmedId, _options.DefaultRegion, _options.DefaultStore, _options.DefaultGameVersion);
-            }
-
-            return new PlayerContextResult(false, "", "", "", "", "Player ID not found in game database.");
+            return new PlayerContextResult(
+                false,
+                "",
+                "",
+                "",
+                "",
+                "Open the game once to synchronize this player with the shop.",
+                ErrorCode: "context_missing");
         }
         catch (OperationCanceledException)
         {
@@ -131,22 +160,37 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Exception verifying player ID {UserId}", rawUserId);
-            if (Guid.TryParse(trimmedId, out _))
-            {
-                return new PlayerContextResult(true, trimmedId, _options.DefaultRegion, _options.DefaultStore, _options.DefaultGameVersion);
-            }
-            return new PlayerContextResult(false, "", "", "", "", "Player verification failed on Supabase server.");
+            _logger.LogError(ex, "Exception while resolving a WebShop player");
+            return new PlayerContextResult(false, "", "", "", "", "Player lookup is temporarily unavailable.", ErrorCode: "lookup_unavailable");
         }
     }
 
-    private PlayerContextResult ValidateFallbackPlayerId(string trimmedId)
+    private async Task<PlayerContextResult> ResolveFromTicketHistoryAsync(
+        string userId,
+        CancellationToken cancellationToken)
     {
-        if (Guid.TryParse(trimmedId, out _))
+        var url = $"{_options.Url.TrimEnd('/')}/rest/v1/webshop_tickets?user_id=eq.{Uri.EscapeDataString(userId)}&select=user_id,region,store_channel,game_version&order=created_at.desc&limit=1";
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        AddSupabaseHeaders(request);
+        using var response = await _httpClient.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
         {
-            return new PlayerContextResult(true, trimmedId, _options.DefaultRegion, _options.DefaultStore, _options.DefaultGameVersion);
+            return new PlayerContextResult(false, "", "", "", "", "Player lookup is temporarily unavailable.", ErrorCode: "lookup_unavailable");
         }
-        return new PlayerContextResult(false, "", "", "", "", "Invalid player ID format.");
+
+        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
+        if (doc.RootElement.ValueKind != JsonValueKind.Array || doc.RootElement.GetArrayLength() == 0)
+        {
+            return new PlayerContextResult(false, "", "", "", "", "Open the game once to synchronize this player with the shop.", ErrorCode: "context_missing");
+        }
+
+        var item = doc.RootElement[0];
+        var verifiedId = item.GetProperty("user_id").GetString() ?? userId;
+        var region = item.GetProperty("region").GetString() ?? _options.DefaultRegion;
+        var store = item.GetProperty("store_channel").GetString() ?? _options.DefaultStore;
+        var version = item.GetProperty("game_version").GetString() ?? _options.DefaultGameVersion;
+        var playerName = await GetPlayerNameAsync(verifiedId, cancellationToken);
+        return new PlayerContextResult(true, verifiedId, region, store, version, PlayerName: playerName);
     }
 
     private async Task<string?> GetPlayerNameAsync(string userId, CancellationToken cancellationToken)
@@ -154,18 +198,10 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
         var characterName = await GetCurrentCharacterNameAsync(userId, cancellationToken);
         if (!string.IsNullOrWhiteSpace(characterName))
         {
-            // DEBUG-SESSION: remove after the Unity deeplink confirms the active character name.
-            _logger.LogInformation("DEBUG-SESSION WebShop player name resolved from active character state for {UserId}", userId);
             return characterName;
         }
 
-        var profileName = await GetProfileNameAsync(userId, cancellationToken);
-        // DEBUG-SESSION: remove after the Unity deeplink confirms the active character name.
-        _logger.LogInformation(
-            "DEBUG-SESSION WebShop player name fallback for {UserId}: {Source}",
-            userId,
-            string.IsNullOrWhiteSpace(profileName) ? "none" : "user_profile");
-        return profileName;
+        return await GetProfileNameAsync(userId, cancellationToken);
     }
 
     private async Task<string?> GetCurrentCharacterNameAsync(string userId, CancellationToken cancellationToken)
@@ -210,7 +246,7 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Could not read active character name for player {UserId}", userId);
+            _logger.LogWarning(ex, "Could not read active character name for a WebShop player");
         }
 
         return null;
@@ -247,7 +283,7 @@ public sealed class SupabasePlayerVerifier : ISupabasePlayerVerifier
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "Could not read display name for player {UserId}", userId);
+            _logger.LogWarning(ex, "Could not read display name for a WebShop player");
         }
 
         return null;

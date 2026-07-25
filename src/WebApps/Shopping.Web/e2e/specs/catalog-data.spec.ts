@@ -3,6 +3,7 @@ import { HeaderPOM } from '../page-objects/header.page';
 
 test.describe('Catalog Data, Currency & Offline Fallback', () => {
   test('should render diamond offer packs with formatted prices and currency', async ({ page }) => {
+    await page.route('**/api/v1/catalog/items*', (route) => route.abort('failed'));
     await page.goto('/diamonds');
     await page.waitForLoadState('networkidle');
 
@@ -19,6 +20,7 @@ test.describe('Catalog Data, Currency & Offline Fallback', () => {
   });
 
   test('should render subscription plans with perks and formatted prices', async ({ page }) => {
+    await page.route('**/api/v1/catalog/items*', (route) => route.abort('failed'));
     await page.goto('/subscription');
     await page.waitForLoadState('networkidle');
 
@@ -35,6 +37,7 @@ test.describe('Catalog Data, Currency & Offline Fallback', () => {
   });
 
   test('should add diamond pack to cart and update cart badge', async ({ page }) => {
+    await page.route('**/api/v1/catalog/items*', (route) => route.abort('failed'));
     await page.goto('/diamonds');
     await page.waitForLoadState('networkidle');
 

@@ -9,7 +9,7 @@ import { Globe, ChevronDown, ShoppingCart, Menu, X, User } from 'lucide-react';
 export const Header: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const { count, cartBump, openCartDrawer } = useCart();
-  const { playerId, playerName, openLoginModal, openProfileModal } = useAuth();
+  const { playerName, authStatus, openLoginModal, openProfileModal } = useAuth();
 
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -53,7 +53,8 @@ export const Header: React.FC = () => {
   ];
 
   const activeLang = languages.find((l) => l.code === language) || languages[0];
-  const displayName = playerName || playerId || null;
+  const hasPlayerSession = authStatus === 'game-session' || authStatus === 'recipient-session';
+  const displayName = hasPlayerSession ? playerName || t('Игрок', 'Player') : null;
 
   return (
     <header className={`header-wrapper ${scrolled ? 'glass' : ''}`}>
@@ -127,6 +128,7 @@ export const Header: React.FC = () => {
             <button
               className="icon-btn auth-pill-btn"
               type="button"
+              aria-label={`${t('Профиль', 'Profile')}: ${displayName}`}
               onClick={openProfileModal}
             >
               <User size={16} color="#ff3366" />
@@ -136,6 +138,7 @@ export const Header: React.FC = () => {
             <button
               className="icon-btn auth-pill-btn"
               type="button"
+              aria-label={t('Ввести Player ID', 'Enter Player ID')}
               onClick={openLoginModal}
             >
               <User size={16} color="rgba(255,255,255,0.9)" />

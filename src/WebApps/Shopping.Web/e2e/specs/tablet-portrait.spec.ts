@@ -48,6 +48,9 @@ test.describe('Tablet Portrait (768x1024)', () => {
 
   for (const r of routes) {
     test(`should arrange cards in 2-column grid on tablet portrait for ${r.path}`, async ({ page }) => {
+      if (r.path === '/diamonds' || r.path === '/subscription') {
+        await page.route('**/api/v1/catalog/items*', (route) => route.abort('failed'));
+      }
       await page.goto(r.path);
       await page.waitForLoadState('networkidle');
 

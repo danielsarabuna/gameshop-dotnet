@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-small',
-      testMatch: ['**/mobile-small.spec.ts', '**/challenger-m3-stress.spec.ts', '**/challenger-m2-c2-stress.spec.ts'],
+      testMatch: ['**/mobile-small.spec.ts', '**/challenger-m3-stress.spec.ts', '**/challenger-m2-c2-stress.spec.ts', '**/checkout-polish.spec.ts'],
       use: {
         browserName: 'chromium',
         viewport: { width: 320, height: 568 },
@@ -49,7 +49,7 @@ export default defineConfig({
     },
     {
       name: 'desktop',
-      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/challenger-m4-stress.spec.ts', '**/challenger-m3-c2-boundary-stress.spec.ts', '**/local-unity-flow.spec.ts'],
+      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/challenger-m4-stress.spec.ts', '**/challenger-m3-c2-boundary-stress.spec.ts', '**/local-unity-flow.spec.ts', '**/checkout-polish.spec.ts'],
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },

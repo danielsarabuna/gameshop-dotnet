@@ -59,10 +59,19 @@ public sealed class SupabaseOrderDeliveryService : ISupabaseOrderDelivery
             throw new InvalidOperationException($"Order {delivery.OrderId} has no items — cannot derive reward.");
         }
 
-        // Game contract (see GameShop WebShopOrderRow + reserve/complete RPCs):
-        // one row per ORDER whose id equals the order uuid; reward fields aggregate all lines.
+        // One delivery row per paid order. v2 carries each grant explicitly while the
+        // legacy scalar fields remain accurate for homogeneous v1 orders.
         var first = delivery.Items[0];
-        var payload = new
+        var rewardItems = delivery.Items.Select(item => new
+        {
+            product_id = item.ProductId,
+            title = item.Title,
+            kind = DeriveRewardKind(item),
+            amount = DeriveRewardAmount(item),
+            quantity = item.Quantity
+        }).ToArray();
+        var isBundle = delivery.Items.Select(DeriveRewardKind).Distinct(StringComparer.Ordinal).Count() > 1;
+        var legacyPayload = new
         {
             p_order_id = delivery.OrderId,
             p_user_id = Guid.TryParse(delivery.GameUserId, out var userId)
@@ -70,7 +79,7 @@ public sealed class SupabaseOrderDeliveryService : ISupabaseOrderDelivery
                 : throw new InvalidOperationException("Supabase delivery requires a UUID game user id."),
             p_product_id = first.ProductId,
             p_product_title = string.Join(" + ", delivery.Items.Select(i => i.Title)),
-            p_currency_type = DeriveCurrencyType(first),
+            p_currency_type = isBundle ? "Bundle" : DeriveCurrencyType(first),
             p_reward_amount = delivery.Items.Sum(DeriveRewardAmount),
             p_price = delivery.Total,
             p_price_currency = delivery.Currency,
@@ -86,8 +95,31 @@ public sealed class SupabaseOrderDeliveryService : ISupabaseOrderDelivery
                 metadata = item.Metadata
             }).ToArray()
         };
+        var payload = new
+        {
+            legacyPayload.p_order_id,
+            legacyPayload.p_user_id,
+            legacyPayload.p_product_id,
+            legacyPayload.p_product_title,
+            legacyPayload.p_currency_type,
+            legacyPayload.p_reward_amount,
+            legacyPayload.p_price,
+            legacyPayload.p_price_currency,
+            legacyPayload.p_provider,
+            legacyPayload.p_provider_payment_id,
+            legacyPayload.p_paid_at,
+            p_reward_items = rewardItems,
+            legacyPayload.p_items
+        };
 
-        await PostRestAsync($"{config.Url}/rest/v1/rpc/record_webshop_paid_order", config.Key, payload, ct);
+        try
+        {
+            await PostRestAsync($"{config.Url}/rest/v1/rpc/record_webshop_paid_order_v2", config.Key, payload, ct);
+        }
+        catch (InvalidOperationException ex) when (!isBundle && ex.Message.Contains("PGRST202", StringComparison.Ordinal))
+        {
+            await PostRestAsync($"{config.Url}/rest/v1/rpc/record_webshop_paid_order", config.Key, legacyPayload, ct);
+        }
         _logger.LogInformation("Supabase paid order recorded atomically for {OrderId}.", delivery.OrderId);
     }
 
@@ -96,6 +128,13 @@ public sealed class SupabaseOrderDeliveryService : ISupabaseOrderDelivery
         nameof(DomainProductType.Currency) => "Diamonds",
         nameof(DomainProductType.Subscription) => "Subscription",
         _ => item.ProductType
+    };
+
+    internal static string DeriveRewardKind(SupabaseOrderItem item) => item.ProductType switch
+    {
+        nameof(DomainProductType.Currency) => "diamonds",
+        nameof(DomainProductType.Subscription) => "subscription_days",
+        _ => item.ProductType.ToLowerInvariant()
     };
 
     internal static int DeriveRewardAmount(SupabaseOrderItem item)

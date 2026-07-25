@@ -44,15 +44,14 @@ test.describe('Mobile & Responsive Header (320px–844px)', () => {
     await expect(header.mobileMenuOverlay).not.toBeVisible();
   });
 
-  test('should present cart drawer full-width (100vw) on mobile', async ({ page }) => {
+  test('should present a compact cart bottom sheet on mobile', async ({ page }) => {
     await page.goto('/diamonds');
     await page.waitForLoadState('networkidle');
 
-    const header = new HeaderPOM(page);
     const cart = new CartDrawerPOM(page);
 
-    await header.openCart();
-    await cart.assert100vwMobileWidth();
+    await page.getByRole('button', { name: 'В корзину' }).first().click();
+    await cart.assertMobileBottomSheet();
 
     await cart.close();
     await expect(cart.drawer).not.toHaveClass(/open/);

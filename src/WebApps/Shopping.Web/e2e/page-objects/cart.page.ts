@@ -10,7 +10,8 @@ export class CartDrawerPOM {
   readonly checkoutBtn: Locator;
   readonly playerIdInput: Locator;
   readonly playerNameInput: Locator;
-  readonly paymentMethodSelect: Locator;
+  readonly paymentMethodButtons: Locator;
+  readonly footer: Locator;
 
   constructor(page: Page) {
     this.page = page;
@@ -20,9 +21,10 @@ export class CartDrawerPOM {
     this.emptyState = page.locator('.cart-empty');
     this.clearCartBtn = page.locator('aside.cart-drawer button:has-text("Очистить"), aside.cart-drawer button:has-text("Clear")');
     this.checkoutBtn = page.locator('aside.cart-drawer button.btn-primary');
-    this.playerIdInput = page.locator('aside.cart-drawer input[placeholder*="ID"]');
-    this.playerNameInput = page.locator('aside.cart-drawer input[placeholder*="Имя"], aside.cart-drawer input[placeholder*="Name"]');
-    this.paymentMethodSelect = page.locator('aside.cart-drawer select');
+    this.playerIdInput = page.locator('#player-id');
+    this.playerNameInput = page.locator('.recipient-summary strong');
+    this.paymentMethodButtons = page.locator('aside.cart-drawer .payment-methods > button');
+    this.footer = page.locator('aside.cart-drawer .checkout-footer');
   }
 
   async close() {
@@ -33,11 +35,15 @@ export class CartDrawerPOM {
     return await this.drawer.boundingBox();
   }
 
-  async assert100vwMobileWidth() {
+  async assertMobileBottomSheet() {
     await expect(this.drawer).toHaveClass(/open/);
     const box = await this.getDrawerBoundingBox();
     const viewportWidth = await this.page.evaluate(() => window.innerWidth);
+    const viewportHeight = await this.page.evaluate(() => window.innerHeight);
     expect(box).not.toBeNull();
     expect(Math.abs(box!.width - viewportWidth)).toBeLessThanOrEqual(2);
+    expect(box!.height).toBeLessThan(viewportHeight);
+    expect(box!.y).toBeGreaterThan(0);
+    await expect(this.footer).toBeVisible();
   }
 }

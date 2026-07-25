@@ -15,11 +15,12 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       // Inject session with an extreme long playerName into tab-scoped storage prior to navigation
       await page.addInitScript(() => {
         sessionStorage.setItem(
-          'GameShop_player_session',
+          'GameShop_webshop_session',
           JSON.stringify({
+            accessToken: 'layout-test-token',
             playerId: 'player_9999999999999999',
             playerName: 'Supercalifragilisticexpialidocious_Player_9999999999999999_Extreme_Long_Username_String',
-            playerEmail: 'extreme_player@example.com',
+            sessionKind: 'recipient',
           })
         );
       });
@@ -216,7 +217,7 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       }
     });
 
-    test('should prevent payment select dropdown overflow in Cart Drawer at 320px mobile viewport', async ({ page }) => {
+    test('should prevent payment method overflow in the mobile checkout sheet', async ({ page }) => {
       await page.goto('/diamonds');
       await page.waitForLoadState('networkidle');
 
@@ -227,23 +228,11 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       const cart = new CartDrawerPOM(page);
       await expect(cart.drawer).toHaveClass(/open/);
 
-      // Verify 100vw mobile width
-      await cart.assert100vwMobileWidth();
+      await cart.assertMobileBottomSheet();
 
-      // Check dynamically populated payment select dropdown options
-      if (await cart.paymentMethodSelect.isVisible()) {
-        await page.locator('aside.cart-drawer select option[value="card"]').waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
-
-        const availableOptions = await cart.paymentMethodSelect.locator('option').evaluateAll((opts: HTMLOptionElement[]) =>
-          opts.map((o) => o.value).filter((val) => val !== '')
-        );
-
-        for (const opt of availableOptions) {
-          await cart.paymentMethodSelect.selectOption(opt);
-          await page.waitForTimeout(50);
-
-          // Assert select element content does not overflow client width
-          await assertNoTextClipping(cart.paymentMethodSelect);
+      if (await cart.paymentMethodButtons.first().isVisible()) {
+        for (const button of await cart.paymentMethodButtons.all()) {
+          await assertNoTextClipping(button);
           await assertZeroHorizontalScroll(page);
         }
       }

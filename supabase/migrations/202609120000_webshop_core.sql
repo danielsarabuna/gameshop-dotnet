@@ -233,7 +233,8 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.consume_webshop_ticket(p_ticket_id uuid)
+DROP FUNCTION IF EXISTS public.consume_webshop_ticket(uuid);
+CREATE FUNCTION public.consume_webshop_ticket(p_ticket_id uuid)
 RETURNS TABLE (
     user_id uuid,
     region text,

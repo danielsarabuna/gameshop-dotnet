@@ -1,210 +1,172 @@
-import React, { useEffect } from 'react';
+import React, { FormEvent, useEffect, useRef, useState } from 'react';
+import type { PlayerContext } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { CrownIcon } from './Icons';
-import { X, User, LogOut, Check, Ticket } from 'lucide-react';
+import { AlertCircle, Check, ChevronDown, LoaderCircle, LogOut, RefreshCw, User, X } from 'lucide-react';
+
+export const useDialogA11y = (open: boolean, close: () => void, ref: React.RefObject<HTMLElement | null>) => {
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.setTimeout(() => ref.current?.querySelector<HTMLElement>('input, button')?.focus(), 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+      if (event.key !== 'Tab' || !ref.current) return;
+      const focusable = Array.from(ref.current.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), summary'));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+      previousFocus?.focus();
+    };
+  }, [close, open, ref]);
+};
 
 export const LoginModal: React.FC = () => {
   const {
     loginModalOpen,
     closeLoginModal,
     playerId,
-    setPlayerId,
-    playerName,
-    setPlayerName,
-    playerEmail,
-    setPlayerEmail,
+    authStatus,
+    authErrorCode,
+    resolvePlayerId,
+    confirmRecipient,
   } = useAuth();
   const { t } = useLanguage();
+  const [input, setInput] = useState('');
+  const [preview, setPreview] = useState<PlayerContext | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(loginModalOpen, closeLoginModal, cardRef);
 
   useEffect(() => {
     if (!loginModalOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeLoginModal();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [loginModalOpen, closeLoginModal]);
+    setInput(playerId);
+    setPreview(null);
+  }, [loginModalOpen]);
 
   if (!loginModalOpen) return null;
 
+  const submit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (preview) {
+      confirmRecipient(preview);
+      closeLoginModal();
+      return;
+    }
+    setPreview(await resolvePlayerId(input));
+  };
+
+  const errorText = authErrorCode === 'context_missing'
+    ? t('Откройте игру один раз, чтобы синхронизировать профиль с магазином.', 'Open the game once to sync this profile with the shop.')
+    : authErrorCode
+      ? t('Не удалось подтвердить игрока. Проверьте ID и попробуйте ещё раз.', 'Could not confirm the player. Check the ID and try again.')
+      : null;
+
   return (
-    <div className="modal-overlay" onClick={closeLoginModal}>
-      <div className="modal-card glass" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <User size={20} color="var(--accent-pink)" />
-            {t('Быстрый вход / ID игрока', 'Quick Sign-In / Player ID', 'Schnellanmeldung / Spieler-ID', 'Connexion rapide / ID joueur', 'Inicio rápido / ID de jugador')}
-          </h3>
-          <button type="button" className="cart-close" onClick={closeLoginModal}>
-            <X size={16} />
-          </button>
-        </div>
+    <div className="modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && closeLoginModal()}>
+      <div ref={cardRef} className="modal-card auth-modal" role="dialog" aria-modal="true" aria-labelledby="login-title">
+        <header className="modal-header">
+          <h2 id="login-title" className="modal-title"><User size={20} />{t('Получатель покупки', 'Purchase recipient')}</h2>
+          <button type="button" className="cart-close" aria-label={t('Закрыть', 'Close')} onClick={closeLoginModal}><X size={17} /></button>
+        </header>
 
-        <p className="muted" style={{ marginBottom: '16px', fontSize: '0.9rem', lineHeight: 1.5 }}>
-          {t(
-            'Укажите ваш Player ID и имя для автоматической привязки заказов к профилю.',
-            'Enter your Player ID and name to automatically attach your orders.'
-          )}
-        </p>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-              {t('ID игрока', 'Player ID', 'Spieler-ID', 'ID joueur', 'ID de jugador')} *
-            </label>
+        {preview ? (
+          <form onSubmit={submit} className="auth-form">
+            <div className="recipient-preview recipient-preview-success">
+              <span className="recipient-avatar"><Check size={20} /></span>
+              <span><strong>{preview.playerName || t('Игрок найден', 'Player found')}</strong><small>{t('Регион', 'Region')}: {preview.region}</small></span>
+            </div>
+            <p className="modal-copy">{t('Покупка будет начислена этому игровому профилю.', 'The purchase will be delivered to this game profile.')}</p>
+            <button className="btn btn-primary" type="submit">{t('Подтвердить', 'Confirm')}</button>
+          </form>
+        ) : (
+          <form onSubmit={submit} className="auth-form">
+            <p className="modal-copy">{t('Скопируйте Player ID в игре. Имя, регион и каталог подтянутся автоматически.', 'Copy the Player ID in the game. Name, region, and catalog will load automatically.')}</p>
+            <label className="field-label" htmlFor="player-id">Player ID</label>
             <input
-              type="text"
+              id="player-id"
               className="cart-input"
-              value={playerId}
-              onChange={(e) => setPlayerId(e.target.value)}
-              placeholder="player_12345"
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="00000000-0000-0000-0000-000000000000"
+              autoComplete="off"
+              spellCheck={false}
+              aria-describedby={errorText ? 'player-id-error' : undefined}
             />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-              {t('Имя', 'Name', 'Name', 'Nom', 'Nombre')}
-            </label>
-            <input
-              type="text"
-              className="cart-input"
-              value={playerName}
-              onChange={(e) => setPlayerName(e.target.value)}
-              placeholder="Alex"
-            />
-          </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '4px' }}>
-              Email ({t('необязательно', 'optional', 'optional', 'facultatif', 'opcional')})
-            </label>
-            <input
-              type="email"
-              className="cart-input"
-              value={playerEmail}
-              onChange={(e) => setPlayerEmail(e.target.value)}
-              placeholder="player@example.com"
-            />
-          </div>
-        </div>
-
-        <div style={{ marginTop: '24px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={closeLoginModal}>
-            {t('Отмена', 'Cancel', 'Abbrechen', 'Annuler', 'Cancelar')}
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={closeLoginModal}>
-            {t('Сохранить', 'Save', 'Speichern', 'Enregistrer', 'Guardar')}
-          </button>
-        </div>
+            {errorText && <div id="player-id-error" className="inline-alert error" role="alert"><AlertCircle size={16} />{errorText}</div>}
+            <button className="btn btn-primary" type="submit" disabled={!input.trim() || authStatus === 'resolving'}>
+              {authStatus === 'resolving' ? <><LoaderCircle className="spin" size={17} />{t('Проверяем…', 'Checking…')}</> : t('Найти игрока', 'Find player')}
+            </button>
+          </form>
+        )}
       </div>
     </div>
   );
 };
 
 export const ProfileModal: React.FC = () => {
-  const {
-    profileModalOpen,
-    closeProfileModal,
-    playerId,
-    playerName,
-    region,
-    storeChannel,
-    clearSession,
-  } = useAuth();
+  const { profileModalOpen, closeProfileModal, playerId, playerName, region, storeChannel, gameVersion, authStatus, clearSession } = useAuth();
   const { t } = useLanguage();
-
-  useEffect(() => {
-    if (!profileModalOpen) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeProfileModal();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [profileModalOpen, closeProfileModal]);
-
+  const cardRef = useRef<HTMLDivElement>(null);
+  useDialogA11y(profileModalOpen, closeProfileModal, cardRef);
   if (!profileModalOpen) return null;
+  const isRecipient = authStatus === 'recipient-session';
 
   return (
-    <div className="modal-overlay" onClick={closeProfileModal}>
-      <div className="modal-card glass" onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <CrownIcon size={20} color="#ffaa00" />
-            {t('Профиль Игрока', 'Player Profile', 'Spielerprofil', 'Profil joueur', 'Perfil de jugador')}
-          </h3>
-          <button type="button" className="cart-close" onClick={closeProfileModal}>
-            <X size={16} />
-          </button>
+    <div className="modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && closeProfileModal()}>
+      <div ref={cardRef} className="modal-card profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+        <header className="modal-header">
+          <h2 id="profile-title" className="modal-title"><CrownIcon size={20} color="#ffaa00" />{t('Профиль игрока', 'Player profile')}</h2>
+          <button type="button" className="cart-close" aria-label={t('Закрыть', 'Close')} onClick={closeProfileModal}><X size={17} /></button>
+        </header>
+        <div className="recipient-preview">
+          <span className="recipient-avatar"><User size={20} /></span>
+          <span><strong>{playerName || t('Игрок', 'Player')}</strong><small>{isRecipient ? t('Получатель покупки', 'Purchase recipient') : t('Подключено через игру', 'Connected through the game')}</small></span>
         </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(0,0,0,0.3)', padding: '18px', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Игрок:', 'Player:', 'Spieler:', 'Joueur :', 'Jugador:')}</span>
-            <span style={{ fontWeight: 800, color: '#ffffff', textAlign: 'right' }}>{playerName || t('Имя не задано', 'Name not set')}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Player ID:</span>
-            <code style={{ color: 'var(--text-dim)', fontSize: '0.72rem', overflowWrap: 'anywhere', textAlign: 'right' }}>{playerId || '—'}</code>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Регион:', 'Region:', 'Region:', 'Région :', 'Región:')}</span>
-            <span style={{ fontWeight: 700, color: '#ffffff' }}>{region}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Магазин / Store:', 'Store channel:', 'Shop-Kanal:', 'Canal boutique :', 'Canal de tienda:')}</span>
-            <span style={{ fontWeight: 700, color: '#ffffff' }}>{storeChannel}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Статус:', 'Status:', 'Status:', 'Statut :', 'Estado:')}</span>
-            <span style={{ fontWeight: 700, color: '#00f2fe', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <><Check size={14} /> Авторизован</>
-            </span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px' }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={clearSession}>
-            <LogOut size={16} />
-            {t('Выйти', 'Log Out', 'Abmelden', 'Déconnexion', 'Cerrar sesión')}
-          </button>
-          <button type="button" className="btn btn-primary btn-sm" onClick={closeProfileModal}>
-            <Check size={16} />
-            {t('Готово', 'Done', 'Fertig', 'Fait', 'Listo')}
-          </button>
+        <div className="profile-region"><span>{t('Регион', 'Region')}</span><strong>{region}</strong></div>
+        <details className="profile-details">
+          <summary>{t('Технические данные', 'Technical details')} <ChevronDown size={15} /></summary>
+          <dl><dt>Player ID</dt><dd>{playerId}</dd><dt>Store</dt><dd>{storeChannel}</dd><dt>Version</dt><dd>{gameVersion || 'global'}</dd></dl>
+        </details>
+        <div className="modal-actions">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={clearSession}><LogOut size={16} />{t('Сменить игрока', 'Change player')}</button>
+          <button type="button" className="btn btn-primary btn-sm" onClick={closeProfileModal}>{t('Готово', 'Done')}</button>
         </div>
       </div>
     </div>
   );
 };
 
-export const DeeplinkToast: React.FC = () => {
-  const { deeplinkToastMessage, dismissDeeplinkToast } = useAuth();
-
-  if (!deeplinkToastMessage) return null;
-
+export const AuthNotice: React.FC = () => {
+  const { authStatus, authErrorCode, loginModalOpen, retryDeeplink, dismissAuthError } = useAuth();
+  const { t } = useLanguage();
+  if (loginModalOpen) return null;
+  if (authStatus === 'resolving') return <div className="auth-notice" role="status"><LoaderCircle className="spin" size={18} />{t('Подключаем профиль игрока…', 'Connecting player profile…')}</div>;
+  if (authStatus !== 'error') return null;
+  const missing = authErrorCode === 'context_missing';
   return (
-    <div
-      className="deeplink-toast"
-      style={{
-        position: 'fixed',
-        bottom: '24px',
-        right: '24px',
-        background: 'linear-gradient(135deg, #ff3366, #9933ff)',
-        color: '#fff',
-        padding: '12px 20px',
-        borderRadius: '16px',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.5)',
-        zIndex: 3000,
-        display: 'flex',
-        alignItems: 'center',
-        gap: '12px',
-      }}
-    >
-      <span>{deeplinkToastMessage}</span>
-      <button type="button" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer' }} onClick={dismissDeeplinkToast}>
-        <X size={16} />
-      </button>
+    <div className="auth-notice auth-notice-error" role="alert">
+      <AlertCircle size={18} />
+      <span>{missing ? t('Откройте игру один раз для синхронизации профиля.', 'Open the game once to sync the profile.') : t('Вход через игру не подтверждён.', 'Game sign-in could not be confirmed.')}</span>
+      <button type="button" onClick={() => void retryDeeplink()}><RefreshCw size={15} />{t('Повторить', 'Retry')}</button>
+      <button type="button" aria-label={t('Закрыть', 'Close')} onClick={dismissAuthError}><X size={15} /></button>
     </div>
   );
+};
+
+export const DeeplinkToast: React.FC = () => {
+  const { deeplinkToastMessage, dismissDeeplinkToast } = useAuth();
+  const { t } = useLanguage();
+  if (!deeplinkToastMessage) return null;
+  return <div className="deeplink-toast" role="status"><Check size={17} /><span>{deeplinkToastMessage}</span><button type="button" aria-label={t('Закрыть', 'Close')} onClick={dismissDeeplinkToast}><X size={16} /></button></div>;
 };

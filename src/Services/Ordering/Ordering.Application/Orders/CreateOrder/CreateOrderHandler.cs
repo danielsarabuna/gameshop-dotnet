@@ -79,7 +79,8 @@ public sealed class CreateOrderHandler
             throw new ArgumentException("All products must use the same currency.", nameof(request));
         }
 
-        if (products.Select(p => p.product.Type).Distinct().Count() > 1)
+        if (catalogScope.DeliveryContractVersion < 2
+            && products.Select(p => p.product.Type).Distinct().Count() > 1)
         {
             throw new ArgumentException(
                 "Currency packs and subscriptions must be purchased in separate orders.",

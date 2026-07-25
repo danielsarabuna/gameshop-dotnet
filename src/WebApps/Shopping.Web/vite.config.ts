@@ -11,6 +11,10 @@ const mockApiPlugin = (): Plugin => {
           return next();
         }
 
+        const requestBody = req.method === 'GET' || req.method === 'HEAD'
+          ? undefined
+          : Buffer.concat(await Array.fromAsync(req, (chunk) => Buffer.from(chunk)));
+
         // Check if API Gateway on 5100 is reachable
         try {
           const targetUrl = `http://localhost:5100${req.url}`;
@@ -20,6 +24,7 @@ const mockApiPlugin = (): Plugin => {
           const backendRes = await fetch(targetUrl, {
             method: req.method,
             headers: req.headers as Record<string, string>,
+            body: requestBody?.length ? requestBody : undefined,
             signal: controller.signal,
           });
           clearTimeout(timeout);
@@ -44,6 +49,25 @@ const mockApiPlugin = (): Plugin => {
         }
 
         // Mock Fallback endpoints for local dev when backend is offline
+        if (reqUrl.includes('/api/v1/auth/resolve-player')) {
+          const playerId = JSON.parse(requestBody?.toString('utf8') || '{}').playerId;
+          const valid = typeof playerId === 'string' && /^[0-9a-f-]{36}$/i.test(playerId);
+          res.statusCode = valid ? 200 : 400;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify(valid ? {
+            isValid: true,
+            userId: playerId,
+            playerName: 'Тестовый игрок',
+            region: 'global',
+            store: 'global',
+            gameVersion: 'global',
+            deliveryContractVersion: 2,
+            accessToken: 'local-preview-token',
+            sessionKind: 'recipient',
+          } : { isValid: false, errorCode: 'invalid_player', errorMessage: 'Player could not be resolved.' }));
+          return;
+        }
+
         if (reqUrl.includes('/api/v1/payment-methods')) {
           res.statusCode = 200;
           res.setHeader('Content-Type', 'application/json');
