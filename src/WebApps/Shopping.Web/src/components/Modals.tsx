@@ -110,7 +110,6 @@ export const ProfileModal: React.FC = () => {
     playerName,
     region,
     storeChannel,
-    authTicket,
     clearSession,
   } = useAuth();
   const { t } = useLanguage();
@@ -161,15 +160,7 @@ export const ProfileModal: React.FC = () => {
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Статус:', 'Status:', 'Status:', 'Statut :', 'Estado:')}</span>
             <span style={{ fontWeight: 700, color: '#00f2fe', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {authTicket ? (
-                <>
-                  <Ticket size={14} /> Deeplink Ticket Active
-                </>
-              ) : (
-                <>
-                  <Check size={14} /> Авторизован
-                </>
-              )}
+              <><Check size={14} /> Авторизован</>
             </span>
           </div>
         </div>

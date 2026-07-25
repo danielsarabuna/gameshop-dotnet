@@ -16,15 +16,13 @@ public sealed class GatewayAuthTests : IClassFixture<GatewayAuthTests.AuthEnable
     }
 
     [Fact]
-    public async Task Anonymous_shop_flow_passes_gateway_even_when_auth_is_enabled()
+    public async Task Anonymous_shop_flow_is_rejected_when_auth_is_enabled()
     {
         // The browser shop has no Keycloak session (deeplink + ticket architecture):
         // identity is enforced inside services, so the gateway must not demand a JWT.
         using var client = CreateClient();
         using var response = await client.GetAsync("/api/v1/basket/itest-anonymous");
-        // Basket backend is not hosted in this fixture → 502 proves the request PASSED
-        // the gateway without an auth challenge (the point of this test).
-        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]

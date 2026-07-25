@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { claimTicket, verifyPlayer } from '../services/api';
+import { claimTicket, setAccessToken } from '../services/api';
 
 interface AuthContextType {
   playerId: string;
@@ -8,7 +8,6 @@ interface AuthContextType {
   setPlayerName: (name: string) => void;
   playerEmail: string;
   setPlayerEmail: (email: string) => void;
-  authTicket: string;
   region: string;
   storeChannel: string;
   gameVersion: string;
@@ -33,7 +32,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [playerId, setPlayerId] = useState('');
   const [playerName, setPlayerName] = useState('');
   const [playerEmail, setPlayerEmail] = useState('');
-  const [authTicket, setAuthTicket] = useState('');
   // No deeplink context → Global config (backend resolves bucket/global/global).
   // Real values arrive from the game deeplink / ticket verification.
   const [region, setRegion] = useState('global');
@@ -52,7 +50,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (parsed.playerId) setPlayerId(parsed.playerId);
         if (parsed.playerName) setPlayerName(parsed.playerName);
         if (parsed.playerEmail) setPlayerEmail(parsed.playerEmail);
-        if (parsed.authTicket) setAuthTicket(parsed.authTicket);
       }
     } catch (e) {
       console.error('Failed to parse auth storage', e);
@@ -63,17 +60,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       localStorage.setItem(
         AUTH_STORAGE_KEY,
-        JSON.stringify({ playerId, playerName, playerEmail, authTicket })
+        JSON.stringify({ playerId, playerName, playerEmail })
       );
     } catch (e) {
       console.error('Failed to save auth storage', e);
     }
-  }, [playerId, playerName, playerEmail, authTicket]);
+  }, [playerId, playerName, playerEmail]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const ticketParam = searchParams.get('ticket') || searchParams.get('auth_ticket') || searchParams.get('code');
-    const playerParam = searchParams.get('player_id') || searchParams.get('user_id') || searchParams.get('id');
     const regionParam = searchParams.get('region');
     const storeParam = searchParams.get('store') || searchParams.get('store_channel');
     const versionParam = searchParams.get('version') || searchParams.get('game_version');
@@ -90,22 +86,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const ctx = await claimTicket(ticketParam);
         if (ctx?.isValid) {
           setPlayerId(ctx.userId);
-          setAuthTicket(ticketParam);
-          if (ctx.region) setRegion(ctx.region);
-          if (ctx.store) setStoreChannel(ctx.store);
-          if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
-          setDeeplinkToastMessage(`Signed in! Player ID: ${ctx.userId}`);
-          scheduleDismiss();
-          return;
-        }
-        // Ticket invalid/expired — fall through to player_id if present.
-      }
-
-      // Direct player ID → verify via backend.
-      if (playerParam && playerParam !== playerId) {
-        const ctx = await verifyPlayer(playerParam);
-        if (ctx?.isValid) {
-          setPlayerId(ctx.userId);
+          if (!ctx.accessToken) return;
+          setAccessToken(ctx.accessToken);
+          window.history.replaceState({}, document.title, window.location.pathname);
           if (ctx.region) setRegion(ctx.region);
           if (ctx.store) setStoreChannel(ctx.store);
           if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
@@ -121,7 +104,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timer = setTimeout(() => setDeeplinkToastMessage(null), 5000);
     };
 
-    if (ticketParam || (playerParam && playerParam !== playerId)) {
+    if (ticketParam) {
       resolve();
     }
 
@@ -151,11 +134,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayerId('');
     setPlayerName('');
     setPlayerEmail('');
-    setAuthTicket('');
+    setAccessToken('');
     setProfileModalOpen(false);
     setLoginModalOpen(false);
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
+
+  useEffect(() => {
+    window.addEventListener('webshop-auth-expired', clearSession);
+    return () => window.removeEventListener('webshop-auth-expired', clearSession);
+  });
 
   return (
     <AuthContext.Provider
@@ -166,7 +154,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPlayerName,
         playerEmail,
         setPlayerEmail,
-    authTicket,
     region,
     storeChannel,
     gameVersion,

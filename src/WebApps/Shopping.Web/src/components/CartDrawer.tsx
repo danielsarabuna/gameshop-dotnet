@@ -3,7 +3,7 @@ import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { PaymentMethodInfo } from '../types';
-import { getPaymentMethods, applyPromoCode, createOrder, createPayment, verifyPlayer } from '../services/api';
+import { getPaymentMethods, applyPromoCode, createOrder, createPayment } from '../services/api';
 import { ShoppingBagIcon } from './Icons';
 import { ShoppingCart, X, Minus, Plus, Tag, User, CreditCard } from 'lucide-react';
 import { formatPrice } from '../utils/format';
@@ -23,14 +23,10 @@ export const CartDrawer: React.FC = () => {
   const { t } = useLanguage();
   const {
     playerId,
-    setPlayerId,
     playerName,
     setPlayerName,
     playerEmail,
     setPlayerEmail,
-    setRegion,
-    setStoreChannel,
-    setGameVersion,
   } = useAuth();
 
   const [promoCode, setPromoCode] = useState('');
@@ -46,30 +42,9 @@ export const CartDrawer: React.FC = () => {
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
 
-  // Player ID verification (on blur): resolves the player's region/store/version,
-  // updates the auth context → catalog pages refetch the regional config →
-  // cart lines are re-priced via reconcile(). Invalid IDs are rejected here
-  // with immediate feedback instead of failing later on order creation.
+  // Production sessions are established only by a signed game deeplink ticket.
   const [idCheck, setIdCheck] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
-  const lastVerifiedId = React.useRef<string>('');
-
-  const handlePlayerIdCommit = async () => {
-    const id = playerId.trim();
-    if (!id || id === lastVerifiedId.current || idCheck === 'checking') return;
-
-    setIdCheck('checking');
-    const ctx = await verifyPlayer(id);
-    if (ctx?.isValid) {
-      setPlayerId(ctx.userId);
-      if (ctx.region) setRegion(ctx.region);
-      if (ctx.store) setStoreChannel(ctx.store);
-      if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
-      lastVerifiedId.current = ctx.userId;
-      setIdCheck('valid');
-    } else {
-      setIdCheck('invalid');
-    }
-  };
+  const handlePlayerIdCommit = () => setIdCheck(playerId ? 'invalid' : 'idle');
 
   const FALLBACK_PAYMENT_METHODS: PaymentMethodInfo[] = [
     { code: 'card', name: 'Банковская карта (Visa / MasterCard / МИР)' },
@@ -412,15 +387,8 @@ export const CartDrawer: React.FC = () => {
                 <input
                   type="text"
                   value={playerId}
-                  onChange={(e) => {
-                    setPlayerId(e.target.value);
-                    if (idCheck !== 'idle') setIdCheck('idle');
-                  }}
-                  onBlur={handlePlayerIdCommit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-                  }}
-                  placeholder={`${t('ID игрока', 'Player ID', 'Spieler-ID', 'ID joueur', 'ID de jugador')} *`}
+                  readOnly
+                  placeholder={t('Откройте магазин через игровой deeplink', 'Open the shop through a game deeplink', 'Shop über den Spiel-Deeplink öffnen', 'Ouvrez la boutique via le deeplink du jeu', 'Abra la tienda mediante el deeplink del juego')}
                   style={{
                     background: 'rgba(255,255,255,0.06)',
                     border: `1px solid ${idCheck === 'invalid' ? '#ff4d4d' : 'var(--border-color)'}`,

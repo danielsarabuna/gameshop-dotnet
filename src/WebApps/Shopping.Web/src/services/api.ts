@@ -19,6 +19,25 @@ const api = axios.create({
   timeout: 15000,
 });
 
+let accessToken = '';
+
+export const setAccessToken = (token: string) => {
+  accessToken = token;
+};
+
+api.interceptors.request.use((config) => {
+  if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) window.dispatchEvent(new Event('webshop-auth-expired'));
+    return Promise.reject(error);
+  }
+);
+
 export const getPaymentMethods = async (): Promise<PaymentMethodInfo[] | null> => {
   try {
     const response = await api.get<PaymentMethodInfo[]>('api/v1/payment-methods');
@@ -55,6 +74,8 @@ export interface PlayerContext {
   store: string;
   gameVersion: string;
   errorMessage?: string;
+  accessToken?: string;
+  expiresAtUtc?: string;
 }
 
 export const claimTicket = async (ticket: string): Promise<PlayerContext | null> => {

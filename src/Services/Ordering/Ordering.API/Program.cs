@@ -180,15 +180,15 @@ app.UseWebShopAuth();
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 
-app.MapPost("/api/v1/orders", CreateOrder).AllowAnonymous();
-app.MapPost("/api/v1/orders/create", CreateOrder).AllowAnonymous();
-app.MapPost("/orders/create", CreateOrder).AllowAnonymous();
+app.MapPost("/api/v1/orders", CreateOrder).RequireAuthorization();
+app.MapPost("/api/v1/orders/create", CreateOrder).RequireAuthorization();
+app.MapPost("/orders/create", CreateOrder).RequireAuthorization();
 
-app.MapGet("/api/v1/orders/{id:guid}", GetOrder).AllowAnonymous();
-app.MapGet("/orders/{id:guid}", GetOrder).AllowAnonymous();
+app.MapGet("/api/v1/orders/{id:guid}", GetOrder).RequireAuthorization();
+app.MapGet("/orders/{id:guid}", GetOrder).RequireAuthorization();
 
-app.MapPost("/api/v1/promocodes/apply", ApplyPromoCode).AllowAnonymous();
-app.MapPost("/promocodes/apply", ApplyPromoCode).AllowAnonymous();
+app.MapPost("/api/v1/promocodes/apply", ApplyPromoCode).RequireAuthorization();
+app.MapPost("/promocodes/apply", ApplyPromoCode).RequireAuthorization();
 
 app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 {
@@ -196,8 +196,8 @@ app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
     return Results.Ok(methods);
 }).AllowAnonymous();
 
-app.MapPost("/api/v1/payments/{provider}", CreatePayment).AllowAnonymous();
-app.MapPost("/payments/{provider}", CreatePayment).AllowAnonymous();
+app.MapPost("/api/v1/payments/{provider}", CreatePayment).RequireAuthorization();
+app.MapPost("/payments/{provider}", CreatePayment).RequireAuthorization();
 
 app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook).AllowAnonymous();
 app.MapPost("/webhooks/{provider}", HandleWebhook).AllowAnonymous();
@@ -403,12 +403,9 @@ static void ValidateUserAuthorization(HttpContext context, string targetUserId)
     {
         var authUserId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
             ?? context.User.FindFirst("sub")?.Value;
-
         var isUserAdmin = context.User.IsInRole("Admin");
-
-        if (!string.IsNullOrWhiteSpace(authUserId)
-            && !isUserAdmin
-            && !string.Equals(authUserId, targetUserId, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrWhiteSpace(authUserId)
+            || (!isUserAdmin && !string.Equals(authUserId, targetUserId, StringComparison.OrdinalIgnoreCase)))
         {
             throw new UnauthorizedAccessException("Access denied: You can only access your own orders.");
         }

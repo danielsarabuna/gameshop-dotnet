@@ -1,4 +1,5 @@
 using BuildingBlocks.Exceptions;
+using BuildingBlocks.Auth;
 using Catalog.API.Configuration;
 using Catalog.API.Grpc;
 using Catalog.API.Services;
@@ -8,6 +9,12 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
+
+if (!builder.Environment.IsDevelopment()
+    && string.IsNullOrWhiteSpace(builder.Configuration["GameTicketJwt:PrivateKeyPemBase64"]))
+{
+    throw new InvalidOperationException("GameTicketJwt:PrivateKeyPemBase64 is required outside Development.");
+}
 
 builder.Logging.AddWebShopLogging("Catalog");
 builder.Services.AddWebShopTracing(builder.Configuration, "Catalog");
@@ -26,6 +33,7 @@ builder.Services.AddSingleton(supabaseOptions);
 builder.Services.AddHttpClient<ICatalogProvider, CatalogProvider>();
 builder.Services.AddHttpClient<ISupabasePlayerVerifier, SupabasePlayerVerifier>();
 builder.Services.AddHostedService<CatalogPreloaderHostedService>();
+builder.Services.AddGameTicketTokenIssuer(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 builder.WebHost.ConfigureKestrel(options =>
@@ -69,17 +77,26 @@ app.MapWebShopMetrics();
 app.MapGrpcService<CatalogInternalGrpcService>();
 
 // Эндпоинты аутентификации игрока (диплинк через тикет vs прямой ввод ID)
-app.MapPost("/api/v1/auth/claim-ticket", async (Guid ticket, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
+app.MapPost("/api/v1/auth/claim-ticket", async (Guid ticket, ISupabasePlayerVerifier verifier, GameTicketTokenIssuer issuer, CancellationToken ct) =>
 {
     var result = await verifier.ClaimTicketAsync(ticket, ct);
-    return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
+    if (!result.IsValid)
+    {
+        return Results.BadRequest(result);
+    }
+
+    var token = issuer.Issue(result.UserId);
+    return Results.Ok(new PlayerSessionResult(result, token.AccessToken, token.ExpiresAtUtc));
 });
 
-app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
+if (app.Environment.IsDevelopment())
 {
-    var result = await verifier.VerifyDirectPlayerIdAsync(userId, ct);
-    return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
-});
+    app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
+    {
+        var result = await verifier.VerifyDirectPlayerIdAsync(userId, ct);
+        return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
+    });
+}
 
 // Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры (lazy fetch from Supabase)
 app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
@@ -167,4 +184,14 @@ app.Run();
 namespace Catalog.API
 {
     public sealed class Program;
+}
+
+public sealed record PlayerSessionResult(PlayerContextResult Player, string AccessToken, DateTimeOffset ExpiresAtUtc)
+{
+    public bool IsValid => Player.IsValid;
+    public string UserId => Player.UserId;
+    public string Region => Player.Region;
+    public string Store => Player.Store;
+    public string GameVersion => Player.GameVersion;
+    public string? ErrorMessage => Player.ErrorMessage;
 }
