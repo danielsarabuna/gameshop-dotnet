@@ -14,12 +14,14 @@ jobs:
         with:
           dotnet-version: 9.0.x
       - name: Build (Release)
-        run: dotnet build WebShop.sln -c Release -m:1 -p:NuGetAudit=false
+        run: dotnet build WebShop.sln -c Release -m:1 -p:NuGetAudit=true
       # Postgres-интеграционные тесты используют Testcontainers — Docker есть на runner'е.
       - name: Unit tests
-        run: dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release -p:NuGetAudit=false --no-build
+        run: dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release -p:NuGetAudit=true --no-build
       - name: Integration tests (InMemory + Testcontainers Postgres)
-        run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release -p:NuGetAudit=false --no-build
+        run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release -p:NuGetAudit=true --no-build
+      - name: Catalog tests
+        run: dotnet test tests/Catalog.API.Tests/Catalog.API.Tests.csproj -c Release -p:NuGetAudit=true --no-build
 
   e2e:
     runs-on: ubuntu-latest
@@ -34,11 +36,19 @@ jobs:
           cache: npm
           cache-dependency-path: src/WebApps/Shopping.Web/package-lock.json
       - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
 
   docker-build:
     runs-on: ubuntu-latest
+    env:
+      # Compose validates runtime variables before a build even though the
+      # values are not baked into these images.
+      SUPABASE_URL: https://example.invalid
+      SUPABASE_SERVICE_ROLE_KEY: build-only
+      GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64: build-only
+      GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64: build-only
     steps:
       - uses: actions/checkout@v4
       - name: Build all service images

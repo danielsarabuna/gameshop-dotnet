@@ -24,6 +24,12 @@ public sealed class CreateOrderHandler
     }
 
     public async Task<CreateOrderResult> HandleAsync(CreateOrderRequest request, CancellationToken cancellationToken)
+        => await HandleAsync(request, CatalogScope.Default, cancellationToken);
+
+    public async Task<CreateOrderResult> HandleAsync(
+        CreateOrderRequest request,
+        CatalogScope catalogScope,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.GameUserId))
         {
@@ -53,7 +59,7 @@ public sealed class CreateOrderHandler
         var products = new List<(CatalogProduct product, int quantity)>(request.Items.Count);
         foreach (var line in request.Items)
         {
-            var product = await _catalog.GetProductAsync(line.ProductId, cancellationToken);
+            var product = await _catalog.GetProductAsync(line.ProductId, catalogScope, cancellationToken);
             if (product is null)
             {
                 throw new ArgumentException("Product not found.", nameof(request));
@@ -71,6 +77,13 @@ public sealed class CreateOrderHandler
         if (products.Any(p => !string.Equals(p.product.Currency, currency, StringComparison.OrdinalIgnoreCase)))
         {
             throw new ArgumentException("All products must use the same currency.", nameof(request));
+        }
+
+        if (products.Select(p => p.product.Type).Distinct().Count() > 1)
+        {
+            throw new ArgumentException(
+                "Currency packs and subscriptions must be purchased in separate orders.",
+                nameof(request));
         }
 
         var orderItems = products

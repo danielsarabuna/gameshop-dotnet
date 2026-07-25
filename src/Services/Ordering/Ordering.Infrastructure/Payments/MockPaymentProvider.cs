@@ -20,7 +20,7 @@ public sealed class MockPaymentProvider : IPaymentProvider
         return Task.FromResult(new PaymentIntentResult(
             ExternalId: mockExternalId,
             CheckoutUrl: mockCheckoutUrl,
-            Status: DomainPaymentStatus.Succeeded
+            Status: DomainPaymentStatus.Pending
         ));
     }
 

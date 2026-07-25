@@ -27,8 +27,8 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
         using var response = await client.PostAsync(
-            "/api/v1/auth/claim-ticket?ticket=00000000-0000-0000-0000-000000000000",
-            new StringContent("{}", Encoding.UTF8, "application/json"));
+            "/api/v1/auth/claim-ticket",
+            JsonContent.Create(new { ticket = Guid.Empty }));
 
         // Must NOT be 401 Unauthorized (proves anonymous policy)
         Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -62,7 +62,10 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
         using var factory = new GatewayAuthTests.AuthEnabledGatewayFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-        var request = new HttpRequestMessage(new HttpMethod(method), "/api/v1/auth/claim-ticket?ticket=12345");
+        var request = new HttpRequestMessage(new HttpMethod(method), "/api/v1/auth/claim-ticket")
+        {
+            Content = JsonContent.Create(new { ticket = Guid.Empty })
+        };
         using var response = await client.SendAsync(request);
 
         Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -74,7 +77,7 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
     {
         using var client = _fixture.CreateClient();
         var ticket = Guid.NewGuid();
-        using var response = await client.PostAsync($"/api/v1/auth/claim-ticket?ticket={ticket}", null);
+        using var response = await client.PostAsJsonAsync("/api/v1/auth/claim-ticket", new { ticket });
 
         // Since verifier returns invalid for random ticket in mock/dev env, should return 400 Bad Request (not 404 or 500)
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

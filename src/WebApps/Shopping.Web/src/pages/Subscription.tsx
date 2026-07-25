@@ -10,6 +10,7 @@ import { formatPrice } from '../utils/format';
 
 interface SubPlan {
   sku: string;
+  months: number;
   title: string;
   duration: string;
   price: number;
@@ -22,6 +23,7 @@ interface SubPlan {
 const FALLBACK_PLANS: SubPlan[] = [
   {
     sku: '9aa00000-0000-0000-0000-000000000001',
+    months: 1,
     title: 'Premium — 1 месяц',
     duration: '1 Месяц',
     price: 6.99,
@@ -35,6 +37,7 @@ const FALLBACK_PLANS: SubPlan[] = [
   },
   {
     sku: '9aa00000-0000-0000-0000-000000000003',
+    months: 3,
     title: 'Premium — 3 месяца',
     duration: '3 Месяца',
     price: 17.99,
@@ -49,6 +52,7 @@ const FALLBACK_PLANS: SubPlan[] = [
   },
   {
     sku: '9aa00000-0000-0000-0000-000000000012',
+    months: 12,
     title: 'Premium — 12 месяцев',
     duration: '12 Месяцев',
     price: 59.99,
@@ -102,6 +106,7 @@ export const Subscription: React.FC = () => {
           const currency = item.currency || 'EUR';
           return {
             sku: item.id,
+            months: monthsNum,
             title: item.title,
             duration: `${months} ${months === '1' ? 'Месяц' : 'Месяца'}`,
             price: item.price,
@@ -130,8 +135,7 @@ export const Subscription: React.FC = () => {
       }
 
       // Localize duration
-      const months = plan.sku.includes('12') || plan.sku.includes('0012') ? '12' : plan.sku.includes('3') || plan.sku.includes('0003') ? '3' : '1';
-      const monthsNum = parseInt(months, 10) || 1;
+      const monthsNum = plan.months;
       let localizedDuration = '';
       if (monthsNum === 1) {
         localizedDuration = t('1 Месяц', '1 Month', '1 Monat', '1 mois', '1 mes');
@@ -174,7 +178,7 @@ export const Subscription: React.FC = () => {
   }, [catalogItems, isBackendConnected, t]);
 
   const handleAddToCart = (plan: SubPlan) => {
-    addItem(plan.sku, plan.title, plan.price, 1, undefined, plan.currency);
+    addItem(plan.sku, plan.title, plan.price, 1, undefined, plan.currency, 'Subscription');
     openCartDrawer();
   };
 
@@ -282,12 +286,13 @@ export const Subscription: React.FC = () => {
               }}
             >
               <AlertCircle size={14} />
-              <span>{t('Сервер каталога недоступен. Показаны ознакомительные тарифы.', 'Showing preview plans.')}</span>
+              <span>{t('Сервер каталога временно недоступен. Показаны ознакомительные тарифы.', 'The catalog is temporarily unavailable. Showing preview plans.')}</span>
             </div>
           )}
 
           {/* Plans Grid */}
           <div
+            className="cards-grid-3"
             style={{
               display: 'grid',
               gridTemplateColumns: plans.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(260px, 1fr))',
@@ -299,6 +304,20 @@ export const Subscription: React.FC = () => {
           >
             {loading ? (
               <SkeletonCard count={1} />
+            ) : plans.length === 0 ? (
+              <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px 24px' }}>
+                <AlertCircle size={40} color="var(--accent-pink)" style={{ marginBottom: '16px' }} />
+                <h3 style={{ fontSize: '1.4rem', color: '#fff', marginBottom: '8px' }}>
+                  {t('Тарифы недоступны', 'No plans available')}
+                </h3>
+                <p className="muted" style={{ marginBottom: '20px' }}>
+                  {t('В настоящий момент нет доступных тарифов подписки.', 'No subscription plans available at the moment.')}
+                </p>
+                <button type="button" className="btn btn-primary" onClick={fetchPlans}>
+                  <RefreshCw size={16} />
+                  {t('Повторить попытку', 'Retry loading')}
+                </button>
+              </div>
             ) : plans.map((plan) => (
               <div
                 key={plan.sku}
@@ -513,7 +532,7 @@ export const Subscription: React.FC = () => {
                 }}
               >
                 <AlertCircle size={14} />
-                <span>{t('Сервер каталога недоступен. Показаны ознакомительные тарифы.', 'Showing preview plans.')}</span>
+                <span>{t('Сервер каталога временно недоступен. Показаны ознакомительные тарифы.', 'The catalog is temporarily unavailable. Showing preview plans.')}</span>
               </div>
             )}
 

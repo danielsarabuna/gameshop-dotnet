@@ -53,7 +53,7 @@ test.describe('Tier 5 Catalog & Asset Proxy Resiliency Adversarial Coverage', ()
     await page.waitForLoadState('domcontentloaded');
 
     // Verify warning banner on subscription page
-    const subWarningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+    const subWarningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
     await expect(subWarningBanner).toBeVisible();
 
     // Verify 3 fallback subscription plans are rendered
@@ -100,15 +100,15 @@ test.describe('Tier 5 Catalog & Asset Proxy Resiliency Adversarial Coverage', ()
     await page.waitForLoadState('domcontentloaded');
 
     await expect(warningBanner).not.toBeVisible();
-    const emptyPlanTitle = page.getByText(/Тарифы недоступны|No plans available/i);
+    const emptyPlanTitle = page.locator('.desktop-only-view').getByText(/Тарифы недоступны|No plans available/i);
     await expect(emptyPlanTitle).toBeVisible();
   });
 
-  // Scenario 3: High network latency (>5000ms exceeding 5s Axios timeout)
-  test('should gracefully handle network delay exceeding 5s timeout and show amber warning banner', async ({ page }) => {
-    // Intercept catalog API requests and delay response by 6000ms
+  // Scenario 3: High network latency exceeding the 15s API timeout.
+  test('should gracefully handle network delay exceeding the API timeout and show amber warning banner', async ({ page }) => {
+    // Intercept catalog API requests and delay response beyond the 15s timeout.
     await page.route('**/api/v1/catalog/items*', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 6000));
+      await new Promise((resolve) => setTimeout(resolve, 16000));
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -118,13 +118,13 @@ test.describe('Tier 5 Catalog & Asset Proxy Resiliency Adversarial Coverage', ()
 
     const startTime = Date.now();
     await page.goto('/diamonds');
-    // The Axios request should timeout at 5000ms, triggering the catch block (items === null)
+    // Axios should time out at 15s, triggering the catch block (items === null).
     const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
-    await expect(warningBanner).toBeVisible({ timeout: 8000 });
+    await expect(warningBanner).toBeVisible({ timeout: 18000 });
     const elapsedTime = Date.now() - startTime;
 
     // Verify it timed out after ~5s and rendered fallbacks
-    expect(elapsedTime).toBeGreaterThanOrEqual(4500);
+    expect(elapsedTime).toBeGreaterThanOrEqual(14000);
 
     const cards = page.locator('.cards-grid-3 .glass-card');
     await expect(cards).toHaveCount(8);

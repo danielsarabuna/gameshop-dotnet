@@ -189,9 +189,7 @@ public static class LoggingBuilderExtensions
             {
                 name = e.Key,
                 status = e.Value.Status.ToString(),
-                durationMs = e.Value.Duration.TotalMilliseconds,
-                description = e.Value.Description,
-                error = e.Value.Exception?.Message
+                durationMs = e.Value.Duration.TotalMilliseconds
             })
         };
 

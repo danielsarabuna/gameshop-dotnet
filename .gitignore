@@ -29,3 +29,5 @@ Thumbs.db
 # Environment Variables & Secrets (Documented in docs/deployment/environment-variables.md)
 .env
 .env.*
+!.env.local.example
+!.env.prod.example

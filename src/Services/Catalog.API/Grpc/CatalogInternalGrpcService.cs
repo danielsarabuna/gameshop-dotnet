@@ -1,6 +1,6 @@
 using System.Globalization;
 using Catalog.API.Services;
-using Catalog.API.Storage;
+using Catalog.API.Configuration;
 using Catalog.Grpc;
 using Grpc.Core;
 
@@ -8,13 +8,13 @@ namespace Catalog.API.Grpc;
 
 public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternalBase
 {
-    private readonly ICatalogStore _store;
     private readonly ICatalogProvider _provider;
+    private readonly SupabaseOptions _options;
 
-    public CatalogInternalGrpcService(ICatalogStore store, ICatalogProvider provider)
+    public CatalogInternalGrpcService(ICatalogProvider provider, SupabaseOptions options)
     {
-        _store = store;
         _provider = provider;
+        _options = options;
     }
 
     public override async Task<CatalogProduct> GetProduct(GetProductRequest request, ServerCallContext context)
@@ -24,12 +24,11 @@ public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternal
             throw new RpcException(new Status(StatusCode.InvalidArgument, "id must be a UUID"));
         }
 
-        var item = _store.GetItemById(id);
-        if (item is null)
-        {
-            await _provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", context.CancellationToken);
-            item = _store.GetItemById(id);
-        }
+        var region = string.IsNullOrWhiteSpace(request.Region) ? _options.DefaultRegion : request.Region;
+        var store = string.IsNullOrWhiteSpace(request.Store) ? _options.DefaultStore : request.Store;
+        var gameVersion = string.IsNullOrWhiteSpace(request.GameVersion) ? _options.DefaultGameVersion : request.GameVersion;
+        var catalog = await _provider.GetOrFetchAsync(region, store, gameVersion, context.CancellationToken);
+        var item = catalog?.Items.FirstOrDefault(candidate => candidate.Id == id);
 
         if (item is null)
         {

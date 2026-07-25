@@ -55,8 +55,11 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
+        var configuredOrigins = builder.Configuration.GetSection("Cors:Origins").Get<string[]>() ?? [];
         policy
-            .AllowAnyOrigin()
+            .WithOrigins(configuredOrigins.Length > 0
+                ? configuredOrigins
+                : ["http://localhost:5173", "http://localhost:5200", "https://localhost:5200"])
             .AllowAnyMethod()
             .AllowAnyHeader();
     });
@@ -77,15 +80,15 @@ app.MapWebShopMetrics();
 app.MapGrpcService<CatalogInternalGrpcService>();
 
 // Эндпоинты аутентификации игрока (диплинк через тикет vs прямой ввод ID)
-app.MapPost("/api/v1/auth/claim-ticket", async (Guid ticket, ISupabasePlayerVerifier verifier, GameTicketTokenIssuer issuer, CancellationToken ct) =>
+app.MapPost("/api/v1/auth/claim-ticket", async (ClaimTicketRequest request, ISupabasePlayerVerifier verifier, GameTicketTokenIssuer issuer, CancellationToken ct) =>
 {
-    var result = await verifier.ClaimTicketAsync(ticket, ct);
+    var result = await verifier.ClaimTicketAsync(request.Ticket, ct);
     if (!result.IsValid)
     {
         return Results.BadRequest(result);
     }
 
-    var token = issuer.Issue(result.UserId);
+    var token = issuer.Issue(result.UserId, result.Region, result.Store, result.GameVersion);
     return Results.Ok(new PlayerSessionResult(result, token.AccessToken, token.ExpiresAtUtc));
 });
 
@@ -121,14 +124,14 @@ app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? s
     return Results.Ok(new PaymentProviderConfig(config?.PaymentProviders ?? new List<PaymentProviderDto>()));
 });
 
-app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, ICatalogStore catalogStore, ICatalogProvider provider, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
 {
-    var item = catalogStore.GetItemById(id);
-    if (item is null)
-    {
-        await provider.GetOrFetchAsync("global", "global", "global", ct);
-        item = catalogStore.GetItemById(id);
-    }
+    var catalog = await provider.GetOrFetchAsync(
+        string.IsNullOrWhiteSpace(region) ? options.DefaultRegion : region,
+        string.IsNullOrWhiteSpace(store) ? options.DefaultStore : store,
+        string.IsNullOrWhiteSpace(gameVersion) ? options.DefaultGameVersion : gameVersion,
+        ct);
+    var item = catalog?.Items.FirstOrDefault(candidate => candidate.Id == id);
     return item is null ? Results.NotFound() : Results.Ok(item);
 });
 
@@ -161,12 +164,15 @@ app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (s
         lastModified: File.GetLastWriteTimeUtc(path));
 });
 
-// Эндпоинт ручного форсированного обновления конфига для конкретной версии
-app.MapPost("/api/v1/catalog/reload", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+// Manual cache invalidation is a local-development aid, not a public production API.
+if (app.Environment.IsDevelopment())
 {
-    var config = await provider.ForceRefreshAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
-    return Results.Ok(new { message = "Catalog reloaded.", items = config?.Items.Count ?? 0 });
-});
+    app.MapPost("/api/v1/catalog/reload", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+    {
+        var config = await provider.ForceRefreshAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+        return Results.Ok(new { message = "Catalog reloaded.", items = config?.Items.Count ?? 0 });
+    });
+}
 
 static string GuessContentType(string fileName)
     => Path.GetExtension(fileName).ToLowerInvariant() switch
@@ -193,5 +199,8 @@ public sealed record PlayerSessionResult(PlayerContextResult Player, string Acce
     public string Region => Player.Region;
     public string Store => Player.Store;
     public string GameVersion => Player.GameVersion;
+    public string? PlayerName => Player.PlayerName;
     public string? ErrorMessage => Player.ErrorMessage;
 }
+
+public sealed record ClaimTicketRequest(Guid Ticket);

@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getOrderStatus } from '../services/api';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { useCart } from '../context/CartContext';
 
 type Phase = 'loading' | 'paid' | 'pending' | 'failed' | 'unknown';
 
@@ -11,9 +12,11 @@ type Phase = 'loading' | 'paid' | 'pending' | 'failed' | 'unknown';
 // here we only reflect its status while the player waits.
 export const OrderResult: React.FC<{ outcome: 'complete' | 'cancelled' }> = ({ outcome }) => {
   const { t } = useLanguage();
+  const { clearCart } = useCart();
   const [params] = useSearchParams();
   const orderId = params.get('order_id') ?? '';
   const [phase, setPhase] = useState<Phase>(outcome === 'cancelled' ? 'pending' : 'loading');
+  const cartCleared = useRef(false);
 
   useEffect(() => {
     if (outcome === 'cancelled' || !orderId) return;
@@ -34,6 +37,13 @@ export const OrderResult: React.FC<{ outcome: 'complete' | 'cancelled' }> = ({ o
       mounted = false;
     };
   }, [orderId, outcome]);
+
+  useEffect(() => {
+    if (phase === 'paid' && !cartCleared.current) {
+      cartCleared.current = true;
+      clearCart();
+    }
+  }, [phase, clearCart]);
 
   const icon = phase === 'paid' ? <CheckCircle2 size={56} color="#00f2fe" />
     : phase === 'failed' ? <XCircle size={56} color="#ff4d4d" />

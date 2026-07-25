@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
@@ -7,6 +8,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Encodings.Web;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace BuildingBlocks.Auth;
 
@@ -21,6 +25,8 @@ namespace BuildingBlocks.Auth;
 /// </summary>
 public static class JwtAuthExtensions
 {
+    private const string DisabledAuthenticationScheme = "WebShopDisabled";
+
     public static IServiceCollection AddWebShopJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var authEnabled = configuration.GetValue<bool>("Auth:Enabled");
@@ -81,18 +87,28 @@ public static class JwtAuthExtensions
                     };
                 });
         }
+        else
+        {
+            // RequireAuthorization() uses the default policy and still invokes the
+            // authentication service. Register a no-op scheme so local open mode is valid.
+            services.AddAuthentication(DisabledAuthenticationScheme)
+                .AddScheme<AuthenticationSchemeOptions, DisabledAuthenticationHandler>(
+                    DisabledAuthenticationScheme, _ => { });
+        }
 
         services.AddAuthorization(options =>
         {
             // Fail-closed default: when auth is enabled, every endpoint without explicit
             // [AllowAnonymous] requires an authenticated user (webhooks opt out explicitly).
-            options.FallbackPolicy = authEnabled
+            var policy = authEnabled
                 ? new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
                     .RequireAuthenticatedUser()
                     .Build()
                 : new AuthorizationPolicyBuilder()
                     .RequireAssertion(_ => true)
                     .Build();
+            options.DefaultPolicy = policy;
+            options.FallbackPolicy = policy;
         });
 
         return services;
@@ -107,11 +123,7 @@ public static class JwtAuthExtensions
 
     public static WebApplication UseWebShopAuth(this WebApplication app)
     {
-        if (app.Configuration.GetValue<bool>("Auth:Enabled"))
-        {
-            app.UseAuthentication();
-        }
-
+        app.UseAuthentication();
         app.UseAuthorization();
         return app;
     }
@@ -147,18 +159,43 @@ public sealed class GameTicketTokenIssuer
         _key = new RsaSecurityKey(rsa);
     }
 
-    public (string AccessToken, DateTimeOffset ExpiresAtUtc) Issue(string gameUserId)
+    public (string AccessToken, DateTimeOffset ExpiresAtUtc) Issue(
+        string gameUserId,
+        string region,
+        string store,
+        string gameVersion)
     {
         var expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(_options.LifetimeMinutes, 1, 60));
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,
             audience: _options.Audience,
-            claims: [new(System.Security.Claims.ClaimTypes.NameIdentifier, gameUserId), new("sub", gameUserId)],
+            claims:
+            [
+                new(System.Security.Claims.ClaimTypes.NameIdentifier, gameUserId),
+                new("sub", gameUserId),
+                new("region", region),
+                new("store", store),
+                new("game_version", gameVersion)
+            ],
             notBefore: DateTime.UtcNow,
             expires: expiresAtUtc.UtcDateTime,
             signingCredentials: new SigningCredentials(_key, SecurityAlgorithms.RsaSha256));
         return (new JwtSecurityTokenHandler().WriteToken(token), expiresAtUtc);
     }
+}
+
+internal sealed class DisabledAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
+{
+    public DisabledAuthenticationHandler(
+        IOptionsMonitor<AuthenticationSchemeOptions> options,
+        ILoggerFactory logger,
+        UrlEncoder encoder)
+        : base(options, logger, encoder)
+    {
+    }
+
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+        => Task.FromResult(AuthenticateResult.NoResult());
 }
 
 internal static class GameTicketPem

@@ -15,8 +15,12 @@ public sealed class HttpCatalogClient : ICatalogClient
     }
 
     public async Task<CatalogProduct?> GetProductAsync(Guid id, CancellationToken cancellationToken)
+        => await GetProductAsync(id, CatalogScope.Default, cancellationToken);
+
+    public async Task<CatalogProduct?> GetProductAsync(Guid id, CatalogScope scope, CancellationToken cancellationToken)
     {
-        var response = await _http.GetAsync($"/api/v1/catalog/items/{id}", cancellationToken);
+        var query = $"region={Uri.EscapeDataString(scope.Region)}&store={Uri.EscapeDataString(scope.Store)}&gameVersion={Uri.EscapeDataString(scope.GameVersion)}";
+        var response = await _http.GetAsync($"/api/v1/catalog/items/{id}?{query}", cancellationToken);
         if (response.StatusCode == HttpStatusCode.NotFound)
         {
             return null;
@@ -58,4 +62,3 @@ public sealed class HttpCatalogClient : ICatalogClient
         Dictionary<string, string>? Metadata
     );
 }
-

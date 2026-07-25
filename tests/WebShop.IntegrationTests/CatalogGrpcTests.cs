@@ -69,4 +69,23 @@ public sealed class CatalogGrpcTests : IClassFixture<SeededCatalogFactory>
         var price = decimal.Parse(product.Price, NumberStyles.Number, CultureInfo.InvariantCulture);
         Assert.True(price > 0);
     }
+
+    [Fact]
+    public async Task GetProduct_does_not_fall_through_to_a_different_catalog_scope()
+    {
+        var client = CreateClient();
+
+        var ex = await Assert.ThrowsAsync<RpcException>(async () =>
+        {
+            await client.GetProductAsync(new GetProductRequest
+            {
+                Id = "11111111-1111-1111-1111-111111111111",
+                Region = "other-region",
+                Store = "other-store",
+                GameVersion = "other-version"
+            });
+        });
+
+        Assert.Equal(StatusCode.NotFound, ex.StatusCode);
+    }
 }

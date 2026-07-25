@@ -4,10 +4,11 @@ option csharp_namespace = "Catalog.Grpc";
 
 package catalog;
 
-// Contract version: 1.0.0
+// Contract version: 1.1.0
 // Last breaking change: never
 // Changelog:
 //   1.0.0 — initial release: CatalogInternal.GetProduct.
+//   1.1.0 — optional region/store/game_version scope for price integrity.
 //
 // Evolution rules: see docs/grpc-versioning.md.
 
@@ -21,6 +22,11 @@ service CatalogInternal {
 message GetProductRequest {
   // Product id formatted as a UUID string (RFC 4122).
   string id = 1;
+  // Exact catalog scope. Empty values use the Catalog service defaults for
+  // backwards-compatible internal callers.
+  string region = 2;
+  string store = 3;
+  string game_version = 4;
 }
 
 enum CatalogProductType {

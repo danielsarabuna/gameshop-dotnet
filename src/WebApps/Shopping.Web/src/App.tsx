@@ -14,6 +14,7 @@ import { Subscription } from './pages/Subscription';
 import { Help } from './pages/Help';
 import { About } from './pages/About';
 import { OrderResult } from './pages/OrderResult';
+import { MockCheckout } from './pages/MockCheckout';
 
 const HIDDEN_FOOTER_PATHS = ['/', '/projects'];
 
@@ -56,6 +57,7 @@ const Shell: React.FC = () => {
               <Route path="/about" element={<About />} />
               <Route path="/order/complete" element={<OrderResult outcome="complete" />} />
               <Route path="/order/cancelled" element={<OrderResult outcome="cancelled" />} />
+              <Route path="/order/mock-checkout" element={<MockCheckout />} />
             </Routes>
           </main>
           {showFooter && <Footer />}
@@ -72,7 +74,7 @@ const Shell: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+    <BrowserRouter>
       <LanguageProvider>
         <AuthProvider>
           <CartProvider>

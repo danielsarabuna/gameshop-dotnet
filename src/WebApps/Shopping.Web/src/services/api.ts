@@ -1,6 +1,7 @@
 import axios from 'axios';
 import {
   PaymentMethodInfo,
+  CatalogPaymentProvider,
   CatalogItem,
   CreateOrderPayload,
   CreateOrderResult,
@@ -25,6 +26,22 @@ export const setAccessToken = (token: string) => {
   accessToken = token;
 };
 
+export const getCatalogPaymentProviders = async (
+  region: string,
+  store: string,
+  gameVersion: string
+): Promise<CatalogPaymentProvider[] | null> => {
+  try {
+    const response = await api.get<{ providers: CatalogPaymentProvider[] }>(
+      'api/v1/catalog/payment-providers',
+      { params: { region, store, gameVersion } }
+    );
+    return Array.isArray(response.data?.providers) ? response.data.providers : null;
+  } catch {
+    return null;
+  }
+};
+
 api.interceptors.request.use((config) => {
   if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
   return config;
@@ -41,7 +58,7 @@ api.interceptors.response.use(
 export const getPaymentMethods = async (): Promise<PaymentMethodInfo[] | null> => {
   try {
     const response = await api.get<PaymentMethodInfo[]>('api/v1/payment-methods');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : null;
   } catch {
     return null;
   }
@@ -60,7 +77,7 @@ export const getCatalogItems = async (
     const qs = params.toString();
     const url = qs ? `api/v1/catalog/items?${qs}` : 'api/v1/catalog/items';
     const response = await api.get<CatalogItem[]>(url);
-    return response.data;
+    return Array.isArray(response.data) ? response.data : null;
   } catch {
     return null;
   }
@@ -73,6 +90,7 @@ export interface PlayerContext {
   region: string;
   store: string;
   gameVersion: string;
+  playerName?: string;
   errorMessage?: string;
   accessToken?: string;
   expiresAtUtc?: string;
@@ -80,9 +98,7 @@ export interface PlayerContext {
 
 export const claimTicket = async (ticket: string): Promise<PlayerContext | null> => {
   try {
-    const response = await api.post<PlayerContext>('api/v1/auth/claim-ticket', null, {
-      params: { ticket },
-    });
+    const response = await api.post<PlayerContext>('api/v1/auth/claim-ticket', { ticket });
     return response.data;
   } catch {
     return null;
@@ -134,6 +150,18 @@ export const createPayment = async (
   } catch (error: any) {
     const message = error.response?.data?.error || 'Could not create payment.';
     return { success: false, error: message };
+  }
+};
+
+export const completeMockPayment = async (
+  orderId: string,
+  status: 'succeeded' | 'failed'
+): Promise<boolean> => {
+  try {
+    await api.post(`api/v1/payments/mockprovider/${orderId}/complete`, { status });
+    return true;
+  } catch {
+    return false;
   }
 };
 
