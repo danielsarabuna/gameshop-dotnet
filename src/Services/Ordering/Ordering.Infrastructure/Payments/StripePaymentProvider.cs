@@ -3,9 +3,9 @@ using Ordering.Application.Payments;
 using Ordering.Domain.Payments;
 using Stripe;
 using Stripe.Checkout;
-using PaymentIntent = Stripe.PaymentIntent;
 using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
 using DomainPaymentStatus = Ordering.Application.Payments.PaymentStatus;
+using PaymentIntent = Stripe.PaymentIntent;
 
 namespace Ordering.Infrastructure.Payments;
 
@@ -27,8 +27,8 @@ public class StripePaymentProvider : IPaymentProvider
         _client = new StripeClient(secretKey);
         _webhookSecret = webhookSecret;
         // Hosted Checkout returns the player to these pages after paying / cancelling.
-        _successUrl = successUrl ?? "https://GameShop.local/order/complete";
-        _cancelUrl = cancelUrl ?? "https://GameShop.local/order/cancelled";
+        _successUrl = successUrl ?? "https://example.invalid/order/complete";
+        _cancelUrl = cancelUrl ?? "https://example.invalid/order/cancelled";
     }
 
     public async Task<PaymentIntentResult> CreatePaymentIntentAsync(
@@ -102,22 +102,22 @@ public class StripePaymentProvider : IPaymentProvider
         switch (stripeEvent.Type)
         {
             case Events.CheckoutSessionCompleted:
-            {
-                var session = stripeEvent.Data.Object as Session
-                    ?? throw new InvalidOperationException($"Cannot deserialize {stripeEvent.Type} payload.");
+                {
+                    var session = stripeEvent.Data.Object as Session
+                        ?? throw new InvalidOperationException($"Cannot deserialize {stripeEvent.Type} payload.");
 
-                var orderId = ResolveOrderId(session.Metadata, session.ClientReferenceId);
-                // Amount arrives in minor units; convert for order-total validation.
-                var amount = session.AmountTotal.HasValue ? session.AmountTotal.Value / 100m : (decimal?)null;
+                    var orderId = ResolveOrderId(session.Metadata, session.ClientReferenceId);
+                    // Amount arrives in minor units; convert for order-total validation.
+                    var amount = session.AmountTotal.HasValue ? session.AmountTotal.Value / 100m : (decimal?)null;
 
-                return Task.FromResult<WebhookResult?>(new WebhookResult(
-                    OrderId: orderId,
-                    PaymentId: Guid.NewGuid(),
-                    EventId: stripeEvent.Id,
-                    Status: "succeeded",
-                    Amount: amount,
-                    Currency: string.IsNullOrWhiteSpace(session.Currency) ? null : session.Currency.ToUpperInvariant()));
-            }
+                    return Task.FromResult<WebhookResult?>(new WebhookResult(
+                        OrderId: orderId,
+                        PaymentId: Guid.NewGuid(),
+                        EventId: stripeEvent.Id,
+                        Status: "succeeded",
+                        Amount: amount,
+                        Currency: string.IsNullOrWhiteSpace(session.Currency) ? null : session.Currency.ToUpperInvariant()));
+                }
             case Events.PaymentIntentSucceeded:
             case Events.PaymentIntentPaymentFailed:
                 var intent = stripeEvent.Data.Object as PaymentIntent

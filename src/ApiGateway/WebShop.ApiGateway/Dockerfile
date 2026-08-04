@@ -1,16 +1,19 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY WebShop.sln ./
+COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj src/ApiGateway/WebShop.ApiGateway/
+COPY src/BuildingBlocks/Auth/Auth.csproj src/BuildingBlocks/Auth/
 COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
+COPY src/BuildingBlocks/Exceptions/Exceptions.csproj src/BuildingBlocks/Exceptions/
 
 RUN dotnet restore src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj
 
 COPY . .
 RUN dotnet publish src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
@@ -24,4 +27,3 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=10 --start-period=15s \
 COPY --from=build /app/publish .
 USER app
 ENTRYPOINT ["dotnet", "WebShop.ApiGateway.dll"]
-

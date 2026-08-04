@@ -9,11 +9,11 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace WebShop.IntegrationTests;
 
-public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChallengerTests.CatalogTestFixture>
+public sealed class GatewayAndAssetSecurityTests : IClassFixture<GatewayAndAssetSecurityTests.CatalogTestFixture>
 {
     private readonly CatalogTestFixture _fixture;
 
-    public M2EmpiricalChallengerTests(CatalogTestFixture fixture)
+    public GatewayAndAssetSecurityTests(CatalogTestFixture fixture)
     {
         _fixture = fixture;
     }
@@ -165,7 +165,7 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
 
         public CatalogTestFixture()
         {
-            TempAssetDir = Path.Combine(Path.GetTempPath(), "m2-challenger-assets-" + Guid.NewGuid().ToString("N"));
+            TempAssetDir = Path.Combine(Path.GetTempPath(), "gateway-asset-tests-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(TempAssetDir);
         }
 
@@ -173,7 +173,7 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
         {
             builder.ConfigureServices(services =>
             {
-                services.RemoveAll(typeof(RemoteCatalogOptions));
+                services.RemoveAll<RemoteCatalogOptions>();
                 services.AddSingleton(new RemoteCatalogOptions
                 {
                     AssetCacheDir = TempAssetDir

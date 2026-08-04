@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 140" width="500" height="140">
+  <defs>
+    <linearGradient id="AdventureGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#00f2fe" />
+      <stop offset="100%" stop-color="#4facfe" />
+    </linearGradient>
+  </defs>
+  <text x="250" y="75" text-anchor="middle" font-family="sans-serif" font-weight="900" font-size="52" fill="url(#AdventureGrad)" letter-spacing="6">ПРИКЛЮЧЕНИЕ</text>
+  <text x="250" y="110" text-anchor="middle" font-family="monospace" font-weight="600" font-size="15" fill="#a0e0ff" letter-spacing="10">ADVENTURE ONE : SCI-FI STORY</text>
+</svg>

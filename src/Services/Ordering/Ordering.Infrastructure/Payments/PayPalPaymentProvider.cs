@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -23,7 +24,7 @@ public class PayPalPaymentProvider : IPaymentProvider
     {
         _clientId = clientId;
         _clientSecret = clientSecret;
-        _baseUrl = mode.ToLowerInvariant() == "live"
+        _baseUrl = string.Equals(mode, "live", StringComparison.OrdinalIgnoreCase)
             ? "https://api-m.paypal.com"
             : "https://api-m.sandbox.paypal.com";
         _httpClient = new HttpClient();
@@ -49,7 +50,7 @@ public class PayPalPaymentProvider : IPaymentProvider
                     amount = new
                     {
                         currency_code = currency.ToUpperInvariant(),
-                        value = amount.ToString("F2")
+                        value = amount.ToString("F2", CultureInfo.InvariantCulture)
                     }
                 }
             }

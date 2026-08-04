@@ -32,7 +32,7 @@
       "emailVerified": true,
       "firstName": "Test",
       "lastName": "User",
-      "email": "tester@example.com",
+      "email": "tester@example.invalid",
       "credentials": [
         {
           "type": "password",
@@ -48,7 +48,7 @@
       "emailVerified": true,
       "firstName": "Realm",
       "lastName": "Admin",
-      "email": "admin-user@example.com",
+      "email": "admin-user@example.invalid",
       "credentials": [
         {
           "type": "password",

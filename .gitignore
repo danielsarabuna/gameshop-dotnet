@@ -9,7 +9,6 @@ src/WebApps/Shopping.Web/test-results/
 .vs/
 .vscode/
 .idea/
-.development tooling/
 *.user
 *.suo
 *.cache
@@ -26,8 +25,15 @@ Thumbs.db
 *.log
 .goal/
 
-# Environment Variables & Secrets (Documented in docs/deployment/environment-variables.md)
+# Local planning and development workflow files
+docs/
+.ai/
+.agents/
+AGENT.md
+PROJECT.md
+TEST_READY.md
+scripts/okf_tool.py
+
+# Environment variables and secrets (documented in README.md)
 .env
 .env.*
-!.env.local.example
-!.env.prod.example

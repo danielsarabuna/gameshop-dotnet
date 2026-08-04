@@ -5,7 +5,7 @@ const subscriptionId = '9aa00000-0000-0000-0000-000000000001';
 
 const seedV2Session = async (page: Page, lines: unknown[]) => {
   await page.addInitScript(({ cart }) => {
-    sessionStorage.setItem('GameShop_webshop_session', JSON.stringify({
+    sessionStorage.setItem('gameshop_webshop_session', JSON.stringify({
       accessToken: 'test-token',
       expiresAtUtc: new Date(Date.now() + 60_000).toISOString(),
       playerId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
@@ -16,7 +16,7 @@ const seedV2Session = async (page: Page, lines: unknown[]) => {
       deliveryContractVersion: 2,
       sessionKind: 'game',
     }));
-    localStorage.setItem('GameShop_cart', JSON.stringify(cart));
+    localStorage.setItem('gameshop_cart', JSON.stringify(cart));
   }, { cart: lines });
 };
 
@@ -45,7 +45,7 @@ test.describe('auth and payment polish', () => {
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       sessionStorage.clear();
-      localStorage.removeItem('GameShop_cart');
+      localStorage.removeItem('gameshop_cart');
     });
   });
 

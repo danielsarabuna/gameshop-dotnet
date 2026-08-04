@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { assertZeroHorizontalScroll } from '../utils/layout-helpers';
 
-test.describe('Challenger 2 M3 — Tablet Responsiveness & Boundary Stress Suite', () => {
+test.describe('Responsive breakpoint boundaries', () => {
   const routes = ['/', '/projects', '/diamonds', '/subscription', '/help', '/about'];
 
   test.describe('1. Exact Boundary Pixel Widths Evaluation', () => {

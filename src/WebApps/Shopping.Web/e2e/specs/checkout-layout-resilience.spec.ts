@@ -3,7 +3,7 @@ import { assertZeroHorizontalScroll, assertNoElementOverlap, assertNoTextClippin
 import { HeaderPOM } from '../page-objects/header.page';
 import { CartDrawerPOM } from '../page-objects/cart.page';
 
-test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverage Hardening', () => {
+test.describe('Checkout layout resilience', () => {
 
   /* -------------------------------------------------------------------------- */
   /* 1. Extreme String Injection & Localized Header Layout                      */
@@ -15,7 +15,7 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       // Inject session with an extreme long playerName into tab-scoped storage prior to navigation
       await page.addInitScript(() => {
         sessionStorage.setItem(
-          'GameShop_webshop_session',
+          'gameshop_webshop_session',
           JSON.stringify({
             accessToken: 'layout-test-token',
             playerId: 'player_9999999999999999',
@@ -354,7 +354,7 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       await page.keyboard.press('Escape');
       await expect(modalOverlay).not.toBeVisible();
 
-      // Empirically check state of Cart Drawer after Escape press
+      // Check state of Cart Drawer after Escape press
       const cartIsOpen = await cart.drawer.evaluate((el) => el.classList.contains('open'));
       if (cartIsOpen) {
         await cart.close();

@@ -16,7 +16,7 @@ export default defineConfig({
   projects: [
     {
       name: 'mobile-small',
-      testMatch: ['**/mobile-small.spec.ts', '**/challenger-m3-stress.spec.ts', '**/challenger-m2-c2-stress.spec.ts', '**/checkout-polish.spec.ts'],
+      testMatch: ['**/mobile-small.spec.ts', '**/tablet-responsive.spec.ts', '**/mobile-page-layout.spec.ts', '**/checkout-polish.spec.ts'],
       use: {
         browserName: 'chromium',
         viewport: { width: 320, height: 568 },
@@ -49,7 +49,7 @@ export default defineConfig({
     },
     {
       name: 'desktop',
-      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/challenger-m4-stress.spec.ts', '**/challenger-m3-c2-boundary-stress.spec.ts', '**/local-unity-flow.spec.ts', '**/checkout-polish.spec.ts'],
+      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/catalog-failure-resilience.spec.ts', '**/responsive-boundaries.spec.ts', '**/local-unity-flow.spec.ts', '**/checkout-polish.spec.ts'],
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },
@@ -57,31 +57,31 @@ export default defineConfig({
     },
     {
       name: 'desktop-4k',
-      testMatch: '**/challenger-m4-stress.spec.ts',
+      testMatch: '**/catalog-failure-resilience.spec.ts',
       use: {
         browserName: 'chromium',
         viewport: { width: 1920, height: 1080 },
       },
     },
     {
-      name: 'challenger-tier5-layout',
-      testMatch: '**/challenger-tier5-layout.spec.ts',
+      name: 'checkout-layout-resilience',
+      testMatch: '**/checkout-layout-resilience.spec.ts',
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },
       },
     },
     {
-      name: 'challenger-tier5-catalog',
-      testMatch: '**/challenger-tier5-catalog.spec.ts',
+      name: 'catalog-data-resilience',
+      testMatch: '**/catalog-data-resilience.spec.ts',
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },
       },
     },
     {
-      name: 'emp-challenger-m3',
-      testMatch: '**/emp-challenger-m3-verification.spec.ts',
+      name: 'layout-oracle',
+      testMatch: '**/layout-oracle.spec.ts',
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },

@@ -1,5 +1,9 @@
-using BuildingBlocks.Exceptions;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading.RateLimiting;
 using BuildingBlocks.Auth;
+using BuildingBlocks.Exceptions;
 using Catalog.API.Configuration;
 using Catalog.API.Grpc;
 using Catalog.API.Services;
@@ -7,10 +11,7 @@ using Catalog.API.Storage;
 using Logging;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
-using System.Text;
-using System.Text.Json;
-using System.Threading.RateLimiting;
-using System.Text.Json.Serialization;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -71,6 +72,7 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddGrpc();
+builder.Services.AddOpenApi();
 builder.Services.AddCustomExceptionHandler();
 builder.Services.AddRateLimiter(options =>
 {
@@ -87,6 +89,12 @@ builder.Services.AddRateLimiter(options =>
 });
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 
 app.UseExceptionHandler();
 app.UseCors();

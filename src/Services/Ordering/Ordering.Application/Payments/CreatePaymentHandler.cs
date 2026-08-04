@@ -72,5 +72,5 @@ public sealed class CreatePaymentHandler
     }
 
     private static string BuildCheckoutUrl(Payment payment) =>
-        $"https://checkout.GameShop.local/{payment.Provider.ToString().ToLowerInvariant()}/{payment.Id:D}";
+        $"https://example.invalid/checkout/{payment.Provider.ToString().ToLowerInvariant()}/{payment.Id:D}";
 }

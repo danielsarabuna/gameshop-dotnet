@@ -1,7 +1,8 @@
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY WebShop.sln ./
+COPY Directory.Build.props Directory.Packages.props global.json ./
 COPY src/Services/Basket.API/Basket.API.csproj src/Services/Basket.API/
 COPY src/BuildingBlocks/Auth/Auth.csproj src/BuildingBlocks/Auth/
 COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
@@ -16,7 +17,7 @@ RUN dotnet restore src/Services/Basket.API/Basket.API.csproj
 COPY . .
 RUN dotnet publish src/Services/Basket.API/Basket.API.csproj -c Release -o /app/publish /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
 RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \

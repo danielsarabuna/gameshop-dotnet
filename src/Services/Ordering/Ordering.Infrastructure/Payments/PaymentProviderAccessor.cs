@@ -18,7 +18,7 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         bool isMockEnabled = false;
         if (!string.IsNullOrEmpty(mockSetting))
         {
-            bool.TryParse(mockSetting, out isMockEnabled);
+            isMockEnabled = bool.TryParse(mockSetting, out var parsedMockSetting) && parsedMockSetting;
         }
         else if (environment != null)
         {
@@ -45,7 +45,8 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var payPalClientSecret = configuration["Payments:PayPal:ClientSecret"];
         var payPalMode = configuration["Payments:PayPal:Mode"] ?? "sandbox";
         var payPalWebhookSecret = configuration["Payments:PayPal:WebhookSecret"];
-        if (!string.IsNullOrEmpty(payPalClientId) &&
+        if (configuration.GetValue<bool>("Payments:PayPal:Enabled") &&
+            !string.IsNullOrEmpty(payPalClientId) &&
             !string.IsNullOrEmpty(payPalClientSecret) &&
             payPalClientId != "placeholder" &&
             payPalClientSecret != "placeholder")
@@ -70,11 +71,13 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         var corvusPaySecret = configuration["Payments:CorvusPay:SecretKey"];
         var corvusPayApiUrl = configuration["Payments:CorvusPay:ApiUrl"];
         var corvusPayWebhookSecret = configuration["Payments:CorvusPay:WebhookSecret"];
-        if (!string.IsNullOrEmpty(corvusPayStoreId) && corvusPayStoreId != "placeholder")
+        if (configuration.GetValue<bool>("Payments:CorvusPay:Enabled") &&
+            !string.IsNullOrEmpty(corvusPayStoreId) &&
+            corvusPayStoreId != "placeholder")
         {
             _providers[DomainPaymentMethod.CorvusPay] = new CorvusPayPaymentProvider(
-                corvusPayStoreId, 
-                corvusPaySecret ?? "placeholder", 
+                corvusPayStoreId,
+                corvusPaySecret ?? "placeholder",
                 corvusPayApiUrl ?? "https://corvuspay.com/payment",
                 corvusPayWebhookSecret);
         }

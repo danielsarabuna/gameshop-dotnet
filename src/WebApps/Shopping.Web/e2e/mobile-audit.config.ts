@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './specs',
-  testMatch: '**/challenger-m2-stress.spec.ts',
+  testMatch: '**/mobile-responsive-audit.spec.ts',
   fullyParallel: true,
   timeout: 60000,
   reporter: 'list',

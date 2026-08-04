@@ -1,6 +1,6 @@
 using System.Globalization;
-using Catalog.API.Services;
 using Catalog.API.Configuration;
+using Catalog.API.Services;
 using Catalog.Grpc;
 using Grpc.Core;
 

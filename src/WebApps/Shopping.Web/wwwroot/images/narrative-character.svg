@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000">
+  <defs>
+    <linearGradient id="charGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ff4d94" />
+      <stop offset="100%" stop-color="#7b2cbf" />
+    </linearGradient>
+  </defs>
+  <g opacity="0.85">
+    <ellipse cx="400" cy="300" rx="140" ry="170" fill="url(#charGlow)" opacity="0.3"/>
+    <path d="M 280 470 C 280 320, 520 320, 520 470 C 520 600, 650 900, 650 1000 L 150 1000 C 150 900, 280 600, 280 470 Z" fill="url(#charGlow)" opacity="0.6"/>
+  </g>
+  <text x="400" y="550" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="22" fill="#ffffff">Character Artwork Placeholder</text>
+  <text x="400" y="590" text-anchor="middle" font-family="sans-serif" font-size="15" fill="#e0c0ff">Drop your character PNG here</text>
+</svg>

@@ -29,6 +29,12 @@ public sealed class PostgresFixture : IAsyncLifetime
         {
             IsAvailable = false;
             UnavailabilityReason = ex.Message;
+            if (RequiresDocker())
+            {
+                throw new InvalidOperationException(
+                    "PostgreSQL integration tests require a working Docker daemon in CI.",
+                    ex);
+            }
         }
     }
 
@@ -39,4 +45,14 @@ public sealed class PostgresFixture : IAsyncLifetime
             await _container.DisposeAsync();
         }
     }
+
+    private static bool RequiresDocker()
+    {
+        return IsTrue(Environment.GetEnvironmentVariable("CI"))
+            || IsTrue(Environment.GetEnvironmentVariable("REQUIRE_DOCKER_TESTS"));
+    }
+
+    private static bool IsTrue(string? value) =>
+        string.Equals(value, "true", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(value, "1", StringComparison.Ordinal);
 }

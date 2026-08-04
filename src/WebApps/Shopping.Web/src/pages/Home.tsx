@@ -8,11 +8,11 @@ export const Home: React.FC = () => {
   return (
     <div className="hero-snap-container">
       <section className="hero-section" id="section-hero">
-        <img src="/images/Story Realms-bg.jpg" alt="GameShop" className="showcase-bg" />
+        <img src="/images/story-bg.jpg" alt="GameShop" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
         {/* Floating character artwork (desktop ≥1024px only) */}
-        <img src="/images/Story Realms-char.png" alt="" className="hero-char" />
+        <img src="/images/story-character.png" alt="" className="hero-char" />
 
         <div className="hero-content">
           {/* App Icon + Title Logo */}
@@ -28,7 +28,7 @@ export const Home: React.FC = () => {
                 background: 'rgba(255,255,255,0.05)',
               }}
             />
-            <img src="/images/Story Realms-logo.svg" alt="GameShop" style={{ height: 46, width: 'auto', maxWidth: '100%' }} />
+            <img src="/images/story-title.svg" alt="GameShop" style={{ height: 46, width: 'auto', maxWidth: '100%' }} />
           </div>
 
           {/* Subtitle description */}
@@ -53,26 +53,14 @@ export const Home: React.FC = () => {
             </Link>
           </div>
 
-          {/* Social Icons Bar */}
+          {/* Repository link */}
           <div className="seq-item seq-delay-4" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)', fontWeight: 600 }}>
-              {t('Подписывайтесь на нас:', 'Follow us:', 'Folge uns:', 'Suivez-nous :', 'Síguenos:')}
+              {t('Исходный код:', 'Source code:', 'Quellcode:', 'Code source :', 'Código fuente:')}
             </span>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <a href="https://vk.com/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="VK">
-                <img src="/icons/vk.svg" alt="VK" />
-              </a>
-              <a href="https://t.me/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="Telegram">
-                <img src="/icons/telegram.svg" alt="Telegram" />
-              </a>
-              <a href="https://facebook.com/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="Facebook">
-                <img src="/icons/facebook.svg" alt="Facebook" />
-              </a>
-              <a href="https://instagram.com/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="Instagram">
-                <img src="/icons/instagram.svg" alt="Instagram" />
-              </a>
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-icon-link" title="YouTube">
-                <img src="/icons/youtube.svg" alt="YouTube" />
+              <a href="https://github.com/danielsarabuna/web-shop" target="_blank" rel="noreferrer" className="social-icon-link" title="GitHub">
+                <img src="/icons/github.svg" alt="GitHub" />
               </a>
             </div>
           </div>

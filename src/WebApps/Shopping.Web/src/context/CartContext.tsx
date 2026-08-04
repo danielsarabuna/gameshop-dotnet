@@ -33,7 +33,7 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
-const CART_STORAGE_KEY = 'GameShop_cart';
+const CART_STORAGE_KEY = 'gameshop_cart';
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [lines, setLines] = useState<CartItem[]>(() => {

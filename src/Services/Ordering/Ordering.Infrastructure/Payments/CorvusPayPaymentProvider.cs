@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -37,7 +38,7 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         {
             store_id = _storeId,
             order_number = orderId.ToString("D"),
-            amount = amount.ToString("F2"),
+            amount = amount.ToString("F2", CultureInfo.InvariantCulture),
             currency = currency.ToUpperInvariant(),
             description = $"Order {orderId:D}",
             custom = orderId.ToString("D")
@@ -47,7 +48,7 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         {
             Content = JsonContent.Create(requestBody)
         };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", 
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_storeId}:{_secretKey}")));
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
@@ -59,7 +60,7 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         }
 
         using var doc = JsonDocument.Parse(content);
-        
+
         string? transactionId;
         string? checkoutUrl;
 

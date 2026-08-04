@@ -32,7 +32,7 @@ export const Projects: React.FC = () => {
         'Величественный замок с мраморными лестницами и скрытыми комнатами. Здесь каждая тень хранит секреты прошлого, а бал-маскарад становится местом судьбоносной встречи.',
         'A majestic castle with marble stairs and hidden rooms. Every shadow holds secrets of the past where a masquerade ball becomes a fateful encounter.'
       ),
-      image: '/images/Story Realms-scene1.jpg',
+      image: '/images/story-library.jpg',
       badge: t('ЛЕГЕНДАРНАЯ ЛОКАЦИЯ', 'LEGENDARY LOCATION'),
       atmosphere: t('Мрачная готика & Роскошь', 'Dark Gothic & Luxury'),
       characters: 'Lucian, Elena, Victor',
@@ -45,7 +45,7 @@ export const Projects: React.FC = () => {
         'Витражные аудитории и древняя библиотека. Учеба по магии переплетается с тайными союзами и романтическими дуэлями под ночным небом.',
         'Stained glass lecture halls and ancient library. Magic studies intertwine with secret alliances and romantic duels under the night sky.'
       ),
-      image: '/images/Story Realms-scene2.jpg',
+      image: '/images/story-garden.jpg',
       badge: t('ПОПУЛЯРНАЯ ЛОКАЦИЯ', 'POPULAR LOCATION'),
       atmosphere: t('Магический нео-барокко', 'Magical Neo-Baroque'),
       characters: 'Aria, Gabriel, Celeste',
@@ -58,7 +58,7 @@ export const Projects: React.FC = () => {
         'Панорамный пентхаус на 85 этаже с видом на огни ночного города. Закулисные интриги большого бизнеса, вечеринки и искушения высшего света.',
         'Panoramic 85th floor penthouse overlooking neon city lights. Behind-the-scenes business intrigue, high society parties, and temptations.'
       ),
-      image: '/images/Story Realms-bg.jpg',
+      image: '/images/story-bg.jpg',
       badge: t('НОВАЯ ЛОКАЦИЯ', 'NEW LOCATION'),
       atmosphere: t('Кибер-шик & Роскошь', 'Cyber-chic & Glamour'),
       characters: 'Damian, Chloe, Julian',
@@ -80,9 +80,9 @@ export const Projects: React.FC = () => {
     <div className="game-showcase-container">
       {/* ============ SECTION 1 — GAME HERO ============ */}
       <section className="showcase-section" id="section-1">
-        <img src="/images/Story Realms-bg.jpg" alt="GameShop" className="showcase-bg" />
+        <img src="/images/story-bg.jpg" alt="GameShop" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
-        <img src="/images/Story Realms-char.png" alt="" className="hero-char" />
+        <img src="/images/story-character.png" alt="" className="hero-char" />
 
         <div className="hero-content">
           <div className="seq-item seq-delay-1" style={{ display: 'flex', alignItems: 'center', gap: 18, marginBottom: 4, flexWrap: 'wrap' }}>
@@ -97,7 +97,7 @@ export const Projects: React.FC = () => {
                 background: 'rgba(255,255,255,0.05)',
               }}
             />
-            <img src="/images/Story Realms-logo.svg" alt="GameShop" style={{ height: 46, width: 'auto', maxWidth: '100%' }} />
+            <img src="/images/story-title.svg" alt="GameShop" style={{ height: 46, width: 'auto', maxWidth: '100%' }} />
           </div>
 
           <p className="hero-desc seq-item seq-delay-2" style={{ fontSize: '1.05rem', lineHeight: 1.6 }}>
@@ -119,9 +119,7 @@ export const Projects: React.FC = () => {
           </div>
 
           <div className="seq-item seq-delay-5" style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-            <a href="https://vk.com/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="VK"><img src="/icons/vk.svg" alt="VK" /></a>
-            <a href="https://t.me/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="Telegram"><img src="/icons/telegram.svg" alt="Telegram" /></a>
-            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-icon-link" title="YouTube"><img src="/icons/youtube.svg" alt="YouTube" /></a>
+            <a href="https://github.com/danielsarabuna/web-shop" target="_blank" rel="noreferrer" className="social-icon-link" title="GitHub"><img src="/icons/github.svg" alt="GitHub" /></a>
           </div>
         </div>
 
@@ -130,7 +128,7 @@ export const Projects: React.FC = () => {
 
       {/* ============ SECTION 2 — INTERACTIVE GAMEPLAY ============ */}
       <section className="showcase-section" id="section-2">
-        <img src="/images/Story Realms-scene1.jpg" alt="" className="showcase-bg" />
+        <img src="/images/story-library.jpg" alt="" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
         <div className="hero-content" style={{ maxWidth: 680 }}>
@@ -151,7 +149,7 @@ export const Projects: React.FC = () => {
           {/* Gameplay preview card with REC badge */}
           <div className="seq-item seq-delay-4 glass-card" style={{ padding: 0, overflow: 'hidden', borderRadius: 16, border: '1px solid rgba(255,51,102,0.4)', boxShadow: '0 12px 30px rgba(255,51,102,0.2)' }}>
             <div style={{ position: 'relative' }}>
-              <img src="/media/Story Realms-gameplay-choice.gif" alt="Gameplay preview" style={{ width: '100%', display: 'block', maxHeight: 340, objectFit: 'cover' }} />
+              <img src="/media/gameplay-choice.gif" alt="Gameplay preview" style={{ width: '100%', display: 'block', maxHeight: 340, objectFit: 'cover' }} />
               <span className="badge-tag badge-pink" style={{ position: 'absolute', top: 12, left: 12, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#ff3366', display: 'inline-block' }} />
                 REC • GAMEPLAY PREVIEW
@@ -165,7 +163,7 @@ export const Projects: React.FC = () => {
 
       {/* ============ SECTION 3 — GAME LOCATIONS (existing content) ============ */}
       <section className="showcase-section" id="section-3">
-        <img src="/images/Story Realms-scene2.jpg" alt="" className="showcase-bg" />
+        <img src="/images/story-garden.jpg" alt="" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
         <div className="hero-content" style={{ maxWidth: 1180, width: '100%' }}>
@@ -241,7 +239,7 @@ export const Projects: React.FC = () => {
 
       {/* ============ SECTION 4 — ROMANTIC QUOTE ============ */}
       <section className="showcase-section" id="section-4">
-        <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+        <img src="/images/story-bg.jpg" alt="" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
         <div className="hero-content" style={{ maxWidth: 620 }}>
@@ -271,7 +269,7 @@ export const Projects: React.FC = () => {
 
       {/* ============ SECTION 5 — FINALE: MECHANICS + STORE + MINI-FOOTER ============ */}
       <section className="showcase-section" id="section-5" style={{ flexDirection: 'column', justifyContent: 'center', textAlign: 'center' }}>
-        <img src="/images/Story Realms-scene1.jpg" alt="" className="showcase-bg" />
+        <img src="/images/story-library.jpg" alt="" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 2, pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', zIndex: 4, maxWidth: 1180, width: '100%', margin: '0 auto' }}>
@@ -333,7 +331,7 @@ export const Projects: React.FC = () => {
               <span>•</span>
               <a href="#terms" style={{ color: 'var(--text-dim)', textDecoration: 'none' }}>{t('Условия', 'Terms')}</a>
             </div>
-            <span>© {new Date().getFullYear()} GameShop</span>
+            <span>© {new Date().getFullYear()} Example Game Studio</span>
           </div>
         </div>
       </section>
