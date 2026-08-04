@@ -49,6 +49,7 @@ jobs:
       # values are not baked into these images.
       SUPABASE_URL: https://example.invalid
       SUPABASE_SERVICE_ROLE_KEY: build-only
+      CATALOG_CACHE_INVALIDATION_SECRET: build-only
       GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64: build-only
       GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64: build-only
     steps:
