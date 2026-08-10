@@ -7,5 +7,6 @@ public enum PaymentMethod
     PayPal = 2,
     YooKassa = 3,
     CorvusPay = 4,
-    Xsolla = 5
+    Xsolla = 5,
+    MockProvider = 6
 }

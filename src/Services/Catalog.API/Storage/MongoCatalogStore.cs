@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using MongoDB.Driver;
+using System.Collections.Concurrent;
 
 namespace Catalog.API.Storage;
 
@@ -11,6 +12,7 @@ public sealed class MongoCatalogStore : ICatalogStore
 {
     private readonly IMongoCollection<CatalogItemDocument> _collection;
     private readonly ILogger<MongoCatalogStore> _logger;
+    private readonly ConcurrentDictionary<string, WebShopCatalogConfig> _configs = new(StringComparer.OrdinalIgnoreCase);
 
     public MongoCatalogStore(IConfiguration configuration, IHostEnvironment environment, ILogger<MongoCatalogStore> logger)
     {
@@ -37,16 +39,48 @@ public sealed class MongoCatalogStore : ICatalogStore
         }
     }
 
+    public void UpdateCatalogConfig(string region, string store, string gameVersion, WebShopCatalogConfig config)
+    {
+        var key = $"{region.Trim().ToLowerInvariant()}:{store.Trim().ToLowerInvariant()}:{gameVersion.Trim().ToLowerInvariant()}";
+        _configs[key] = config;
+    }
+
     public IReadOnlyList<CatalogItem> GetAll()
     {
         var documents = _collection.Find(FilterDefinition<CatalogItemDocument>.Empty).ToList();
         return documents.Select(MapToModel).ToList();
     }
 
+    public IReadOnlyList<CatalogItem> GetFiltered(string? region, string? store, string? gameVersion)
+    {
+        var key = $"{region?.Trim().ToLowerInvariant()}:{store?.Trim().ToLowerInvariant()}:{gameVersion?.Trim().ToLowerInvariant()}";
+        if (_configs.TryGetValue(key, out var config))
+        {
+            return config.Items;
+        }
+
+        return GetAll();
+    }
+
     public CatalogItem? GetById(Guid id)
     {
         var document = _collection.Find(item => item.Id == id).FirstOrDefault();
         return document is null ? null : MapToModel(document);
+    }
+
+    public PaymentProviderConfig GetPaymentProviders(string? region, string? store, string? gameVersion)
+    {
+        var key = $"{region?.Trim().ToLowerInvariant()}:{store?.Trim().ToLowerInvariant()}:{gameVersion?.Trim().ToLowerInvariant()}";
+        if (_configs.TryGetValue(key, out var config))
+        {
+            return new PaymentProviderConfig(config.PaymentProviders);
+        }
+
+        return new PaymentProviderConfig(new List<PaymentProviderDto>
+        {
+            new("YooKassa", "ЮKassa", true, false, "/images/providers/yookassa.svg"),
+            new("MockProvider", "Тестовая оплата", true, true, "/images/providers/mock.svg")
+        });
     }
 
     private void EnsureSeeded()

@@ -4,6 +4,7 @@ WORKDIR /src
 COPY WebShop.sln ./
 COPY src/Services/Catalog.API/Catalog.API.csproj src/Services/Catalog.API/
 COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
+COPY src/BuildingBlocks/Exceptions/Exceptions.csproj src/BuildingBlocks/Exceptions/
 COPY src/Contracts/Catalog.Grpc/Catalog.Grpc.csproj src/Contracts/Catalog.Grpc/
 
 RUN dotnet restore src/Services/Catalog.API/Catalog.API.csproj
@@ -23,5 +24,6 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=10 --start-period=15s \
     CMD curl -fsS http://localhost:8080/health || exit 1
 
 COPY --from=build /app/publish .
+USER app
 ENTRYPOINT ["dotnet", "Catalog.API.dll"]
 

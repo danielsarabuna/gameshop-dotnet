@@ -22,5 +22,6 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=10 --start-period=15s \
     CMD curl -fsS http://localhost:8080/health || exit 1
 
 COPY --from=build /app/publish .
+USER app
 ENTRYPOINT ["dotnet", "WebShop.ApiGateway.dll"]
 

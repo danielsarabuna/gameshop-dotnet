@@ -5,6 +5,7 @@
     <ProjectReference Include="../Ordering.Infrastructure/Ordering.Infrastructure.csproj" />
     <ProjectReference Include="../Ordering.Domain/Ordering.Domain.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/Logging/Logging.csproj" />
+    <ProjectReference Include="../../../BuildingBlocks/Exceptions/Exceptions.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/EventBus/EventBus.csproj" />
     <ProjectReference Include="../../../BuildingBlocks/EventBus.RabbitMq/EventBus.RabbitMq.csproj" />
     <ProjectReference Include="../../../Contracts/IntegrationEvents/IntegrationEvents.csproj" />

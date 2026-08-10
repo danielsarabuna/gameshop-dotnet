@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EventBus", "src\BuildingBlo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Logging", "src\BuildingBlocks\Logging\Logging.csproj", "{8A0A70DD-6BA3-4399-9841-B83A3A6BC5FD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Exceptions", "src\BuildingBlocks\Exceptions\Exceptions.csproj", "{A9B8C7D6-E5F4-4321-9876-543210FEDCBA}"
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Services", "Services", "{1F34CD59-698E-408C-97B6-4C470EBA2BD1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Basket.API", "src\Services\Basket.API\Basket.API.csproj", "{A466C408-617A-4936-AB36-01635B647DA2}"
@@ -48,6 +50,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebShop.IntegrationTests", "tests\WebShop.IntegrationTests\WebShop.IntegrationTests.csproj", "{3F665E1D-2DF7-4C97-86F4-482E31D0FF5F}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.Grpc", "src\Contracts\Catalog.Grpc\Catalog.Grpc.csproj", "{78CCBE51-B89E-4587-BC81-63DB6D119BFC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Catalog.API.Tests", "tests\Catalog.API.Tests\Catalog.API.Tests.csproj", "{9F86F5F4-23C4-4E24-B585-24374EB74B04}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -118,6 +122,10 @@ Global
 		{78CCBE51-B89E-4587-BC81-63DB6D119BFC}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{78CCBE51-B89E-4587-BC81-63DB6D119BFC}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{78CCBE51-B89E-4587-BC81-63DB6D119BFC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9F86F5F4-23C4-4E24-B585-24374EB74B04}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{44DB65CF-5F34-4BDA-985E-2DEACD3DA6AE} = {318F05AF-B950-4ACD-80F4-B4BB0A8C47AA}
@@ -141,5 +149,6 @@ Global
 		{41E78F98-64F3-4C38-95C1-11BC494CB790} = {7DAE2267-BD7A-46A9-8F19-DE5BC7566221}
 		{3F665E1D-2DF7-4C97-86F4-482E31D0FF5F} = {54AA51E1-CD4D-4ED4-8AFC-59A778452EB4}
 		{78CCBE51-B89E-4587-BC81-63DB6D119BFC} = {7DAE2267-BD7A-46A9-8F19-DE5BC7566221}
+		{9F86F5F4-23C4-4E24-B585-24374EB74B04} = {54AA51E1-CD4D-4ED4-8AFC-59A778452EB4}
 	EndGlobalSection
 EndGlobal

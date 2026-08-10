@@ -3,68 +3,104 @@
 
 <PageTitle>GameShop — @Lang.T("Об игре", "About", "Über das Spiel", "À propos", "Acerca de")</PageTitle>
 
-<section class="page-pad">
-    <div class="container">
-        <div class="narrow">
-            <h1>@Lang.T("Об игре", "About the game", "Über das Spiel", "À propos du jeu", "Acerca del juego")</h1>
-            <p class="muted">
-                @Lang.T(
-                    "GameShop — это романтический симулятор свиданий, где каждое решение влияет на сюжет, отношения и финал. Открывайте новые ветки, коллекционируйте иллюстрации и улучшайте свой профиль, чтобы покорять сердца персонажей.",
-                    "GameShop is a dating simulation game where every choice shapes the story, relationships, and ending. Unlock new branches, collect ilExample Game Studiotions, and upgrade your profile to win characters’ hearts.",
-                    "GameShop ist eine Dating‑Simulation, in der jede Entscheidung Story, Beziehungen und Ende beeinflusst. Schalte neue Handlungsstränge frei, sammle IlExample Game Studiotionen und verbessere dein Profil.",
-                    "GameShop est un jeu de simulation de rencontres où chaque choix influence l’histoire, les relations et la fin. Débloquez de nouvelles branches, collectionnez des ilExample Game Studiotions et améliorez votre profil.",
-                    "GameShop es un juego de simulación de citas donde cada decisión influye en la historia, las relaciones y el final. Desbloquea nuevas rutas, colecciona iExample Game Studiociones y mejora tu perfil."
-                )
-            </p>
-            <p class="muted">
-                @Lang.T(
-                    "Алмазы ускоряют прогресс и помогают открывать премиальные сцены, а Premium даёт доступ к бонусам и эксклюзивным активностям. Мы сделали покупки максимально простыми — выбирайте пакет, оплачивайте и наслаждайтесь игрой.",
-                    "Diamonds speed up progress and unlock premium scenes, while Premium gives you bonuses and exclusive activities. Purchasing is simple—pick a pack, pay, and enjoy the game.",
-                    "Diamanten beschleunigen den Fortschritt und schalten Premium‑Szenen frei. Premium bietet Boni und exklusive Aktivitäten. Kaufen ist einfach: Paket wählen, bezahlen, spielen.",
-                    "Les diamants accélèrent la progression et débloquent des scènes premium. Premium offre des bonus et des activités exclusives. L’achat est simple : choisissez, payez, profitez.",
-                    "Los diamantes aceleran el progreso y desbloquean escenas premium. Premium ofrece bonificaciones y actividades exclusivas. Comprar es sencillo: elige, paga y disfruta."
-                )
-            </p>
+<div class="page-container">
+    <!-- HEADER -->
+    <div class="page-header seq-item seq-delay-1">
+        <h1 class="page-title">
+            <span class="gradient-text">@Lang.T("Об игре GameShop", "About GameShop", "Über GameShop", "À propos de GameShop", "Acerca de GameShop")</span>
+        </h1>
+        <p class="page-subtitle">
+            @Lang.T(
+                "Интерактивная романтическая новелла, где каждое принятое вами решение создаёт уникальную историю любви и приключений.",
+                "An interactive romantic visual novel where every choice you make creates a unique love story.",
+                "Eine interaktive Dating‑Simulation, in der jede Entscheidung die Story beeinflusst.",
+                "Un roman visuel interactif où chaque choix crée une histoire unique.",
+                "Una novela visual interactiva donde cada decisión crea una historia única."
+            )
+        </p>
+    </div>
 
-            <div class="divider"></div>
+    <!-- MANIFESTO CARD -->
+    <div class="glass-card seq-item seq-delay-2" style="margin-bottom: 50px; padding: 36px;">
+        <h2 class="serif-title" style="font-size: 1.8rem; margin-bottom: 20px; color: var(--accent-pink);">
+            "@Lang.T("Любовь — это выбор, который вы делаете каждый день", "Love is a choice you make every day", "Liebe ist eine Wahl, die du jeden Tag triffst", "L'amour est un choix que vous faites chaque jour", "El amor es una elección que haces todos los días")"
+        </h2>
+        <p style="font-size: 1.05rem; line-height: 1.7; color: var(--text-muted); margin-bottom: 16px;">
+            @Lang.T(
+                "GameShop — это погружение в захватывающие миры романтики, тайн и эмоций. Мы создаём сюжеты, которые трогают до глубины души, и даём игрокам полную свободу выбора.",
+                "GameShop is an immersive journey into romance, secrets, and emotion. We craft stories that resonate deeply, giving players full freedom of choice.",
+                "GameShop ist ein klares Eintauchen in Romantik, Geheimnisse und Emotionen. Wir schaffen Geschichten, die berühren.",
+                "GameShop est une immersion dans la romance, les secrets et l'émotion. Nous créons des histoires captivantes.",
+                "GameShop es una inmersión en el romance, los secretos y la emoción. Creamos historias apasionantes."
+            )
+        </p>
+        <p style="font-size: 1rem; line-height: 1.7; color: var(--text-dim);">
+            @Lang.T(
+                "Алмазы ускоряют прогресс и помогают открывать эксклюзивные сценарии, а Premium даёт доступ к секретным веткам развития сюжета и уникальной озвучке.",
+                "Diamonds speed up progression and unlock exclusive scenarios, while Premium provides access to secret story branches and unique voice acting.",
+                "Diamanten beschleunigen den Fortschritt und schalten Premium-Szenen frei. Premium bietet Zugang zu geheimen Handlungssträngen.",
+                "Les diamants accélèrent la progression et débloquent des scènes premium. Premium offre un accès aux branches secrètes.",
+                "Los diamantes aceleran el progreso y desbloquean escenas premium. Premium ofrece acceso a rutas secretas."
+            )
+        </p>
+    </div>
 
-            <div class="steps">
-                <div>
-                    <h2>@Lang.T("Как купить алмазы", "How to buy diamonds", "So kaufst du Diamanten", "Comment acheter des diamants", "Cómo comprar diamantes")</h2>
-                    <div class="step-list">
-                        <div class="step-item">
-                            <div class="step-num">1</div>
-                            <div class="muted">@Lang.T("Откройте раздел «Алмазы» и выберите пакет.", "Open the Diamonds page and choose a pack.", "Öffne die Diamanten‑Seite und wähle ein Paket.", "Ouvrez la page Diamants et choisissez un pack.", "Abre la página de Diamantes y elige un paquete.")</div>
-                        </div>
-                        <div class="step-item">
-                            <div class="step-num">2</div>
-                            <div class="muted">@Lang.T("Нажмите «В корзину» и перейдите к оплате.", "Click Add to cart and proceed to checkout.", "Klicke In den Warenkorb und gehe zur Kasse.", "Cliquez sur Ajouter au panier puis passez au paiement.", "Pulsa Añadir al carrito y ve al pago.")</div>
-                        </div>
-                        <div class="step-item">
-                            <div class="step-num">3</div>
-                            <div class="muted">@Lang.T("Укажите свой ID в игре и подтвердите покупку.", "Enter your in‑game ID and confirm the purchase.", "Gib deine In‑Game‑ID an und bestätige den Kauf.", "Saisissez votre ID en jeu et confirmez l’achat.", "Introduce tu ID del juego y confirma la compra.")</div>
-                        </div>
+    <!-- GUIDES & STEPS -->
+    <div class="cards-grid seq-item seq-delay-3">
+        <!-- HOW TO BUY DIAMONDS -->
+        <div class="glass-card" style="display: flex; flex-direction: column; gap: 20px;">
+            <h3 style="font-size: 1.35rem; color: #ffffff;">💎 @Lang.T("Как купить алмазы", "How to buy diamonds", "So kaufst du Diamanten", "Comment acheter des diamants", "Cómo comprar diamantes")</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #ff3366, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);">1</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Перейдите в каталог «Алмазы» и выберите нужный комплект.", "Open the Diamonds catalog and select a pack.", "Öffne die Diamanten‑Seite und wähle ein Paket.", "Ouvrez la page Diamants et choisissez un pack.", "Abre la página de Diamantes y elige un paquete.")
                     </div>
                 </div>
 
-                <div>
-                    <h2>@Lang.T("Как активировать Premium", "How to activate Premium", "So aktivierst du Premium", "Comment activer Premium", "Cómo activar Premium")</h2>
-                    <div class="step-list">
-                        <div class="step-item">
-                            <div class="step-num">1</div>
-                            <div class="muted">@Lang.T("Выберите план подписки на 1, 3 или 12 месяцев.", "Choose a 1, 3, or 12‑month plan.", "Wähle einen 1‑, 3‑ oder 12‑Monats‑Plan.", "Choisissez un plan de 1, 3 ou 12 mois.", "Elige un plan de 1, 3 o 12 meses.")</div>
-                        </div>
-                        <div class="step-item">
-                            <div class="step-num">2</div>
-                            <div class="muted">@Lang.T("Оплатите удобным способом и дождитесь подтверждения.", "Pay with a convenient method and wait for confirmation.", "Bezahle und warte auf die Bestätigung.", "Payez et attendez la confirmation.", "Paga y espera la confirmación.")</div>
-                        </div>
-                        <div class="step-item">
-                            <div class="step-num">3</div>
-                            <div class="muted">@Lang.T("Бонусы активируются автоматически в аккаунте.", "Benefits activate automatically on your account.", "Vorteile werden automatisch im Konto aktiviert.", "Les bonus s’activent automatiquement sur le compte.", "Los beneficios se activan automáticamente en la cuenta.")</div>
-                        </div>
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #ff3366, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);">2</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Нажмите «В корзину» и укажите ваш ID игрока в форме заказа.", "Click Add to cart and enter your player ID in the checkout form.", "Klicke In den Warenkorb und gib deine Spieler-ID ein.", "Cliquez sur Ajouter au panier et saisissez votre ID.", "Pulsa Añadir al carrito e introduce tu ID.")
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #ff3366, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);">3</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Оплатите удобным способом и получайте алмазы на аккаунт за 1–3 минуты.", "Pay securely and receive diamonds on your account within 1-3 minutes.", "Bezahle und erhalte Diamanten in 1-3 Minuten.", "Payez et recevez vos diamants en 1-3 minutes.", "Paga y recibe tus diamantes en 1-3 minutos.")
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HOW TO ACTIVATE PREMIUM -->
+        <div class="glass-card" style="display: flex; flex-direction: column; gap: 20px;">
+            <h3 style="font-size: 1.35rem; color: #ffffff;">✨ @Lang.T("Как активировать Premium", "How to activate Premium", "So aktivierst du Premium", "Comment activer Premium", "Cómo activar Premium")</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #00f2fe, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);">1</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Выберите тариф подписки на 1, 3 или 12 месяцев.", "Select a 1, 3, or 12-month subscription plan.", "Wähle einen 1‑, 3‑ oder 12‑Monats‑Plan.", "Choisissez un plan de 1, 3 ou 12 mois.", "Elige un plan de 1, 3 o 12 meses.")
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #00f2fe, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);">2</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Оформите заказ с указанием своего логина или ID.", "Complete checkout with your login or player ID.", "Schließe die Bestellung mit deiner ID ab.", "Finalisez la commande avec votre ID.", "Completa la compra con tu ID.")
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 16px; align-items: flex-start;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #00f2fe, #9933ff); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);">3</div>
+                    <div style="padding-top: 6px; font-size: 0.95rem; line-height: 1.5; color: var(--text-muted);">
+                        @Lang.T("Бонусы и статус Premium включатся автоматически сразу после оплаты.", "Bonuses and Premium status will activate automatically.", "Vorteile werden automatisch im Konto aktiviert.", "Les bonus s’activent automatiquement.", "Los beneficios se activan automáticamente.")
                     </div>
                 </div>
             </div>
         </div>
     </div>
-</section>
+</div>

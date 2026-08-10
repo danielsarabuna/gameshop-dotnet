@@ -1,77 +1,90 @@
 @page "/help"
 @inject LanguageState Lang
 
-<PageTitle>GameShop — @Lang.T("Помощь", "Help", "Hilfe", "Aide", "Ayuda")</PageTitle>
+<PageTitle>GameShop — @Lang.T("Помощь и FAQ", "Help & FAQ", "Hilfe & FAQ", "Aide & FAQ", "Ayuda y FAQ")</PageTitle>
 
-<section class="page-pad">
-    <div class="container">
-        <div class="narrow" style="max-width: 720px;">
-            
-            <div class="help-header">
-                <h1>@Lang.T("Чем мы можем помочь?", "How can we help?", "Wie können wir helfen?", "Comment pouvons-nous aider?", "¿Cómo podemos ayudar?")</h1>
-                <p class="muted">
-                    @Lang.T(
-                        "Найдите ответы на частые вопросы или свяжитесь с нами напрямую.",
-                        "Find answers to common questions or contact us directly.",
-                        "Finde Antworten auf häufige Fragen oder kontaktiere uns direkt.",
-                        "Trouvez des réponses aux questions fréquentes ou contactez-nous directement.",
-                        "Encuentra respuestas a preguntas frecuentes o contáctanos directamente."
-                    )
-                </p>
-            </div>
+<div class="page-container" style="max-width: 900px;">
+    <!-- HEADER -->
+    <div class="page-header seq-item seq-delay-1">
+        <h1 class="page-title">
+            <span class="gradient-text">💬 @Lang.T("Чем мы можем помочь?", "How can we help?", "Wie können wir helfen?", "Comment pouvons-nous aider?", "¿Cómo podemos ayudar?")</span>
+        </h1>
+        <p class="page-subtitle">
+            @Lang.T(
+                "Найдите ответы на частые вопросы по покупкам, подпискам и аккаунту или отправьте нам сообщение.",
+                "Find answers to common questions about purchases, subscriptions, and accounts or send us a message.",
+                "Finde Antworten auf häufige Fragen zu Käufen und Abos oder sende uns eine Nachricht.",
+                "Trouvez des réponses aux questions fréquentes sur les achats et abonnements.",
+                "Encuentra respuestas a preguntas frecuentes sobre compras y suscripciones."
+            )
+        </p>
+    </div>
 
-            <div class="faq">
-                @foreach (var group in CurrentGroups)
+    <!-- FAQ ACCORDION -->
+    <div class="seq-item seq-delay-2" style="display: flex; flex-direction: column; gap: 24px; margin-bottom: 50px;">
+        @foreach (var group in CurrentGroups)
+        {
+            <div style="display: flex; flex-direction: column; gap: 12px;">
+                <div style="font-size: 1.05rem; font-weight: 800; color: var(--accent-cyan); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                    @group.Label
+                </div>
+                
+                @foreach (var item in group.Items)
                 {
-                    <div>
-                        <div class="faq-group-label">@group.Label</div>
-                        @foreach (var item in group.Items)
+                    var open = OpenIds.Contains(item.Id);
+                    <div class="glass-card" style="padding: 20px; cursor: pointer;" @onclick="() => Toggle(item.Id)">
+                        <div style="display: flex; align-items: center; justify-content: space-between; font-weight: 700; font-size: 1.05rem; color: #ffffff;">
+                            <span>@item.Question</span>
+                            <span style="font-size: 1.2rem; transition: transform 0.3s ease; transform: rotate(@(open ? "180deg" : "0deg")); color: var(--accent-pink);">
+                                ▼
+                            </span>
+                        </div>
+
+                        @if (open)
                         {
-                            var open = OpenIds.Contains(item.Id);
-                            <div class="accordion-item">
-                                <button class="accordion-q" type="button" @onclick="() => Toggle(item.Id)">
-                                    <span>@item.Question</span>
-                                    <span class="icon chev @(open ? "open" : "")" aria-hidden="true">@((MarkupString)Icons.Chevron)</span>
-                                </button>
-                                <div class="accordion-a @(open ? "open" : "")">
-                                    <div class="accordion-a-inner">
-                                        @item.Answer
-                                    </div>
-                                </div>
+                            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border-color); font-size: 0.95rem; line-height: 1.6; color: var(--text-muted); animation: fadeIn 0.2s ease-out;">
+                                @item.Answer
                             </div>
                         }
                     </div>
                 }
             </div>
+        }
+    </div>
 
-            <div class="help-form" id="contact-form" style="margin-top: 48px;">
-                <h2>@Lang.T("Свяжитесь с нами", "Contact us", "Kontaktiere uns", "Contactez-nous", "Contáctanos")</h2>
-                <input placeholder="@Lang.T("Имя", "Name", "Name", "Nom", "Nombre")" />
-                <input placeholder="Email" type="email" />
-                <textarea placeholder="@Lang.T("Сообщение", "Message", "Nachricht", "Message", "Mensaje")" rows="4"></textarea>
-                <button class="btn btn-primary" style="width: 100%;">@Lang.T("Отправить", "Send", "Senden", "Envoyer", "Enviar")</button>
-            </div>
+    <!-- CONTACT FORM & SUPPORT -->
+    <div class="glass-card seq-item seq-delay-3" style="padding: 36px;">
+        <h2 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 20px; text-align: center; color: #ffffff;">
+            ✉️ @Lang.T("Служба поддержки", "Support Service", "Kundenservice", "Service Support", "Servicio de Soporte")
+        </h2>
 
-            <div class="help-contacts">
-                <div class="contact-item">
-                    <span class="contact-icon">✉️</span>
-                    <span>support@GameShop.com</span>
+        <div style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 24px;">
+            <input class="cart-input" placeholder="@Lang.T("Ваше имя", "Your Name", "Dein Name", "Votre nom", "Tu nombre")" />
+            <input class="cart-input" type="email" placeholder="@Lang.T("Ваш Email", "Your Email", "Deine E-Mail", "Votre email", "Tu email")" />
+            <textarea class="cart-input" style="min-height: 110px; resize: vertical;" placeholder="@Lang.T("Опишите ваш вопрос...", "Describe your question...", "Beschreibe deine Frage...", "Décrivez votre question...", "Describe tu pregunta...")"></textarea>
+            
+            <button class="btn btn-primary" style="width: 100%;" type="button" @onclick="SubmitForm">
+                @Lang.T("Отправить обращение", "Submit Ticket", "Nachricht senden", "Envoyer", "Enviar ticket")
+            </button>
+
+            @if (Submitted)
+            {
+                <div style="color: var(--accent-cyan); text-align: center; font-weight: 600; margin-top: 8px;">
+                    ✓ @Lang.T("Ваше сообщение отправлено! Мы ответим вам в течение 15 минут.", "Your message has been sent! We will reply within 15 minutes.", "Deine Nachricht wurde gesendet! Wir antworten innerhalb von 15 Minuten.", "Votre message a été envoyé ! Nous vous répondrons dans les 15 minutes.", "¡Tu mensaje ha sido enviado! Responderemos en 15 minutos.")
                 </div>
-                <div class="contact-item">
-                    <span class="contact-icon">💬</span>
-                    <span>@Lang.T("Онлайн-чат", "Online chat", "Online-Chat", "Chat en ligne", "Chat en línea")</span>
-                </div>
-                <div class="contact-item">
-                    <span class="contact-icon">📞</span>
-                    <span>+7 (999) 123-45-67</span>
-                </div>
-            </div>
+            }
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: center; gap: 24px; flex-wrap: wrap; padding-top: 16px; border-top: 1px solid var(--border-color); font-size: 0.9rem; color: var(--text-muted);">
+            <div>✉️ support@GameShop.com</div>
+            <div>💬 @Lang.T("Онлайн-чат 24/7", "24/7 Live Chat", "24/7 Live-Chat", "Chat en direct 24/7", "Chat en vivo 24/7")</div>
         </div>
     </div>
-</section>
+</div>
 
 @code {
-    private readonly HashSet<string> OpenIds = new(StringComparer.Ordinal);
+    private readonly HashSet<string> OpenIds = new(StringComparer.Ordinal) { "pay-1" };
+    private bool Submitted;
 
     private void Toggle(string id)
     {
@@ -79,6 +92,11 @@
         {
             OpenIds.Remove(id);
         }
+    }
+
+    private void SubmitForm()
+    {
+        Submitted = true;
     }
 
     private IReadOnlyList<FaqGroup> CurrentGroups =>
@@ -97,31 +115,15 @@
         new(
             "Алмазы & Оплата",
             [
-                new("pay-1", "Как купить алмазы?", "Откройте «Алмазы», выберите пакет и нажмите «В корзину». Далее следуйте шагам оплаты."),
-                new("pay-2", "Какие способы оплаты доступны?", "Доступные способы зависят от региона. При оформлении мы покажем актуальные варианты."),
-                new("pay-3", "Алмазы не начислились — что делать?", "Проверьте, что указан правильный ID. Если прошло более 15 минут — напишите в поддержку с чеком.")
+                new("pay-1", "Как быстро зачисляются алмазы?", "Алмазы поступают на игровой аккаунт мгновенно сразу после подтверждения оплаты (обычно от 30 секунд до 3 минут)."),
+                new("pay-2", "Какие способы оплаты поддерживаются?", "Мы принимаем банковские карты Visa/Mastercard/MIR, СБП, ЮMoney, PayPal, Stripe и CorvusPay.")
             ]
         ),
         new(
-            "Подписка",
+            "Подписка Premium",
             [
-                new("sub-1", "Что входит в Premium?", "Ежедневные бонусы, эксклюзивные сцены, ускорение прогресса и уникальные награды."),
-                new("sub-2", "Как отменить подписку?", "Отмена зависит от способа оплаты. В личном кабинете (или у провайдера платежа) выберите «Отменить»."),
-                new("sub-3", "Бонусы не активны после оплаты?", "Обновите игру и перезапустите. Если не помогло — обратитесь в поддержку, приложив квитанцию.")
-            ]
-        ),
-        new(
-            "Аккаунт",
-            [
-                new("acc-1", "Где найти мой ID в игре?", "Обычно ID находится в профиле/настройках аккаунта. Ищите строку «Player ID» или «UID»."),
-                new("acc-2", "Как привязать аккаунт?", "В настройках игры включите привязку через доступные способы (почта/соцсети) и подтвердите действие.")
-            ]
-        ),
-        new(
-            "Прочее",
-            [
-                new("misc-1", "Как связаться с поддержкой?", "Напишите нам через форму на сайте или на email поддержки (укажем в разделе контактов)."),
-                new("misc-2", "Есть ли возврат средств?", "Возврат возможен в отдельных случаях. Обратитесь в поддержку — рассмотрим заявку.")
+                new("sub-1", "Как отменить или продлить подписку?", "Подписка действует оплаченный период (1, 3 или 12 месяцев). По истечении срока вы можете продлить её в один клик."),
+                new("sub-2", "Сохранятся ли бонусы после окончания подписки?", "Все предметы кастомизации и полученные сюжетные награды остаются на вашем аккаунте навсегда.")
             ]
         )
     ];
@@ -129,33 +131,17 @@
     private static readonly IReadOnlyList<FaqGroup> EnGroups =
     [
         new(
-            "Diamonds & Payment",
+            "Diamonds & Payments",
             [
-                new("pay-1", "How do I buy diamonds?", "Open Diamonds, pick a pack, and click Add to cart. Then follow the payment steps."),
-                new("pay-2", "Which payment methods are available?", "Available methods depend on your region. We’ll show the current options at checkout."),
-                new("pay-3", "Diamonds didn’t arrive—what should I do?", "Double-check your ID. If it’s been over 15 minutes, contact support with your receipt.")
+                new("pay-1", "How fast are diamonds delivered?", "Diamonds are delivered to your game account instantly after payment confirmation (usually 30s to 3 minutes)."),
+                new("pay-2", "Which payment methods are accepted?", "We accept Visa, Mastercard, PayPal, Stripe, Apple Pay, Google Pay, and regional gateways.")
             ]
         ),
         new(
-            "Subscription",
+            "Premium Subscription",
             [
-                new("sub-1", "What’s included in Premium?", "Daily bonuses, exclusive scenes, faster progression, and unique rewards."),
-                new("sub-2", "How do I cancel my subscription?", "Cancellation depends on your payment method. In your account (or payment provider), choose Cancel."),
-                new("sub-3", "Bonuses aren’t active after payment?", "Restart the game and refresh. If it still doesn’t work, contact support with your receipt.")
-            ]
-        ),
-        new(
-            "Account",
-            [
-                new("acc-1", "Where can I find my in-game ID?", "Usually in Profile/Settings. Look for Player ID or UID."),
-                new("acc-2", "How do I link my account?", "Open game settings, choose an available method (email/social), and confirm.")
-            ]
-        ),
-        new(
-            "Other",
-            [
-                new("misc-1", "How can I contact support?", "Reach us via the website form or support email (see Contacts)."),
-                new("misc-2", "Do you offer refunds?", "Refunds may be available in certain cases. Contact support and we’ll review your request.")
+                new("sub-1", "How do I renew or cancel my subscription?", "Your subscription stays active for the selected term. You can easily renew or change plans anytime."),
+                new("sub-2", "Do I keep unlocked rewards after Premium expires?", "Yes, all customization items and storyline unlocks remain permanently linked to your account.")
             ]
         )
     ];
@@ -163,33 +149,17 @@
     private static readonly IReadOnlyList<FaqGroup> DeGroups =
     [
         new(
-            "Diamanten & Zahlung",
+            "Diamanten & Zahlungen",
             [
-                new("pay-1", "Wie kaufe ich Diamanten?", "Öffne Diamanten, wähle ein Paket und klicke In den Warenkorb. Dann den Zahlungsschritten folgen."),
-                new("pay-2", "Welche Zahlungsmethoden gibt es?", "Das hängt von deiner Region ab. Beim Checkout zeigen wir die verfügbaren Optionen."),
-                new("pay-3", "Diamanten sind nicht angekommen – was tun?", "Prüfe die ID. Wenn es länger als 15 Minuten dauert, kontaktiere den Support mit Beleg.")
+                new("pay-1", "Wie schnell werden Diamanten geliefert?", "Diamanten werden sofort nach Zahlungsbestätigung geliefert (in der Regel 30 Sek. bis 3 Min.)."),
+                new("pay-2", "Welche Zahlungsmethoden werden unterstützt?", "Wir akzeptieren Visa, Mastercard, PayPal, Stripe und regionale Zahlungsmethoden.")
             ]
         ),
         new(
-            "Abo",
+            "Premium-Abo",
             [
-                new("sub-1", "Was ist in Premium enthalten?", "Tägliche Boni, exklusive Szenen, schnellerer Fortschritt und einzigartige Belohnungen."),
-                new("sub-2", "Wie kündige ich?", "Die Kündigung hängt von der Zahlungsart ab. In deinem Konto (oder beim Zahlungsanbieter) Abbrechen wählen."),
-                new("sub-3", "Boni nach Zahlung nicht aktiv?", "Spiel neu starten und aktualisieren. Falls es bleibt, Support mit Beleg kontaktieren.")
-            ]
-        ),
-        new(
-            "Konto",
-            [
-                new("acc-1", "Wo finde ich meine In‑Game‑ID?", "Meist in Profil/Einstellungen. Suche nach Player ID oder UID."),
-                new("acc-2", "Wie verknüpfe ich mein Konto?", "In den Einstellungen eine Methode (E‑Mail/Sozial) wählen und bestätigen.")
-            ]
-        ),
-        new(
-            "Sonstiges",
-            [
-                new("misc-1", "Wie erreiche ich den Support?", "Über das Formular auf der Website oder per Support‑E‑Mail (siehe Kontakte)."),
-                new("misc-2", "Gibt es Rückerstattungen?", "In bestimmten Fällen möglich. Kontaktiere den Support, wir prüfen die Anfrage.")
+                new("sub-1", "Wie kann ich mein Abo verlängern?", "Dein Abo bleibt für den gewählten Zeitraum aktiv. Du kannst es jederzeit mit einem Klick verlängern."),
+                new("sub-2", "Bleiben Belohnungen nach Ablauf erhalten?", "Ja, alle freigeschalteten Objekte bleiben dauerhaft auf deinem Konto.")
             ]
         )
     ];
@@ -197,33 +167,17 @@
     private static readonly IReadOnlyList<FaqGroup> FrGroups =
     [
         new(
-            "Diamants & Paiement",
+            "Diamants & Paiements",
             [
-                new("pay-1", "Comment acheter des diamants ?", "Ouvrez Diamants, choisissez un pack puis cliquez Ajouter au panier. Suivez ensuite le paiement."),
-                new("pay-2", "Quels moyens de paiement sont disponibles ?", "Cela dépend de votre région. Nous afficherons les options au paiement."),
-                new("pay-3", "Les diamants ne sont pas arrivés — que faire ?", "Vérifiez votre ID. Après 15 minutes, contactez le support avec le reçu.")
+                new("pay-1", "À quelle vitesse les diamants sont-ils livrés ?", "Les diamants sont livrés instantanément sur votre compte après confirmation du paiement (30s à 3 min)."),
+                new("pay-2", "Quels moyens de paiement sont acceptés ?", "Nous acceptons Visa, Mastercard, PayPal, Stripe et d'autres moyens sécurisés.")
             ]
         ),
         new(
-            "Abonnement",
+            "Abonnement Premium",
             [
-                new("sub-1", "Que contient Premium ?", "Bonus quotidiens, scènes exclusives, progression plus rapide et récompenses uniques."),
-                new("sub-2", "Comment annuler ?", "Cela dépend du moyen de paiement. Dans votre compte (ou chez le prestataire), choisissez Annuler."),
-                new("sub-3", "Bonus inactifs après paiement ?", "Redémarrez le jeu et actualisez. Sinon, contactez le support avec le reçu.")
-            ]
-        ),
-        new(
-            "Compte",
-            [
-                new("acc-1", "Où trouver mon ID dans le jeu ?", "Souvent dans Profil/Paramètres. Cherchez Player ID ou UID."),
-                new("acc-2", "Comment lier mon compte ?", "Dans les paramètres, choisissez une méthode (email/réseaux) puis confirmez.")
-            ]
-        ),
-        new(
-            "Divers",
-            [
-                new("misc-1", "Comment contacter le support ?", "Via le formulaire du site ou l’email de support (voir Contacts)."),
-                new("misc-2", "Y a‑t‑il des remboursements ?", "Possible dans certains cas. Contactez le support pour examen.")
+                new("sub-1", "Comment renouveler mon abonnement ?", "Votre abonnement reste actif pour la période choisie et peut être renouvelé en un clic."),
+                new("sub-2", "Est-ce que je garde mes récompenses ?", "Oui, tous les objets débloqués restent associés définitivement à votre compte.")
             ]
         )
     ];
@@ -231,46 +185,21 @@
     private static readonly IReadOnlyList<FaqGroup> EsGroups =
     [
         new(
-            "Diamantes & Pago",
+            "Diamantes y Pagos",
             [
-                new("pay-1", "¿Cómo compro diamantes?", "Abre Diamantes, elige un paquete y pulsa Añadir al carrito. Luego sigue los pasos de pago."),
-                new("pay-2", "¿Qué métodos de pago hay?", "Depende de tu región. En el checkout mostraremos las opciones disponibles."),
-                new("pay-3", "No llegaron los diamantes — ¿qué hago?", "Verifica tu ID. Si pasan más de 15 minutos, contacta soporte con el recibo.")
+                new("pay-1", "¿Qué tan rápido se entregan los diamantes?", "Los diamantes se entregan al instante en tu cuenta tras la confirmación del pago (30s a 3 min)."),
+                new("pay-2", "¿Qué métodos de pago se aceptan?", "Aceptamos Visa, Mastercard, PayPal, Stripe y pasarelas de pago seguras.")
             ]
         ),
         new(
-            "Suscripción",
+            "Suscripción Premium",
             [
-                new("sub-1", "¿Qué incluye Premium?", "Bonos diarios, escenas exclusivas, progreso más rápido y recompensas únicas."),
-                new("sub-2", "¿Cómo cancelo la suscripción?", "Depende del método de pago. En tu cuenta (o proveedor) elige Cancelar."),
-                new("sub-3", "¿Bonos no activos tras pagar?", "Reinicia el juego y actualiza. Si sigue igual, contacta soporte con el recibo.")
-            ]
-        ),
-        new(
-            "Cuenta",
-            [
-                new("acc-1", "¿Dónde encuentro mi ID en el juego?", "Normalmente en Perfil/Ajustes. Busca Player ID o UID."),
-                new("acc-2", "¿Cómo vinculo mi cuenta?", "En ajustes, elige un método (correo/redes) y confirma.")
-            ]
-        ),
-        new(
-            "Otros",
-            [
-                new("misc-1", "¿Cómo contacto con soporte?", "Usa el formulario del sitio o el email de soporte (ver Contactos)."),
-                new("misc-2", "¿Hay reembolsos?", "En algunos casos. Contacta soporte y revisaremos tu solicitud.")
+                new("sub-1", "¿Cómo renovar la suscripción?", "Tu suscripción permanece activa durante el período seleccionado y puedes renovarla fácilmente."),
+                new("sub-2", "¿Conservo las recompensas desbloqueadas?", "Sí, todos los elementos desbloqueados permanecen vinculados a tu cuenta para siempre.")
             ]
         )
     ];
 
-    private sealed record FaqItem(string Id, string Question, string Answer);
-
     private sealed record FaqGroup(string Label, IReadOnlyList<FaqItem> Items);
-}
-
-@code {
-    private static class Icons
-    {
-        public const string Chevron =
-            "<svg viewBox='0 0 24 24' fill='none' xmlns='http://www.w3.org/2000/svg'><path d='M6 9l6 6 6-6' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/></svg>";
-    }
+    private sealed record FaqItem(string Id, string Question, string Answer);
 }

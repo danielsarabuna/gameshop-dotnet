@@ -7,90 +7,86 @@
 @inject IConfiguration Config
 @inject PaymentService Payments
 
-<header class="header" @onclick="CloseMenus">
-    <div class="container header-inner">
-        <a class="logo" href="/">GameShop</a>
+<div class="app-viewport-wrapper">
+    <div class="side-gradient-vignette"></div>
+    <div class="stage-center-container">
+        <div class="vignette-overlay">
+            <header class="header-wrapper glass" @onclick="CloseMenus">
+                <div class="header-container">
+                    <a class="logo-link" href="/">
+                        <span class="logo-text">GameShop</span>
+                    </a>
 
-        <nav class="nav" aria-label="Primary">
-            <NavLink href="/" Match="NavLinkMatch.All">@Lang.NavHome</NavLink>
-            <NavLink href="/about">@Lang.NavAbout</NavLink>
-            <NavLink href="/diamonds">@Lang.NavDiamonds</NavLink>
-            <NavLink href="/subscription">@Lang.NavSubscription</NavLink>
-            <NavLink href="/help">@Lang.NavHelp</NavLink>
-        </nav>
+                    <nav class="nav-links" aria-label="Primary">
+                        <NavLink class="nav-item" href="/" Match="NavLinkMatch.All">@Lang.NavHome</NavLink>
+                        <NavLink class="nav-item" href="/about">@Lang.NavAbout</NavLink>
+                        <NavLink class="nav-item" href="/diamonds">@Lang.NavDiamonds</NavLink>
+                        <NavLink class="nav-item" href="/subscription">@Lang.NavSubscription</NavLink>
+                        <NavLink class="nav-item" href="/help">@Lang.NavHelp</NavLink>
+                    </nav>
 
-        <div class="header-right">
-            <div class="menu desktop-only" @onclick:stopPropagation="true">
-                <button class="icon-btn" type="button" aria-label="Language" @onclick="ToggleLangMenu">
-                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
-                    <span>@Lang.Code</span>
-                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.ChevronDown)</span>
-                </button>
+                    <div class="header-actions">
+                        <div class="menu desktop-only" style="position: relative;" @onclick:stopPropagation="true">
+                            <button class="icon-btn" type="button" aria-label="Language" @onclick="ToggleLangMenu">
+                                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
+                                <span>@Lang.Code</span>
+                                <span class="icon" aria-hidden="true">@((MarkupString)Icons.ChevronDown)</span>
+                            </button>
 
-                @if (LangMenuOpen)
-                {
-                    <div class="menu-panel" role="menu" aria-label="Language menu">
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Ru)">
-                            <span>RU</span><span class="muted">Русский</span>
+                            @if (LangMenuOpen)
+                            {
+                                <div class="lang-dropdown" role="menu" aria-label="Language menu">
+                                    <button class="lang-option @(Lang.Current == LanguageState.Language.Ru ? "active" : "")" type="button" @onclick="() => SetLang(LanguageState.Language.Ru)">
+                                        <span>RU</span><span class="muted">Русский</span>
+                                    </button>
+                                    <button class="lang-option @(Lang.Current == LanguageState.Language.En ? "active" : "")" type="button" @onclick="() => SetLang(LanguageState.Language.En)">
+                                        <span>EN</span><span class="muted">English</span>
+                                    </button>
+                                    <button class="lang-option @(Lang.Current == LanguageState.Language.De ? "active" : "")" type="button" @onclick="() => SetLang(LanguageState.Language.De)">
+                                        <span>DE</span><span class="muted">Deutsch</span>
+                                    </button>
+                                    <button class="lang-option @(Lang.Current == LanguageState.Language.Fr ? "active" : "")" type="button" @onclick="() => SetLang(LanguageState.Language.Fr)">
+                                        <span>FR</span><span class="muted">Français</span>
+                                    </button>
+                                    <button class="lang-option @(Lang.Current == LanguageState.Language.Es ? "active" : "")" type="button" @onclick="() => SetLang(LanguageState.Language.Es)">
+                                        <span>ES</span><span class="muted">Español</span>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+
+                        <div class="auth-area" @onclick:stopPropagation="true">
+                            <LoginDisplay LoginLabel="@LoginButtonLabel" LogoutLabel="@LogoutButtonLabel" />
+                        </div>
+
+                        <button class="icon-btn cart @(CartBump ? "bump" : "")" type="button" aria-label="Cart" @onclick="OpenCart" @onclick:stopPropagation="true">
+                            <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
+                            @if (Cart.Count > 0)
+                            {
+                                <span class="cart-badge">@Cart.Count</span>
+                            }
                         </button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.En)">
-                            <span>EN</span><span class="muted">English</span>
-                        </button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.De)">
-                            <span>DE</span><span class="muted">Deutsch</span>
-                        </button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Fr)">
-                            <span>FR</span><span class="muted">Français</span>
-                        </button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Es)">
-                            <span>ES</span><span class="muted">Español</span>
+
+                        <button class="icon-btn hamburger-btn" type="button" aria-label="Menu" @onclick="ToggleMobileNav">
+                            <span class="icon" aria-hidden="true">@((MarkupString)Icons.Hamburger)</span>
                         </button>
                     </div>
-                }
-            </div>
+                </div>
+            </header>
 
-            <div class="menu mobile-only" @onclick:stopPropagation="true">
-                <button class="icon-btn" type="button" aria-label="Language" @onclick="ToggleLangMenu">
-                    <span class="icon" aria-hidden="true">@((MarkupString)Icons.Globe)</span>
-                </button>
-                @if (LangMenuOpen)
-                {
-                    <div class="menu-panel" role="menu" aria-label="Language menu">
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Ru)"><span>RU</span><span class="muted">Русский</span></button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.En)"><span>EN</span><span class="muted">English</span></button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.De)"><span>DE</span><span class="muted">Deutsch</span></button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Fr)"><span>FR</span><span class="muted">Français</span></button>
-                        <button class="menu-item" type="button" @onclick="() => SetLang(LanguageState.Language.Es)"><span>ES</span><span class="muted">Español</span></button>
-                    </div>
-                }
-            </div>
-
-            <div class="auth-area" @onclick:stopPropagation="true">
-                <LoginDisplay LoginLabel="@LoginButtonLabel" LogoutLabel="@LogoutButtonLabel" />
-            </div>
-
-            <button class="icon-btn cart @(CartBump ? "bump" : "")" type="button" aria-label="Cart" @onclick="OpenCart" @onclick:stopPropagation="true">
-                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Cart)</span>
-                @if (Cart.Count > 0)
-                {
-                    <span class="cart-badge">@Cart.Count</span>
-                }
-            </button>
-
-            <button class="icon-btn mobile-only" type="button" aria-label="Menu" @onclick="ToggleMobileNav">
-                <span class="icon" aria-hidden="true">@((MarkupString)Icons.Hamburger)</span>
-            </button>
-        </div>
-    </div>
-
-    <div class="mobile-nav @(MobileNavOpen ? "open" : "")" @onclick="CloseMobileNav">
-        <NavLink href="/" Match="NavLinkMatch.All">@Lang.NavHome</NavLink>
-        <NavLink href="/about">@Lang.NavAbout</NavLink>
-        <NavLink href="/diamonds">@Lang.NavDiamonds</NavLink>
-        <NavLink href="/subscription">@Lang.NavSubscription</NavLink>
-        <NavLink href="/help">@Lang.NavHelp</NavLink>
-    </div>
-</header>
+            @if (MobileNavOpen)
+            {
+                <div class="mobile-menu-overlay" @onclick="CloseMobileNav">
+                    <button class="mobile-close-btn" type="button" aria-label="Close menu" @onclick="CloseMobileNav">✕</button>
+                    <ul class="mobile-nav-list">
+                        <li><NavLink class="mobile-nav-item" href="/" Match="NavLinkMatch.All" @onclick="CloseMobileNav">@Lang.NavHome</NavLink></li>
+                        <li><NavLink class="mobile-nav-item" href="/about" @onclick="CloseMobileNav">@Lang.NavAbout</NavLink></li>
+                        <li><NavLink class="mobile-nav-item" href="/diamonds" @onclick="CloseMobileNav">@Lang.NavDiamonds</NavLink></li>
+                        <li><NavLink class="mobile-nav-item" href="/subscription" @onclick="CloseMobileNav">@Lang.NavSubscription</NavLink></li>
+                        <li><NavLink class="mobile-nav-item" href="/help" @onclick="CloseMobileNav">@Lang.NavHelp</NavLink></li>
+                    </ul>
+                </div>
+            }
 
 <main>
     <CascadingValue Value="Lang.Current" @key="Lang.Current">
@@ -203,6 +199,9 @@
         </div>
     }
 </aside>
+        </div>
+    </div>
+</div>
 
 @code {
 	    private bool MobileNavOpen;

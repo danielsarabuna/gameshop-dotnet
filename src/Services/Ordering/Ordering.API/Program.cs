@@ -11,6 +11,8 @@ using EventBus;
 using EventBus.RabbitMq;
 using Catalog.Grpc;
 using System.Text.Json.Serialization;
+using System.Security.Claims;
+using BuildingBlocks.Exceptions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +55,7 @@ if (string.Equals(eventBusProvider, "RabbitMq", StringComparison.OrdinalIgnoreCa
     builder.Services.AddRabbitMqEventBus(builder.Configuration, bus =>
     {
         bus.AddConsumer<OrderCompletedLogConsumer>();
+        bus.AddConsumer<BasketCheckoutConsumer>();
     });
 }
 else
@@ -139,6 +142,8 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddCustomExceptionHandler();
+
 var app = builder.Build();
 
 if (usePostgres)
@@ -147,61 +152,51 @@ if (usePostgres)
     await initializer.InitializeAsync();
 }
 
+app.UseExceptionHandler();
+app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 app.UseCors();
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 
-app.MapPost("/api/v1/orders", async (CreateOrderRequest request, CreateOrderHandler handler, CancellationToken cancellationToken) =>
+app.MapPost("/api/v1/orders", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
 {
-    try
-    {
-        var result = await handler.HandleAsync(request, cancellationToken);
-        return Results.Created($"/api/v1/orders/{result.OrderId}", result);
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
+    ValidateUserAuthorization(httpContext, request.GameUserId);
+    var result = await handler.HandleAsync(request, cancellationToken);
+    return Results.Created($"/api/v1/orders/{result.OrderId}", result);
 });
 
-app.MapPost("/api/v1/orders/create", async (CreateOrderRequest request, CreateOrderHandler handler, CancellationToken cancellationToken) =>
+app.MapPost("/api/v1/orders/create", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
 {
-    try
-    {
-        var result = await handler.HandleAsync(request, cancellationToken);
-        return Results.Created($"/api/v1/orders/{result.OrderId}", result);
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
+    ValidateUserAuthorization(httpContext, request.GameUserId);
+    var result = await handler.HandleAsync(request, cancellationToken);
+    return Results.Created($"/api/v1/orders/{result.OrderId}", result);
 });
 
-app.MapPost("/orders/create", async (CreateOrderRequest request, CreateOrderHandler handler, CancellationToken cancellationToken) =>
+app.MapPost("/orders/create", async (CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken) =>
 {
-    try
-    {
-        var result = await handler.HandleAsync(request, cancellationToken);
-        return Results.Created($"/orders/{result.OrderId}", result);
-    }
-    catch (ArgumentException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
+    ValidateUserAuthorization(httpContext, request.GameUserId);
+    var result = await handler.HandleAsync(request, cancellationToken);
+    return Results.Created($"/orders/{result.OrderId}", result);
 });
 
-app.MapGet("/api/v1/orders/{id:guid}", async (Guid id, IOrderRepository repository, CancellationToken cancellationToken) =>
+app.MapGet("/api/v1/orders/{id:guid}", async (Guid id, HttpContext httpContext, IOrderRepository repository, CancellationToken cancellationToken) =>
 {
     var order = await repository.GetAsync(id, cancellationToken);
-    return order is null ? Results.NotFound() : Results.Ok(order);
+    if (order is null) return Results.NotFound();
+
+    ValidateUserAuthorization(httpContext, order.GameUserId);
+    return Results.Ok(order);
 });
 
-app.MapGet("/orders/{id:guid}", async (Guid id, IOrderRepository repository, CancellationToken cancellationToken) =>
+app.MapGet("/orders/{id:guid}", async (Guid id, HttpContext httpContext, IOrderRepository repository, CancellationToken cancellationToken) =>
 {
     var order = await repository.GetAsync(id, cancellationToken);
-    return order is null ? Results.NotFound() : Results.Ok(order);
+    if (order is null) return Results.NotFound();
+
+    ValidateUserAuthorization(httpContext, order.GameUserId);
+    return Results.Ok(order);
 });
 
 app.MapPost("/api/v1/promocodes/apply", async (ApplyPromoCodeRequest request, ApplyPromoCodeHandler handler, CancellationToken cancellationToken) =>
@@ -428,8 +423,31 @@ static bool TryParseProvider(string provider, out Ordering.Domain.Payments.Payme
         case "xsolla":
             method = Ordering.Domain.Payments.PaymentMethod.Xsolla;
             return true;
+        case "mock":
+        case "mockprovider":
+        case "mock_provider":
+            method = Ordering.Domain.Payments.PaymentMethod.MockProvider;
+            return true;
         default:
             return false;
+    }
+}
+
+static void ValidateUserAuthorization(HttpContext context, string targetUserId)
+{
+    if (context.User.Identity?.IsAuthenticated == true)
+    {
+        var authUserId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst("sub")?.Value;
+
+        var isUserAdmin = context.User.IsInRole("Admin");
+
+        if (!string.IsNullOrWhiteSpace(authUserId)
+            && !isUserAdmin
+            && !string.Equals(authUserId, targetUserId, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new UnauthorizedAccessException("Access denied: You can only access your own orders.");
+        }
     }
 }
 
