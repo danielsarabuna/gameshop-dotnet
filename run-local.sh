@@ -31,7 +31,8 @@ dotnet build src/Services/Ordering/Ordering.API/Ordering.API.csproj -c "$CONFIGU
 dotnet build src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj -c "$CONFIGURATION" -m:1 >/dev/null
 
 if [[ "${INCLUDE_WEB:-0}" == "1" ]]; then
-  dotnet build src/WebApps/Shopping.Web/Shopping.Web.csproj -c "$CONFIGURATION" -m:1 >/dev/null
+  echo "Building React frontend..."
+  (cd src/WebApps/Shopping.Web && npm install >/dev/null 2>&1 && npm run build >/dev/null 2>&1) || true
 fi
 
 start_service() {
@@ -56,9 +57,7 @@ start_service "gateway" "5100" "src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGat
 
 if [[ "${INCLUDE_WEB:-0}" == "1" ]]; then
   echo "Starting web on http://localhost:5200 (log: ${LOG_DIR}/web.log)"
-  ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}" \
-  ASPNETCORE_URLS="http://localhost:5200" \
-    dotnet run --no-launch-profile --project "src/WebApps/Shopping.Web/Shopping.Web.csproj" -c "$CONFIGURATION" --no-build >"$LOG_DIR/web.log" 2>&1 &
+  (cd src/WebApps/Shopping.Web && npm run dev -- --port 5200) >"$LOG_DIR/web.log" 2>&1 &
   PIDS+=("$!")
 fi
 

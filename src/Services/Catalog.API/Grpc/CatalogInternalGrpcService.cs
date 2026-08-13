@@ -21,7 +21,7 @@ public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternal
             throw new RpcException(new Status(StatusCode.InvalidArgument, "id must be a UUID"));
         }
 
-        var item = _store.GetById(id);
+        var item = _store.GetItemById(id);
         if (item is null)
         {
             throw new RpcException(new Status(StatusCode.NotFound, "Product not found"));
