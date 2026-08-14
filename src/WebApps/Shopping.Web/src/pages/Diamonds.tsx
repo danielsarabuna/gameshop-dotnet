@@ -197,104 +197,200 @@ export const Diamonds: React.FC = () => {
   );
 
   return (
-    <div className="diamonds-snap-container">
-      {packChunks.map((chunk, idx) => (
-        <section
-          key={idx}
-          className="showcase-section"
-          id={`diamonds-section-${idx + 1}`}
-          style={{
-            position: 'relative',
-            minHeight: '100vh',
-            height: '100vh',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: '90px 5% 40px',
-            scrollSnapAlign: 'start',
-            scrollSnapStop: 'always',
-            overflow: 'hidden',
-          }}
-        >
-          <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
-          <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
+    <>
+      {/* DESKTOP VIEW (≥1024px): Single Page with all diamond cards */}
+      <div className="desktop-only-view" style={{ position: 'relative', overflow: 'hidden' }}>
+        <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+        <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
 
-          <div style={{ position: 'relative', zIndex: 3, width: '100%', maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
-            {idx === 0 && (
-              <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 20 }}>
-                <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontWeight: 800 }}>
-                  <DiamondIcon size={32} color="var(--accent-pink)" />
-                  <span className="gradient-text">{t('Алмазы', 'Diamonds', 'Diamanten', 'Diamants', 'Diamantes')}</span>
-                </h1>
-                <p className="page-subtitle" style={{ fontSize: '0.98rem', maxWidth: 580, margin: '8px auto 0' }}>
-                  {t(
-                    'Выбирайте наборы алмазов для открытия эксклюзивных выборов и нарядов в ваших любимых историях.',
-                    'Select diamond packs to unlock premium choices and outfits in your favorite visual stories.'
-                  )}
-                </p>
-              </div>
-            )}
+        <div style={{ position: 'relative', zIndex: 3, maxWidth: 1100, margin: '0 auto' }}>
+          <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 24 }}>
+            <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontWeight: 800 }}>
+              <DiamondIcon size={34} color="var(--accent-pink)" />
+              <span className="gradient-text">{t('Алмазы', 'Diamonds', 'Diamanten', 'Diamants', 'Diamantes')}</span>
+            </h1>
+            <p className="page-subtitle" style={{ fontSize: '1.02rem', maxWidth: 600, margin: '8px auto 0' }}>
+              {t(
+                'Выбирайте наборы алмазов для открытия эксклюзивных выборов и нарядов в ваших любимых историях.',
+                'Select diamond packs to unlock premium choices and outfits in your favorite visual stories.'
+              )}
+            </p>
+          </div>
 
-            {idx > 0 && (
-              <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>
-                  {t('Коллекция Алмазов', 'Diamond Collection')}
-                </h2>
-              </div>
-            )}
-
-            {/* Offline notice if any */}
-            {isBackendConnected === false && idx === 0 && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '6px 14px',
-                  borderRadius: 12,
-                  marginBottom: 16,
-                  background: 'rgba(255, 170, 0, 0.12)',
-                  border: '1px solid rgba(255, 170, 0, 0.3)',
-                  fontSize: '0.82rem',
-                  color: '#ffaa00',
-                }}
-              >
-                <AlertCircle size={14} />
-                <span>{t('Сервер каталога недоступен. Показаны офферы.', 'Showing preview offers.')}</span>
-              </div>
-            )}
-
-            {/* CARDS GRID (PAIRS PER SCREEN) */}
+          {/* Offline notice if any */}
+          {isBackendConnected === false && (
             <div
               style={{
-                display: 'grid',
-                gridTemplateColumns: chunk.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(260px, 1fr))',
-                gap: '16px',
-                maxWidth: chunk.length === 1 ? '380px' : '720px',
-                margin: '0 auto',
-                width: '100%',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '6px 14px',
+                borderRadius: 12,
+                marginBottom: 20,
+                background: 'rgba(255, 170, 0, 0.12)',
+                border: '1px solid rgba(255, 170, 0, 0.3)',
+                fontSize: '0.82rem',
+                color: '#ffaa00',
               }}
             >
-              {loading ? (
-                <SkeletonCard count={2} />
-              ) : chunk.length === 0 ? (
-                <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px 24px' }}>
-                  <AlertCircle size={40} color="var(--accent-pink)" style={{ marginBottom: '16px' }} />
-                  <h3 style={{ fontSize: '1.4rem', color: '#fff', marginBottom: '8px' }}>
-                    {t('Каталог пуст', 'Catalog is empty')}
+              <AlertCircle size={14} />
+              <span>{t('Сервер каталога недоступен. Показаны офферы.', 'Showing preview offers.')}</span>
+            </div>
+          )}
+
+          {/* All Cards Grid */}
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: packs.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(260px, 1fr))',
+              gap: '20px',
+              maxWidth: packs.length === 1 ? '380px' : '900px',
+              margin: '0 auto',
+              width: '100%',
+            }}
+          >
+            {loading ? (
+              <SkeletonCard count={2} />
+            ) : packs.length === 0 ? (
+              <div className="glass-card" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '48px 24px' }}>
+                <AlertCircle size={40} color="var(--accent-pink)" style={{ marginBottom: '16px' }} />
+                <h3 style={{ fontSize: '1.4rem', color: '#fff', marginBottom: '8px' }}>
+                  {t('Каталог пуст', 'Catalog is empty')}
+                </h3>
+                <p className="muted" style={{ marginBottom: '20px' }}>
+                  {t('В настоящий момент нет доступных предложений.', 'No offers available at the moment.')}
+                </p>
+                <button type="button" className="btn btn-primary" onClick={fetchCatalog}>
+                  <RefreshCw size={16} />
+                  {t('Повторить попытку', 'Retry loading')}
+                </button>
+              </div>
+            ) : (
+              packs.map((pack) => (
+                <div
+                  key={pack.sku}
+                  className="glass-card"
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    padding: '24px 20px',
+                    position: 'relative',
+                    border: pack.badge ? '1px solid var(--accent-pink)' : undefined,
+                    boxShadow: pack.badge ? '0 10px 30px rgba(255, 51, 102, 0.25)' : undefined,
+                  }}
+                >
+                  {/* Badge */}
+                  <div style={{ height: '22px', width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '4px' }}>
+                    {pack.badge && <span className={`badge-tag badge-${pack.badge.kind}`}>{pack.badge.text}</span>}
+                  </div>
+
+                  {/* Diamond Icon */}
+                  <div style={{ margin: '6px 0 14px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img
+                      src={pack.imageUrl}
+                      alt={pack.title}
+                      style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain', filter: 'drop-shadow(0 6px 16px rgba(153, 51, 255, 0.4))' }}
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const fallback = getDiamondImageFallback(pack.amount);
+                        if (!target.src.endsWith(fallback)) {
+                          target.src = fallback;
+                        } else {
+                          target.onerror = null;
+                        }
+                      }}
+                    />
+                  </div>
+
+                  <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#fff', marginBottom: '8px' }}>
+                    {pack.title}
                   </h3>
-                  <p className="muted" style={{ marginBottom: '20px' }}>
-                    {t('В настоящий момент нет доступных предложений.', 'No offers available at the moment.')}
-                  </p>
-                  <button type="button" className="btn btn-primary" onClick={fetchCatalog}>
-                    <RefreshCw size={16} />
-                    {t('Повторить попытку', 'Retry loading')}
+
+                  <div style={{ fontSize: '1.45rem', fontWeight: 900, color: 'var(--accent-pink)', marginBottom: '16px', letterSpacing: '-0.3px' }}>
+                    {formatPrice(pack.price, pack.currency)}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    style={{ width: '100%', borderRadius: '20px' }}
+                    onClick={() => handleAddToCart(pack)}
+                  >
+                    <ShoppingCart size={16} color="#ffffff" />
+                    <span>{t('В корзину', 'Add to Cart', 'In den Warenkorb', 'Au panier', 'Al carrito')}</span>
                   </button>
                 </div>
-              ) : (
-                chunk.map((pack) => (
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* MOBILE VIEW (<1024px): Snapping sections in pairs */}
+      <div className="mobile-only-snap diamonds-snap-container">
+        {packChunks.map((chunk, idx) => (
+          <section
+            key={idx}
+            className="showcase-section"
+            id={`diamonds-section-${idx + 1}`}
+            style={{
+              position: 'relative',
+              minHeight: '100vh',
+              height: '100vh',
+              width: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '90px 5% 40px',
+              scrollSnapAlign: 'start',
+              scrollSnapStop: 'always',
+              overflow: 'hidden',
+            }}
+          >
+            <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+            <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
+
+            <div style={{ position: 'relative', zIndex: 3, width: '100%', maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>
+              {idx === 0 && (
+                <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 20 }}>
+                  <h1 className="page-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontWeight: 800 }}>
+                    <DiamondIcon size={32} color="var(--accent-pink)" />
+                    <span className="gradient-text">{t('Алмазы', 'Diamonds', 'Diamanten', 'Diamants', 'Diamantes')}</span>
+                  </h1>
+                  <p className="page-subtitle" style={{ fontSize: '0.98rem', maxWidth: 580, margin: '8px auto 0' }}>
+                    {t(
+                      'Выбирайте наборы алмазов для открытия эксклюзивных выборов и нарядов в ваших любимых историях.',
+                      'Select diamond packs to unlock premium choices and outfits in your favorite visual stories.'
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {idx > 0 && (
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <h2 style={{ fontSize: '1.4rem', fontWeight: 800, color: '#fff' }}>
+                    {t('Коллекция Алмазов', 'Diamond Collection')}
+                  </h2>
+                </div>
+              )}
+
+              {/* CARDS GRID (PAIRS PER SCREEN) */}
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: chunk.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(260px, 1fr))',
+                  gap: '16px',
+                  maxWidth: chunk.length === 1 ? '380px' : '720px',
+                  margin: '0 auto',
+                  width: '100%',
+                }}
+              >
+                {loading ? (
+                  <SkeletonCard count={2} />
+                ) : chunk.map((pack) => (
                   <div
                     key={pack.sku}
                     className="glass-card"
@@ -350,17 +446,17 @@ export const Diamonds: React.FC = () => {
                       <span>{t('В корзину', 'Add to Cart', 'In den Warenkorb', 'Au panier', 'Al carrito')}</span>
                     </button>
                   </div>
-                ))
-              )}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Scroll mouse indicator to next section if not last */}
-          {idx < packChunks.length - 1 && (
-            <ScrollMouse target={`diamonds-section-${idx + 2}`} />
-          )}
-        </section>
-      ))}
-    </div>
+            {/* Scroll mouse indicator to next section if not last */}
+            {idx < packChunks.length - 1 && (
+              <ScrollMouse target={`diamonds-section-${idx + 2}`} />
+            )}
+          </section>
+        ))}
+      </div>
+    </>
   );
 };
