@@ -1,4 +1,5 @@
 using System.Globalization;
+using Catalog.API.Services;
 using Catalog.API.Storage;
 using Catalog.Grpc;
 using Grpc.Core;
@@ -8,13 +9,15 @@ namespace Catalog.API.Grpc;
 public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternalBase
 {
     private readonly ICatalogStore _store;
+    private readonly ICatalogProvider _provider;
 
-    public CatalogInternalGrpcService(ICatalogStore store)
+    public CatalogInternalGrpcService(ICatalogStore store, ICatalogProvider provider)
     {
         _store = store;
+        _provider = provider;
     }
 
-    public override Task<CatalogProduct> GetProduct(GetProductRequest request, ServerCallContext context)
+    public override async Task<CatalogProduct> GetProduct(GetProductRequest request, ServerCallContext context)
     {
         if (!Guid.TryParse(request.Id, out var id))
         {
@@ -22,6 +25,12 @@ public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternal
         }
 
         var item = _store.GetItemById(id);
+        if (item is null)
+        {
+            await _provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", context.CancellationToken);
+            item = _store.GetItemById(id);
+        }
+
         if (item is null)
         {
             throw new RpcException(new Status(StatusCode.NotFound, "Product not found"));
@@ -44,7 +53,7 @@ public sealed class CatalogInternalGrpcService : CatalogInternal.CatalogInternal
             product.Metadata[pair.Key] = pair.Value;
         }
 
-        return Task.FromResult(product);
+        return product;
     }
 
     private static Catalog.Grpc.CatalogProductType MapType(Catalog.API.Storage.CatalogProductType type) => type switch

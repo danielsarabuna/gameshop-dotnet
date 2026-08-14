@@ -113,7 +113,7 @@ export const Projects: React.FC = () => {
           </div>
 
           <div className="seq-item seq-delay-4">
-            <Link to="/diamonds" className="btn btn-primary" style={{ padding: '14px 42px', fontSize: '1.05rem', letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase', borderRadius: 28 }}>
+            <Link to="/diamonds" className="btn btn-primary" style={{ letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase', borderRadius: 28 }}>
               {t('ИГРАТЬ СЕЙЧАС', 'PLAY NOW')}
             </Link>
           </div>
@@ -204,7 +204,7 @@ export const Projects: React.FC = () => {
                 <span className="badge-tag badge-cyan">{activeLocation.badge}</span>
               </div>
             </div>
-            <div style={{ padding: '32px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <div style={{ fontSize: '0.85rem', color: 'var(--accent-cyan)', fontWeight: 700, textTransform: 'uppercase', marginBottom: 8 }}>
                 {activeLocation.subtitle}
               </div>

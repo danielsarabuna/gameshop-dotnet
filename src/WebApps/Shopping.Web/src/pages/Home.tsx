@@ -47,7 +47,7 @@ export const Home: React.FC = () => {
             <Link
               className="btn btn-primary"
               to="/projects"
-              style={{ padding: '14px 42px', fontSize: '1.05rem', letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase', borderRadius: 28 }}
+              style={{ letterSpacing: 1, fontWeight: 700, textTransform: 'uppercase', borderRadius: 28 }}
             >
               {t('ПОДРОБНЕЕ', 'MORE DETAILS', 'MEHR ERFAHREN', 'EN SAVOIR PLUS', 'MÁS INFORMACIÓN')}
             </Link>

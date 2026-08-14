@@ -103,10 +103,10 @@ public class CatalogProviderTests
         Assert.Equal("60 Diamonds", item.Title);
         Assert.Equal(120.00m, item.Price);
         Assert.Equal("RUB", item.Currency);
-        // Image URL rewritten to the cached-assets endpoint.
-        Assert.Equal("/api/v1/catalog/assets/russia/ru_store/0.0.36/diamonds_60.png", item.ImageUrl);
-        // The asset was downloaded to disk.
-        Assert.True(File.Exists(Path.Combine(tmp.Path, "russia", "ru_store", "0.0.36", "diamonds_60.png")));
+        // Image URL rewritten to the cached-assets endpoint preserving subpath hierarchy.
+        Assert.Equal("/api/v1/catalog/assets/russia/ru_store/0.0.36/v0.0.36/webshop/diamonds_60.png", item.ImageUrl);
+        // The asset was downloaded to disk preserving directory structure.
+        Assert.True(File.Exists(Path.Combine(tmp.Path, "russia", "ru_store", "0.0.36", "v0.0.36", "webshop", "diamonds_60.png")));
     }
 
     [Fact]
@@ -167,6 +167,59 @@ public class CatalogProviderTests
 
         // Second call served from in-memory cache → no additional Supabase fetch.
         Assert.Equal(hitsBefore, hitsAfter);
+    }
+
+    [Fact]
+    public async Task GetOrFetchAsync_ShouldReturnStaleCache_WhenRevalidationFailsWithNetworkException()
+    {
+        using var tmp = new TempAssetDir();
+        var options = TempOptions(tmp.Path);
+        options.CacheTtlSeconds = 0; // Force immediate revalidation on subsequent calls
+
+        var handler = new ThrowingHandler(new Dictionary<string, HttpResponseMessage>
+        {
+            ["webshop_config_0.0.36.json"] = JsonOk(ValidCatalogJson),
+            ["diamonds_60.png"] = new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(Encoding.UTF8.GetBytes("X")) },
+        });
+        var store = new InMemoryCatalogStore();
+        var provider = new CatalogProvider(new HttpClient(handler), store, options, NullLogger<CatalogProvider>.Instance);
+
+        // Initial fetch populates cache
+        var initialConfig = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
+        Assert.NotNull(initialConfig);
+
+        // Turn on network throwing behavior
+        handler.ShouldThrow = true;
+
+        // Revalidation attempt encounters network error, but returns stale cached config
+        var staleConfig = await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", CancellationToken.None);
+        Assert.NotNull(staleConfig);
+        Assert.Equal(initialConfig!.GameVersion, staleConfig!.GameVersion);
+    }
+
+    private sealed class ThrowingHandler : HttpMessageHandler
+    {
+        private readonly Dictionary<string, HttpResponseMessage> _responses;
+        public bool ShouldThrow { get; set; }
+
+        public ThrowingHandler(Dictionary<string, HttpResponseMessage> responses) => _responses = responses;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            if (ShouldThrow)
+            {
+                throw new HttpRequestException("Network unreachable");
+            }
+            var uri = request.RequestUri?.AbsoluteUri ?? "";
+            foreach (var kv in _responses)
+            {
+                if (uri.Contains(kv.Key, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Task.FromResult(kv.Value);
+                }
+            }
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest));
+        }
     }
 
     private static HttpResponseMessage JsonOk(string json) =>

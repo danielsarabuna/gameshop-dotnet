@@ -17,6 +17,9 @@ public interface ICatalogProvider
 
     /// <summary>Forces a fresh fetch bypassing the TTL cache (used by the /reload endpoint).</summary>
     Task<WebShopCatalogConfig?> ForceRefreshAsync(string region, string store, string gameVersion, CancellationToken ct);
+
+    /// <summary>Ensures the specified relative asset is downloaded from Supabase to disk cache.</summary>
+    Task<bool> EnsureAssetDownloadedAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
 }
 
 public sealed class CatalogProvider : ICatalogProvider
@@ -89,6 +92,7 @@ public sealed class CatalogProvider : ICatalogProvider
         // actually carries catalog data (validation below rejects the game config).
         var candidates = new[] { $"webshop_config_{gameVersion}.json", $"config_{gameVersion}.json" };
         string? existingETag = useETag && _meta.TryGetValue(key, out var m) ? m.ETag : null;
+        var existingCached = _store.GetConfig(region, store, gameVersion);
 
         foreach (var fileName in candidates)
         {
@@ -111,7 +115,7 @@ public sealed class CatalogProvider : ICatalogProvider
                     {
                         _meta[key] = (DateTime.UtcNow, oldMeta.ETag);
                     }
-                    return _store.GetConfig(region, store, gameVersion);
+                    return existingCached;
                 }
 
                 // Supabase returns 400 (not 404) for missing public objects — treat both as "absent".
@@ -160,6 +164,14 @@ public sealed class CatalogProvider : ICatalogProvider
             }
         }
 
+        if (existingCached is not null)
+        {
+            _logger.LogWarning(
+                "Ошибка обновления с Supabase для region={Region} store={Store} gameVersion={Version}. Возвращен ранее закэшированный каталог.",
+                region, store, gameVersion);
+            return existingCached;
+        }
+
         // Nothing valid found. Logged at Warning so suspicious/wrong versions are visible in dev AND prod.
         _logger.LogWarning(
             "Конфиг каталога не найден или невалиден для region={Region} store={Store} gameVersion={Version}. Возвращён пустой каталог.",
@@ -180,7 +192,7 @@ public sealed class CatalogProvider : ICatalogProvider
 
             if (needsDownload && !string.IsNullOrEmpty(relativePath))
             {
-                await DownloadAssetAsync(region, store, gameVersion, relativePath, ct);
+                await EnsureAssetDownloadedAsync(region, store, gameVersion, relativePath, ct);
             }
 
             items.Add(MapToDomainItem(item, region, store, resolvedUrl));
@@ -203,17 +215,23 @@ public sealed class CatalogProvider : ICatalogProvider
             return (imageUrl, false, null);
         }
 
-        // Relative path (e.g. "v0.0.36/webshop/diamonds_60.png") → download + rewrite to cached endpoint.
-        var fileName = Path.GetFileName(imageUrl.TrimStart('/'));
-        var localEndpoint = $"/api/v1/catalog/assets/{region}/{store}/{gameVersion}/{fileName}";
-        return (localEndpoint, true, imageUrl);
+        // Relative path (e.g. "v0.0.36/webshop/diamonds_60.png") → download + rewrite to cached endpoint preserving subpaths.
+        var relativePath = imageUrl.TrimStart('/');
+        var localEndpoint = $"/api/v1/catalog/assets/{region}/{store}/{gameVersion}/{relativePath}";
+        return (localEndpoint, true, relativePath);
     }
 
-    private async Task DownloadAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct)
+    public async Task<bool> EnsureAssetDownloadedAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct)
     {
-        var fileName = Path.GetFileName(relativePath.TrimStart('/'));
-        var localDir = Path.Combine(_options.AssetCacheDir, region, store, gameVersion);
-        var localPath = Path.Combine(localDir, fileName);
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            return false;
+        }
+
+        var cleanRel = relativePath.TrimStart('/');
+        var subDir = Path.GetDirectoryName(cleanRel) ?? "";
+        var localDir = Path.Combine(_options.AssetCacheDir, region, store, gameVersion, subDir);
+        var localPath = Path.Combine(_options.AssetCacheDir, region, store, gameVersion, cleanRel);
 
         // Path-traversal guard: the resolved path must stay inside the cache root.
         var root = Path.GetFullPath(_options.AssetCacheDir);
@@ -225,15 +243,15 @@ public sealed class CatalogProvider : ICatalogProvider
         if (!resolved.StartsWith(root, StringComparison.Ordinal))
         {
             _logger.LogWarning("Путь ассета выходит за пределы кэша: {Path}", resolved);
-            return;
+            return false;
         }
 
         if (File.Exists(resolved))
         {
-            return; // already cached on disk
+            return true; // already cached on disk
         }
 
-        var sourceUrl = $"{_options.SupabaseBaseUrl.TrimEnd('/')}/storage/v1/object/public/{_options.Bucket}/{region}/{store}/{relativePath.TrimStart('/')}";
+        var sourceUrl = $"{_options.SupabaseBaseUrl.TrimEnd('/')}/storage/v1/object/public/{_options.Bucket}/{region}/{store}/{cleanRel}";
         Directory.CreateDirectory(localDir);
 
         try
@@ -241,10 +259,12 @@ public sealed class CatalogProvider : ICatalogProvider
             var bytes = await _http.GetByteArrayAsync(sourceUrl, ct);
             await File.WriteAllBytesAsync(resolved, bytes, ct);
             _logger.LogDebug("Ассет закэширован: {Path} ({Bytes} байт)", resolved, bytes.Length);
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Не удалось скачать ассет {Url}", sourceUrl);
+            return false;
         }
     }
 

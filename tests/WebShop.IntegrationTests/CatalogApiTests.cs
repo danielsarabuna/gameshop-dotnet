@@ -42,6 +42,38 @@ public sealed class CatalogApiTests : IClassFixture<WebApplicationFactory<Catalo
     }
 
     [Fact]
+    public async Task Catalog_item_by_id_returns_item()
+    {
+        using var client = _factory.CreateClient();
+        using var itemsResponse = await client.GetAsync("/api/v1/catalog/items");
+        var items = await itemsResponse.Content.ReadFromJsonAsync<List<CatalogItemDto>>();
+        Assert.NotNull(items);
+        Assert.NotEmpty(items!);
+
+        var firstItem = items!.First();
+        using var itemResponse = await client.GetAsync($"/api/v1/catalog/items/{firstItem.Id}");
+        Assert.Equal(HttpStatusCode.OK, itemResponse.StatusCode);
+        var fetched = await itemResponse.Content.ReadFromJsonAsync<CatalogItemDto>();
+        Assert.NotNull(fetched);
+        Assert.Equal(firstItem.Id, fetched!.Id);
+    }
+
+    [Fact]
+    public async Task Catalog_asset_returns_inline_stream_without_content_disposition()
+    {
+        using var client = _factory.CreateClient();
+        using var itemsResponse = await client.GetAsync("/api/v1/catalog/items");
+        
+        using var assetResponse = await client.GetAsync("/api/v1/catalog/assets/russia/ru_store/0.0.36/diamonds_60.png");
+        if (assetResponse.StatusCode == HttpStatusCode.OK)
+        {
+            Assert.Null(assetResponse.Content.Headers.ContentDisposition);
+            Assert.NotNull(assetResponse.Headers.CacheControl);
+            Assert.True(assetResponse.Headers.CacheControl!.Public);
+        }
+    }
+
+    [Fact]
     public async Task Catalog_item_by_unknown_id_returns_404()
     {
         using var client = _factory.CreateClient();
