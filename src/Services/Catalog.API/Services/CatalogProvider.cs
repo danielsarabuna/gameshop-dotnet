@@ -21,7 +21,12 @@ public interface ICatalogProvider
 
     /// <summary>Ensures the specified relative asset is downloaded from Supabase to disk cache.</summary>
     Task<bool> EnsureAssetDownloadedAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
+
+    /// <summary>Opens a validated cached asset, downloading it first when needed.</summary>
+    Task<CatalogAssetFile?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
 }
+
+public sealed record CatalogAssetFile(Stream Content, DateTimeOffset LastModified);
 
 public sealed class CatalogProvider : ICatalogProvider
 {
@@ -363,6 +368,27 @@ public sealed class CatalogProvider : ICatalogProvider
             _logger.LogWarning(ex, "Не удалось скачать ассет.");
             return false;
         }
+    }
+
+    public async Task<CatalogAssetFile?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct)
+    {
+        if (!CatalogAssetPath.TryResolve(_options.AssetCacheDir, region, store, gameVersion, relativePath, out var resolved))
+        {
+            return null;
+        }
+
+        if (!File.Exists(resolved)
+            && !await EnsureAssetDownloadedAsync(region, store, gameVersion, relativePath, ct))
+        {
+            return null;
+        }
+
+        if (!File.Exists(resolved))
+        {
+            return null;
+        }
+
+        return new CatalogAssetFile(File.OpenRead(resolved), new DateTimeOffset(File.GetLastWriteTimeUtc(resolved)));
     }
 
     private static CatalogItem MapToDomainItem(CatalogItemJsonDto dto, string region, string store, string? resolvedImageUrl, string? defaultLocale)
