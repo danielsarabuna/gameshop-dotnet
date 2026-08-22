@@ -93,6 +93,7 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     env:
+      SHOP_DOMAIN: shop.example.invalid
       SUPABASE_URL: https://example.invalid
       SUPABASE_SERVICE_ROLE_KEY: build-only
       CATALOG_CACHE_INVALIDATION_SECRET: build-only
@@ -100,6 +101,20 @@ jobs:
       GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64: build-only
     steps:
       - uses: actions/checkout@v7
+      - name: Validate production Catalog topology
+        run: |
+          docker compose -f docker-compose.prod.yml config --format json \
+            | jq -e '. as $root
+              | $root.services["catalog-api"] as $catalog
+              | $catalog.environment.Kestrel__HttpPort == "8080"
+                and $catalog.environment.Kestrel__GrpcPort == "8081"
+                and ($catalog.environment.Supabase__Url | length > 0)
+                and ($catalog.environment.Supabase__ServiceRoleKey | length > 0)
+                and ($root.services | has("mongodb") | not)
+                and (["catalog-api", "basket-api", "ordering-api"]
+                  | all(. as $name
+                    | $root.services[$name].healthcheck.test
+                      == ["CMD", "curl", "-fsS", "http://localhost:8080/health"]))'
       - run: docker compose build web apigateway catalog-api basket-api ordering-api
 
   security:
