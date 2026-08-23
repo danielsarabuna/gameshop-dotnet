@@ -17,7 +17,12 @@ public sealed record WebhookEnvelope(
 public interface IPaymentProvider
 {
     PaymentMethod Provider { get; }
-    Task<PaymentIntentResult> CreatePaymentIntentAsync(decimal amount, string currency, Guid orderId, CancellationToken cancellationToken);
+    Task<PaymentIntentResult> CreatePaymentIntentAsync(
+        decimal amount,
+        string currency,
+        Guid orderId,
+        string idempotencyKey,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Verifies webhook authenticity (cryptographic signature, or source IP allowlist plus

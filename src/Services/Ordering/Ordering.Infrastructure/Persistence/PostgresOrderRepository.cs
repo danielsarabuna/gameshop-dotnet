@@ -37,6 +37,30 @@ public sealed class PostgresOrderRepository : IOrderRepository
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        if (!string.IsNullOrWhiteSpace(order.PromoCode))
+        {
+            var reserved = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
+                """
+                UPDATE promo_codes
+                SET used_count = used_count + 1
+                WHERE code = @Code
+                  AND is_active = TRUE
+                  AND (starts_at_utc IS NULL OR starts_at_utc <= now())
+                  AND (expires_at_utc IS NULL OR expires_at_utc >= now())
+                  AND (max_uses <= 0 OR used_count < max_uses)
+                RETURNING 1;
+                """,
+                new { Code = order.PromoCode },
+                transaction,
+                cancellationToken: cancellationToken));
+            if (reserved is null)
+            {
+                throw new ArgumentException("Promo code is invalid or its usage limit has been reached.", nameof(order));
+            }
+        }
+
         await connection.ExecuteAsync(new CommandDefinition(sql, new
         {
             order.Id,
@@ -51,7 +75,21 @@ public sealed class PostgresOrderRepository : IOrderRepository
             order.PaymentId,
             order.PaidAtUtc,
             order.FailureReason
-        }, cancellationToken: cancellationToken));
+        }, transaction, cancellationToken: cancellationToken));
+
+        if (!string.IsNullOrWhiteSpace(order.PromoCode))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO promo_redemptions (order_id, code, status, reserved_at_utc)
+                VALUES (@OrderId, @Code, 0, now());
+                """,
+                new { OrderId = order.Id, Code = order.PromoCode },
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await transaction.CommitAsync(cancellationToken);
     }
 
     public async Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken)

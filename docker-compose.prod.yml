@@ -63,6 +63,8 @@ services:
       GameTicketJwt__Issuer: webshop-game-ticket
       GameTicketJwt__Audience: webshop-api
       GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
+      ForwardedHeaders__KnownNetworks__0: 172.28.0.0/24
+      ForwardedHeaders__ForwardLimit: "1"
       Cors__Origins__0: https://${SHOP_DOMAIN}
     depends_on:
       catalog-api:
@@ -160,6 +162,8 @@ services:
       Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
       Auth__RequireHttpsMetadata: "false"
       GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
+      ForwardedHeaders__KnownNetworks__0: 172.29.0.0/24
+      ForwardedHeaders__ForwardLimit: "1"
       Supabase__Url: ${SUPABASE_URL:?set SUPABASE_URL in .env.prod}
       Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?set SUPABASE_SERVICE_ROLE_KEY in .env.prod}
       Payments__YooKassa__ShopId: ${PAYMENTS_YOOKASSA_SHOPID:-}
@@ -283,5 +287,11 @@ volumes:
 
 networks:
   frontend:
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
   backend:
     internal: true
+    ipam:
+      config:
+        - subnet: 172.29.0.0/24

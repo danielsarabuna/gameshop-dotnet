@@ -42,6 +42,7 @@ public class YooKassaPaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
         // No payment_method_data: the player picks the method on YooKassa's side.
@@ -69,6 +70,7 @@ public class YooKassaPaymentProvider : IPaymentProvider
         {
             Content = JsonContent.Create(requestBody)
         };
+        request.Headers.Add("Idempotence-Key", idempotencyKey);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         var content = await response.Content.ReadAsStringAsync(cancellationToken);

@@ -14,6 +14,7 @@ builder.Services.AddWebShopMetrics(builder.Configuration, "Gateway");
 builder.Services.AddHealthChecks();
 builder.Services.AddCustomExceptionHandler();
 builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
+builder.Services.AddWebShopForwardedHeaders(builder.Configuration);
 
 // CORS: production domains come from configuration; localhost defaults keep dev frictionless.
 builder.Services.AddCors(options =>
@@ -73,6 +74,7 @@ builder.Services
 
 var app = builder.Build();
 
+app.UseWebShopForwardedHeaders();
 app.UseExceptionHandler();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();

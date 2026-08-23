@@ -25,6 +25,7 @@ builder.Logging.AddWebShopLogging("Ordering");
 builder.Services.AddWebShopTracing(builder.Configuration, "Ordering");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Ordering");
 builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
+builder.Services.AddWebShopForwardedHeaders(builder.Configuration);
 builder.Services.AddOpenApi();
 
 var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
@@ -39,7 +40,7 @@ if (usePostgres)
     builder.Services.AddSingleton<IOrderRepository, PostgresOrderRepository>();
     builder.Services.AddSingleton<IOutboxDispatcherStore, PostgresOutboxStore>();
     builder.Services.AddSingleton<IPaymentStore, PostgresPaymentStore>();
-    builder.Services.AddSingleton<IWebhookIdempotencyStore, PostgresWebhookIdempotencyStore>();
+    builder.Services.AddSingleton<IPaymentWebhookStore, PostgresPaymentWebhookStore>();
     builder.Services.AddSingleton<IPromoCodeStore, PostgresPromoCodeStore>();
     builder.Services.AddSingleton<OrderingDatabaseInitializer>();
 }
@@ -51,6 +52,7 @@ else
     builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
     builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
     builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
+    builder.Services.AddSingleton<IPaymentWebhookStore, InMemoryPaymentWebhookStore>();
 }
 builder.Services.AddSingleton<IPaymentProviderAccessor, PaymentProviderAccessor>();
 
@@ -182,6 +184,7 @@ if (usePostgres)
     await initializer.InitializeAsync();
 }
 
+app.UseWebShopForwardedHeaders();
 app.UseExceptionHandler();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
