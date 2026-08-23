@@ -264,6 +264,8 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         create.EnsureSuccessStatusCode();
         var body = await create.Content.ReadFromJsonAsync<JsonElement>();
         var orderId = body.GetProperty("orderId").GetGuid();
+        Assert.Equal(0.12m, body.GetProperty("discountAmount").GetDecimal());
+        Assert.Equal(1.11m, body.GetProperty("total").GetDecimal());
         var eventId = $"evt_{Guid.NewGuid():N}";
 
         using var scope = _factory.Services.CreateScope();
