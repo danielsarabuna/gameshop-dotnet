@@ -213,7 +213,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         {
             await connection.OpenAsync();
             await using var command = new NpgsqlCommand(
-                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 0, 10, 'EUR', 1, 0)",
+                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 1, 10, 'EUR', 1, 0)",
                 connection);
             command.Parameters.AddWithValue("code", code);
             await command.ExecuteNonQueryAsync();
@@ -248,7 +248,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         {
             await connection.OpenAsync();
             await using var command = new NpgsqlCommand(
-                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 0, 10, 'EUR', 1, 0)",
+                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 1, 10, 'EUR', 1, 0)",
                 connection);
             command.Parameters.AddWithValue("code", code);
             await command.ExecuteNonQueryAsync();
