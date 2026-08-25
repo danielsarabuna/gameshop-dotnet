@@ -84,6 +84,7 @@ services:
       ASPNETCORE_URLS: http://+:8080
       Catalog__Storage: Mongo
       Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
+      Catalog__Remote__Bucket: ${CATALOG_BUCKET:-prod}
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
