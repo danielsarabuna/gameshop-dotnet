@@ -138,6 +138,62 @@ public sealed class PostgresOrderRepository : IOrderRepository
         }, cancellationToken: cancellationToken));
     }
 
+    public async Task UpdateWithOutboxAsync(Order order, IReadOnlyList<OutboxMessage> outbox, CancellationToken cancellationToken)
+    {
+        const string updateOrderSql = """
+                                      UPDATE orders
+                                      SET game_user_id = @GameUserId,
+                                          payment_method = @PaymentMethod,
+                                          items = CAST(@Items AS jsonb),
+                                          currency = @Currency,
+                                          discount_amount = @DiscountAmount,
+                                          promo_code = @PromoCode,
+                                          status = @Status,
+                                          payment_id = @PaymentId,
+                                          paid_at_utc = @PaidAtUtc,
+                                          failure_reason = @FailureReason
+                                      WHERE id = @Id;
+                                      """;
+
+        const string insertOutboxSql = """
+                                       INSERT INTO outbox_events (id, type, payload, attempts, next_attempt_at, created_at_utc)
+                                       VALUES (@Id, @Type, CAST(@Payload AS jsonb), 0, now(), now());
+                                       """;
+
+        var itemsJson = JsonSerializer.Serialize(order.Items, JsonOptions);
+        var orderParams = new
+        {
+            order.Id,
+            order.GameUserId,
+            PaymentMethod = (int)order.PaymentMethod,
+            Items = itemsJson,
+            order.Currency,
+            order.DiscountAmount,
+            order.PromoCode,
+            Status = (int)order.Status,
+            order.PaymentId,
+            order.PaidAtUtc,
+            order.FailureReason
+        };
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        await connection.ExecuteAsync(new CommandDefinition(updateOrderSql, orderParams, transaction, cancellationToken: cancellationToken));
+
+        if (outbox.Count > 0)
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                insertOutboxSql,
+                outbox.Select(m => new { m.Id, m.Type, Payload = m.PayloadJson }),
+                transaction,
+                cancellationToken: cancellationToken));
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+    }
+
     private sealed record OrderRow(
         Guid Id,
         string GameUserId,

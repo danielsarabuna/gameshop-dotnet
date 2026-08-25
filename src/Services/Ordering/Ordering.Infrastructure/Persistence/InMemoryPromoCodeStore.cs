@@ -28,63 +28,39 @@ public sealed class InMemoryPromoCodeStore : IPromoCodeStore
 
     public InMemoryPromoCodeStore()
     {
+        foreach (var promo in DefaultCodes())
+        {
+            _codes.TryAdd(promo.Code.Trim(), promo);
+        }
+    }
+
+    public static IReadOnlyList<PromoCode> DefaultCodes()
+    {
         var now = DateTimeOffset.UtcNow;
 
-        Seed(new PromoCode(
-            Code: "LOVE10",
-            Type: DiscountType.Percent,
-            Value: 10m,
-            Currency: "EUR",
-            IsActive: true,
-            StartsAtUtc: null,
-            ExpiresAtUtc: now.AddDays(365),
-            MaxUses: 10_000,
-            UsedCount: 0,
-            ProductIds: new HashSet<Guid>()
-        ));
-
-        Seed(new PromoCode(
-            Code: "PREM20",
-            Type: DiscountType.Percent,
-            Value: 20m,
-            Currency: "EUR",
-            IsActive: true,
-            StartsAtUtc: null,
-            ExpiresAtUtc: now.AddDays(90),
-            MaxUses: 2_000,
-            UsedCount: 0,
-            ProductIds: PremiumProductIds
-        ));
-
-        Seed(new PromoCode(
-            Code: "SAVE5",
-            Type: DiscountType.FixedAmount,
-            Value: 5m,
-            Currency: "EUR",
-            IsActive: true,
-            StartsAtUtc: null,
-            ExpiresAtUtc: now.AddDays(30),
-            MaxUses: 500,
-            UsedCount: 0,
-            ProductIds: DiamondProductIds
-        ));
+        return
+        [
+            new PromoCode("LOVE10", DiscountType.Percent, 10m, "EUR", true, null, now.AddDays(365), 10_000, 0, new HashSet<Guid>()),
+            new PromoCode("PREM20", DiscountType.Percent, 20m, "EUR", true, null, now.AddDays(90), 2_000, 0, new HashSet<Guid>(PremiumProductIds)),
+            new PromoCode("SAVE5", DiscountType.FixedAmount, 5m, "EUR", true, null, now.AddDays(30), 500, 0, new HashSet<Guid>(DiamondProductIds)),
+        ];
     }
 
-    public PromoCode? Get(string code)
+    public Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            return null;
+            return Task.FromResult<PromoCode?>(null);
         }
 
-        return _codes.TryGetValue(code.Trim(), out var promo) ? promo : null;
+        return Task.FromResult(_codes.TryGetValue(code.Trim(), out var promo) ? promo : null);
     }
 
-    public bool TryConsume(string code)
+    public Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(code))
         {
-            return false;
+            return Task.FromResult(false);
         }
 
         var key = code.Trim();
@@ -92,25 +68,19 @@ public sealed class InMemoryPromoCodeStore : IPromoCodeStore
         {
             if (!_codes.TryGetValue(key, out var promo))
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             if (promo.MaxUses > 0 && promo.UsedCount >= promo.MaxUses)
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             var updated = promo with { UsedCount = promo.UsedCount + 1 };
             if (_codes.TryUpdate(key, updated, promo))
             {
-                return true;
+                return Task.FromResult(true);
             }
         }
     }
-
-    private void Seed(PromoCode promoCode)
-    {
-        _codes.TryAdd(promoCode.Code.Trim(), promoCode);
-    }
 }
-

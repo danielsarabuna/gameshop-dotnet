@@ -57,13 +57,39 @@ public sealed class OrderingDatabaseInitializer
                                PRIMARY KEY (provider, event_id)
                            );
 
+                           CREATE TABLE IF NOT EXISTS outbox_events (
+                               id uuid PRIMARY KEY,
+                               type text NOT NULL,
+                               payload jsonb NOT NULL,
+                               attempts int NOT NULL DEFAULT 0,
+                               next_attempt_at timestamptz NOT NULL DEFAULT now(),
+                               created_at_utc timestamptz NOT NULL DEFAULT now(),
+                               processed_at_utc timestamptz NULL
+                           );
+
                            CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at_utc);
                            CREATE INDEX IF NOT EXISTS idx_payments_order_provider ON payments (order_id, provider);
+                           CREATE INDEX IF NOT EXISTS ix_outbox_pending
+                               ON outbox_events (next_attempt_at) WHERE processed_at_utc IS NULL;
+
+                           CREATE TABLE IF NOT EXISTS promo_codes (
+                               code text PRIMARY KEY,
+                               type int NOT NULL,
+                               value numeric NOT NULL,
+                               currency text NULL,
+                               is_active boolean NOT NULL DEFAULT TRUE,
+                               starts_at_utc timestamptz NULL,
+                               expires_at_utc timestamptz NULL,
+                               max_uses int NOT NULL DEFAULT 0,
+                               used_count int NOT NULL DEFAULT 0,
+                               product_ids jsonb NULL
+                           );
                            """;
 
         await using var connection = new NpgsqlConnection(_connectionString);
         await connection.OpenAsync(cancellationToken);
         await connection.ExecuteAsync(new CommandDefinition(sql, cancellationToken: cancellationToken));
+        await connection.ExecuteAsync(new CommandDefinition(PostgresPromoCodeStore.SeedSql(), cancellationToken: cancellationToken));
         _logger.LogInformation("Ordering database schema ensured.");
     }
 }

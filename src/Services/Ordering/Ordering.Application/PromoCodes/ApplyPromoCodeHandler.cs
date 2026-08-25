@@ -58,7 +58,7 @@ public sealed class ApplyPromoCodeHandler
 
         var subtotal = products.Sum(p => p.product.Price * p.quantity);
 
-        var promo = _promoCodes.Get(request.Code.Trim());
+        var promo = await _promoCodes.GetAsync(request.Code.Trim(), cancellationToken);
         if (promo is null)
         {
             return Invalid("Invalid promo code.");

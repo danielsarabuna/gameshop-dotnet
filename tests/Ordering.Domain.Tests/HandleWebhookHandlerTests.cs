@@ -42,9 +42,7 @@ public sealed class HandleWebhookHandlerTests
             orders,
             payments,
             new FakeWebhookIdempotencyStore(),
-            new FakePromoCodeStore(),
-            new FakePurchaseRecorder(),
-            NullEventBus.Instance);
+            new FakePromoCodeStore());
 
         var processed = await handler.HandleAsync(
             PaymentMethod.Stripe,
@@ -59,6 +57,38 @@ public sealed class HandleWebhookHandlerTests
         Assert.Equal(PaymentStatus.Succeeded, payments.UpdatedPayment.Status);
     }
 
+    [Fact]
+    public async Task Successful_webhook_enqueues_outbox_messages_atomically_with_order_update()
+    {
+        var orderId = Guid.NewGuid();
+        var order = new Order(
+            orderId,
+            "player-1",
+            PaymentMethod.YooKassa,
+            [new OrderItem(Guid.NewGuid(), "60 Diamonds", ProductType.Currency, 4.99m, 1, new Dictionary<string, string> { ["diamonds"] = "60" })],
+            "EUR",
+            0m,
+            null,
+            DateTimeOffset.UtcNow);
+
+        var orders = new FakeOrderRepository(order);
+        var handler = new HandleWebhookHandler(
+            orders,
+            new FakePaymentStore(null),
+            new FakeWebhookIdempotencyStore(),
+            new FakePromoCodeStore());
+
+        var processed = await handler.HandleAsync(
+            PaymentMethod.YooKassa,
+            new PaymentWebhookRequest("evt_outbox_1", orderId, Guid.NewGuid(), "succeeded"),
+            CancellationToken.None);
+
+        Assert.True(processed);
+        Assert.Equal(2, orders.Outbox.Count);
+        Assert.Contains(orders.Outbox, m => m.Type == "order_completed.v1");
+        Assert.Contains(orders.Outbox, m => m.Type == "supabase.order_paid.v1");
+    }
+
     private sealed class FakeOrderRepository : IOrderRepository
     {
         private readonly Order _order;
@@ -68,6 +98,8 @@ public sealed class HandleWebhookHandlerTests
             _order = order;
         }
 
+        public List<OutboxMessage> Outbox { get; } = [];
+
         public Task AddAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
 
         public Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken)
@@ -76,13 +108,19 @@ public sealed class HandleWebhookHandlerTests
         }
 
         public Task UpdateAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UpdateWithOutboxAsync(Order order, IReadOnlyList<OutboxMessage> outbox, CancellationToken cancellationToken)
+        {
+            Outbox.AddRange(outbox);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakePaymentStore : IPaymentStore
     {
-        private Payment _payment;
+        private Payment? _payment;
 
-        public FakePaymentStore(Payment payment)
+        public FakePaymentStore(Payment? payment)
         {
             _payment = payment;
         }
@@ -91,7 +129,9 @@ public sealed class HandleWebhookHandlerTests
 
         public Task<Payment?> GetByOrderAsync(Guid orderId, PaymentMethod provider, CancellationToken cancellationToken)
         {
-            return Task.FromResult(_payment.OrderId == orderId && _payment.Provider == provider ? _payment : null);
+            return Task.FromResult(_payment is not null && _payment.OrderId == orderId && _payment.Provider == provider
+                ? _payment
+                : null);
         }
 
         public Task AddAsync(Payment payment, CancellationToken cancellationToken)
@@ -115,12 +155,8 @@ public sealed class HandleWebhookHandlerTests
 
     private sealed class FakePromoCodeStore : IPromoCodeStore
     {
-        public PromoCode? Get(string code) => null;
-        public bool TryConsume(string code) => true;
-    }
+        public Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken) => Task.FromResult<PromoCode?>(null);
 
-    private sealed class FakePurchaseRecorder : IPurchaseRecorder
-    {
-        public Task RecordAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken) => Task.FromResult(true);
     }
 }

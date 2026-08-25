@@ -35,6 +35,7 @@ if (usePostgres)
     builder.Services.AddSingleton<IOrderRepository, PostgresOrderRepository>();
     builder.Services.AddSingleton<IPaymentStore, PostgresPaymentStore>();
     builder.Services.AddSingleton<IWebhookIdempotencyStore, PostgresWebhookIdempotencyStore>();
+    builder.Services.AddSingleton<IPromoCodeStore, PostgresPromoCodeStore>();
     builder.Services.AddSingleton<OrderingDatabaseInitializer>();
 }
 else
@@ -42,9 +43,8 @@ else
     builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
     builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
     builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
+    builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
 }
-
-builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
 builder.Services.AddSingleton<IPaymentProviderAccessor, PaymentProviderAccessor>();
 
 var eventBusProvider = builder.Configuration.GetValue<string>("EventBus:Provider");
@@ -122,7 +122,7 @@ else
     });
 }
 
-builder.Services.AddHttpClient<IPurchaseRecorder, SupabasePurchaseRecorder>();
+builder.Services.AddHttpClient<ISupabaseOrderDelivery, SupabaseOrderDeliveryService>();
 
 builder.Services.AddScoped<CreateOrderHandler>();
 builder.Services.AddScoped<ApplyPromoCodeHandler>();
@@ -146,6 +146,9 @@ builder.Services.AddCors(options =>
 });
 
 builder.Services.AddCustomExceptionHandler();
+
+// Outbox: deferred side effects (event publication + Supabase delivery) drained with retries.
+builder.Services.AddHostedService<Ordering.API.Infrastructure.OutboxDispatcherHostedService>();
 
 var app = builder.Build();
 
