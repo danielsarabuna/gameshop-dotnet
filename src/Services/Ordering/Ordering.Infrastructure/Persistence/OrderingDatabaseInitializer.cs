@@ -50,6 +50,8 @@ public sealed class OrderingDatabaseInitializer
                                completed_at_utc timestamptz NULL
                            );
 
+                           ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_url text NULL;
+
                            CREATE TABLE IF NOT EXISTS webhook_events (
                                provider text NOT NULL,
                                event_id text NOT NULL,

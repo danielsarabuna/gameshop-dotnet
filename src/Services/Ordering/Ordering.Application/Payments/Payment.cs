@@ -9,6 +9,6 @@ public sealed record Payment(
     PaymentStatus Status,
     string? ExternalId,
     DateTimeOffset CreatedAtUtc,
-    DateTimeOffset? CompletedAtUtc
+    DateTimeOffset? CompletedAtUtc,
+    string? CheckoutUrl = null
 );
-

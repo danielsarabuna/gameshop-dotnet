@@ -17,17 +17,21 @@ public class YooKassaPaymentProvider : IPaymentProvider
     private readonly string _secretKey;
     private readonly HttpClient _httpClient;
     private readonly IReadOnlyList<string> _trustedIps;
+    private readonly string _returnUrl;
 
     public DomainPaymentMethod Provider => DomainPaymentMethod.YooKassa;
 
     public YooKassaPaymentProvider(
         string shopId,
         string secretKey,
-        IEnumerable<string>? trustedIps = null)
+        IEnumerable<string>? trustedIps = null,
+        string? returnUrl = null)
     {
         _shopId = shopId;
         _secretKey = secretKey;
         _trustedIps = trustedIps?.ToArray() ?? [];
+        // Where the player's browser lands after paying at YooKassa.
+        _returnUrl = returnUrl ?? "https://GameShop.local/order/complete";
         _httpClient = new HttpClient();
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
         _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
@@ -39,6 +43,8 @@ public class YooKassaPaymentProvider : IPaymentProvider
         Guid orderId,
         CancellationToken cancellationToken)
     {
+        // No payment_method_data: the player picks the method on YooKassa's side.
+        // (A hardcoded type here caused 400s from the API.)
         var requestBody = new
         {
             amount = new
@@ -52,8 +58,8 @@ public class YooKassaPaymentProvider : IPaymentProvider
                     _ => "EUR"
                 }
             },
-            payment_method_data = new { type = " YooKassa" },
-            confirmation = new { type = "redirect", return_url = "https://GameShop.local/order/complete" },
+            capture = true,
+            confirmation = new { type = "redirect", return_url = _returnUrl },
             description = $"Order {orderId:D}",
             metadata = new { order_id = orderId.ToString("D") }
         };

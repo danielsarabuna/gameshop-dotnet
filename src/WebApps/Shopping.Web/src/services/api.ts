@@ -81,7 +81,8 @@ export const applyPromoCode = async (
   request: ApplyPromoRequest
 ): Promise<ApplyPromoResponse | null> => {
   try {
-    const response = await api.post<ApplyPromoResponse>('api/v1/promos/apply', request);
+    // Backend contract: POST /api/v1/promocodes/apply with { code, items }.
+    const response = await api.post<ApplyPromoResponse>('api/v1/promocodes/apply', request);
     return response.data;
   } catch {
     return null;
