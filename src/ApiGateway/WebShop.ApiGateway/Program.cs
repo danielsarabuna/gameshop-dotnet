@@ -26,8 +26,7 @@ builder.Services.AddCors(options =>
                 ? configuredOrigins
                 : ["http://localhost:5173", "http://localhost:5200", "https://localhost:5200"])
             .AllowAnyMethod()
-            .AllowAnyHeader()
-            .WithExposedHeaders("X-User-Id");
+            .AllowAnyHeader();
     });
 });
 

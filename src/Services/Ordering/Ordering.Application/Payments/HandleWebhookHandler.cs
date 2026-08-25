@@ -40,6 +40,27 @@ public sealed class HandleWebhookHandler
             return false;
         }
 
+        try
+        {
+            return await ProcessAsync(provider, request, cancellationToken);
+        }
+        catch (ArgumentException)
+        {
+            // Permanent business rejection (unknown order/status, amount mismatch):
+            // consume the slot and answer 400 so the provider stops retrying.
+            throw;
+        }
+        catch
+        {
+            // Transient failure — the effect was NOT durably applied. Release the slot
+            // so the provider's retry is not swallowed as a duplicate.
+            _idempotency.Release(provider.ToString(), request.EventId.Trim());
+            throw;
+        }
+    }
+
+    private async Task<bool> ProcessAsync(PaymentMethod provider, PaymentWebhookRequest request, CancellationToken cancellationToken)
+    {
         var order = await _orders.GetAsync(request.OrderId, cancellationToken);
         if (order is null)
         {

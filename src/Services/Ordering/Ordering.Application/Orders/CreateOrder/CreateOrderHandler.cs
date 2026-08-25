@@ -9,12 +9,18 @@ public sealed class CreateOrderHandler
     private readonly IOrderRepository _repository;
     private readonly ICatalogClient _catalog;
     private readonly IPromoCodeStore _promoCodes;
+    private readonly IPlayerIdentityVerifier _identity;
 
-    public CreateOrderHandler(IOrderRepository repository, ICatalogClient catalog, IPromoCodeStore promoCodes)
+    public CreateOrderHandler(
+        IOrderRepository repository,
+        ICatalogClient catalog,
+        IPromoCodeStore promoCodes,
+        IPlayerIdentityVerifier identity)
     {
         _repository = repository;
         _catalog = catalog;
         _promoCodes = promoCodes;
+        _identity = identity;
     }
 
     public async Task<CreateOrderResult> HandleAsync(CreateOrderRequest request, CancellationToken cancellationToken)
@@ -22,6 +28,13 @@ public sealed class CreateOrderHandler
         if (string.IsNullOrWhiteSpace(request.GameUserId))
         {
             throw new ArgumentException("GameUserId is required.", nameof(request));
+        }
+
+        // Single choke point for identity enforcement: covers the REST endpoint and
+        // event-driven order creation (BasketCheckout) alike.
+        if (!await _identity.UserExistsAsync(request.GameUserId.Trim(), cancellationToken))
+        {
+            throw new UnauthorizedAccessException("Unknown game account.");
         }
 
         if (request.Items.Count == 0)

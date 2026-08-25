@@ -16,5 +16,15 @@ public sealed class InMemoryWebhookIdempotencyStore : IWebhookIdempotencyStore
 
         return _processed.TryAdd($"{provider}:{eventId}", 0);
     }
+
+    public void Release(string provider, string eventId)
+    {
+        if (string.IsNullOrWhiteSpace(provider) || string.IsNullOrWhiteSpace(eventId))
+        {
+            return;
+        }
+
+        _processed.TryRemove($"{provider}:{eventId}", out _);
+    }
 }
 

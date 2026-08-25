@@ -89,6 +89,96 @@ public sealed class HandleWebhookHandlerTests
         Assert.Contains(orders.Outbox, m => m.Type == "supabase.order_paid.v1");
     }
 
+    [Fact]
+    public async Task Transient_failure_releases_idempotency_slot_so_provider_retry_is_not_swallowed()
+    {
+        var orderId = Guid.NewGuid();
+        var order = new Order(
+            orderId,
+            "player-1",
+            PaymentMethod.Stripe,
+            [new OrderItem(Guid.NewGuid(), "Diamonds", ProductType.Currency, 9.99m, 1, new Dictionary<string, string>())],
+            "EUR",
+            0m,
+            null,
+            DateTimeOffset.UtcNow);
+
+        var idempotency = new FakeWebhookIdempotencyStore();
+        var orders = new FlakyOrderRepository(order, failuresBeforeSuccess: 1);
+        var handler = new HandleWebhookHandler(
+            orders,
+            new FakePaymentStore(null),
+            idempotency,
+            new FakePromoCodeStore());
+
+        // First attempt: repository fails transiently AFTER the slot was reserved.
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
+            PaymentMethod.Stripe,
+            new PaymentWebhookRequest("evt_transient", orderId, Guid.NewGuid(), "succeeded"),
+            CancellationToken.None));
+        Assert.True(idempotency.Released.Contains("Stripe:evt_transient"));
+
+        // Retry (provider redelivers): now succeeds — the slot was freed.
+        var processed = await handler.HandleAsync(
+            PaymentMethod.Stripe,
+            new PaymentWebhookRequest("evt_transient", orderId, Guid.NewGuid(), "succeeded"),
+            CancellationToken.None);
+        Assert.True(processed);
+    }
+
+    [Fact]
+    public async Task Business_rejection_keeps_idempotency_slot()
+    {
+        var orderId = Guid.NewGuid();
+        var order = new Order(
+            orderId,
+            "player-1",
+            PaymentMethod.Stripe,
+            [new OrderItem(Guid.NewGuid(), "Diamonds", ProductType.Currency, 9.99m, 1, new Dictionary<string, string>())],
+            "EUR",
+            0m,
+            null,
+            DateTimeOffset.UtcNow);
+
+        var idempotency = new FakeWebhookIdempotencyStore();
+        var handler = new HandleWebhookHandler(
+            new FakeOrderRepository(order),
+            new FakePaymentStore(null),
+            idempotency,
+            new FakePromoCodeStore());
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
+            PaymentMethod.Stripe,
+            new PaymentWebhookRequest("evt_mismatch", orderId, Guid.NewGuid(), "succeeded", Amount: 1.00m, Currency: "EUR"),
+            CancellationToken.None));
+
+        Assert.Empty(idempotency.Released);
+    }
+
+    /// <summary>Repository whose GetAsync fails N times before succeeding (simulates a transient outage).</summary>
+    private sealed class FlakyOrderRepository(Order order, int failuresBeforeSuccess) : IOrderRepository
+    {
+        private int _remainingFailures = failuresBeforeSuccess;
+
+        public Task AddAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken)
+        {
+            if (_remainingFailures > 0)
+            {
+                Interlocked.Decrement(ref _remainingFailures);
+                throw new InvalidOperationException("db momentarily unavailable");
+            }
+
+            return Task.FromResult(id == order.Id ? order : null);
+        }
+
+        public Task UpdateAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task UpdateWithOutboxAsync(Order order, IReadOnlyList<OutboxMessage> outbox, CancellationToken cancellationToken)
+            => Task.CompletedTask;
+    }
+
     private sealed class FakeOrderRepository : IOrderRepository
     {
         private readonly Order _order;
@@ -150,7 +240,11 @@ public sealed class HandleWebhookHandlerTests
 
     private sealed class FakeWebhookIdempotencyStore : IWebhookIdempotencyStore
     {
+        public HashSet<string> Released { get; } = [];
+
         public bool TryBegin(string provider, string eventId) => true;
+
+        public void Release(string provider, string eventId) => Released.Add($"{provider}:{eventId}");
     }
 
     private sealed class FakePromoCodeStore : IPromoCodeStore
