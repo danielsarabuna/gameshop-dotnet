@@ -82,16 +82,25 @@ app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerV
 });
 
 // Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры (lazy fetch from Supabase)
-app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
 {
-    var config = await provider.GetOrFetchAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+    // No context params → Global config (anonymous visitor, not from the game deeplink).
+    var config = await provider.GetOrFetchAsync(
+        string.IsNullOrWhiteSpace(region) ? options.DefaultRegion : region,
+        string.IsNullOrWhiteSpace(store) ? options.DefaultStore : store,
+        string.IsNullOrWhiteSpace(gameVersion) ? options.DefaultGameVersion : gameVersion,
+        ct);
     return Results.Ok(config?.Items ?? new List<Catalog.API.Storage.CatalogItem>());
 });
 
 // Эндпоинт получения доступных провайдеров оплаты под регион и стор
-app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/payment-providers", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
 {
-    var config = await provider.GetOrFetchAsync(region ?? "russia", store ?? "ru_store", gameVersion ?? "0.0.36", ct);
+    var config = await provider.GetOrFetchAsync(
+        string.IsNullOrWhiteSpace(region) ? options.DefaultRegion : region,
+        string.IsNullOrWhiteSpace(store) ? options.DefaultStore : store,
+        string.IsNullOrWhiteSpace(gameVersion) ? options.DefaultGameVersion : gameVersion,
+        ct);
     return Results.Ok(new PaymentProviderConfig(config?.PaymentProviders ?? new List<PaymentProviderDto>()));
 });
 
@@ -100,7 +109,7 @@ app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, ICatalogStore cata
     var item = catalogStore.GetItemById(id);
     if (item is null)
     {
-        await provider.GetOrFetchAsync("russia", "ru_store", "0.0.36", ct);
+        await provider.GetOrFetchAsync("global", "global", "global", ct);
         item = catalogStore.GetItemById(id);
     }
     return item is null ? Results.NotFound() : Results.Ok(item);
