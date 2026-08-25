@@ -124,6 +124,17 @@ else
 
 builder.Services.AddHttpClient<ISupabaseOrderDelivery, SupabaseOrderDeliveryService>();
 
+// Identity verification: strict Supabase lookup when configured, permissive stub for local dev.
+var supabaseKey = builder.Configuration["Supabase:ServiceRoleKey"] ?? Environment.GetEnvironmentVariable("SUPABASE_SERVICE_ROLE_KEY");
+if (string.IsNullOrWhiteSpace(supabaseKey))
+{
+    builder.Services.AddSingleton<IPlayerIdentityVerifier>(AllowAllIdentityVerifier.Instance);
+}
+else
+{
+    builder.Services.AddHttpClient<IPlayerIdentityVerifier, Ordering.Infrastructure.Integrations.SupabaseIdentityVerifier>();
+}
+
 builder.Services.AddScoped<CreateOrderHandler>();
 builder.Services.AddScoped<ApplyPromoCodeHandler>();
 builder.Services.AddScoped<CreatePaymentHandler>();
@@ -190,9 +201,22 @@ app.MapPost("/webhooks/{provider}", HandleWebhook);
 
 await app.RunAsync();
 
-static async Task<IResult> CreateOrder(CreateOrderRequest request, HttpContext httpContext, CreateOrderHandler handler, CancellationToken cancellationToken)
+static async Task<IResult> CreateOrder(
+    CreateOrderRequest request,
+    HttpContext httpContext,
+    CreateOrderHandler handler,
+    IPlayerIdentityVerifier identity,
+    CancellationToken cancellationToken)
 {
     ValidateUserAuthorization(httpContext, request.GameUserId);
+
+    // Fail-closed identity check: the target game account must exist in the game backend
+    // (skipped only when no Supabase credentials are configured — local dev).
+    if (!await identity.UserExistsAsync(request.GameUserId.Trim(), cancellationToken))
+    {
+        return Results.Unauthorized();
+    }
+
     var result = await handler.HandleAsync(request, cancellationToken);
     return Results.Created($"/api/v1/orders/{result.OrderId}", result);
 }
