@@ -71,6 +71,17 @@ public sealed class HandleWebhookHandler
 
         if (status is "succeeded" or "paid" or "success")
         {
+            // Defense-in-depth: providers that report the charged amount must match the order
+            // exactly (protects against partial-payment and currency-swap exploits).
+            if (request.Amount is { } reportedAmount
+                && (reportedAmount != order.Total
+                    || !string.Equals(request.Currency, order.Currency, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException(
+                    $"Webhook amount {reportedAmount} {request.Currency} does not match order total {order.Total} {order.Currency}.",
+                    nameof(request));
+            }
+
             var wasPaid = order.Status == OrderStatus.Paid;
             order.MarkPaid(payment.Id.ToString("D"), DateTimeOffset.UtcNow);
             await _orders.UpdateAsync(order, cancellationToken);

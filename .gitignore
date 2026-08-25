@@ -8,5 +8,8 @@
 *.cache
 *.log
 .goal/
+.env
+.env.*
+!.env.example
 src/WebApps/Shopping.Web/dist/
 src/WebApps/Shopping.Web/node_modules/

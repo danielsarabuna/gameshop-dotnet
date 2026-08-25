@@ -51,13 +51,14 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
 
         var shopId = configuration["Payments:YooKassa:ShopId"];
         var secretKey = configuration["Payments:YooKassa:SecretKey"];
-        var yooKassaWebhookSecret = configuration["Payments:YooKassa:WebhookSecret"];
+        var yooKassaTrustedIps = configuration["Payments:YooKassa:TrustedIps"]?
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         if (!string.IsNullOrEmpty(shopId) &&
             !string.IsNullOrEmpty(secretKey) &&
             shopId != "placeholder" &&
             secretKey != "placeholder")
         {
-            _providers[DomainPaymentMethod.YooKassa] = new YooKassaPaymentProvider(shopId, secretKey, yooKassaWebhookSecret);
+            _providers[DomainPaymentMethod.YooKassa] = new YooKassaPaymentProvider(shopId, secretKey, yooKassaTrustedIps);
         }
 
         var corvusPayStoreId = configuration["Payments:CorvusPay:StoreId"];
