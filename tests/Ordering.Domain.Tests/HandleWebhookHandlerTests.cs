@@ -116,7 +116,7 @@ public sealed class HandleWebhookHandlerTests
             PaymentMethod.Stripe,
             new PaymentWebhookRequest("evt_transient", orderId, Guid.NewGuid(), "succeeded"),
             CancellationToken.None));
-        Assert.True(idempotency.Released.Contains("Stripe:evt_transient"));
+        Assert.Contains("Stripe:evt_transient", idempotency.Released);
 
         // Retry (provider redelivers): now succeeds — the slot was freed.
         var processed = await handler.HandleAsync(
