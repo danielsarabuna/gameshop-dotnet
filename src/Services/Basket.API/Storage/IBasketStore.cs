@@ -7,7 +7,7 @@ public interface IBasketStore
     void Delete(string userId);
 }
 
-public sealed record Basket(string UserId, IReadOnlyList<BasketItem> Items);
+public sealed record Basket(string UserId, string Currency, IReadOnlyList<BasketItem> Items);
 
 public sealed record BasketItem(
     Guid ProductId,

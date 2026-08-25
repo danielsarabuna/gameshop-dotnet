@@ -7,6 +7,7 @@ using EventBus;
 using EventBus.RabbitMq;
 using Grpc.Core;
 using IntegrationEvents;
+using BuildingBlocks.Auth;
 using Logging;
 using ShoppingBasket = Basket.API.Storage.Basket;
 
@@ -16,6 +17,7 @@ builder.Logging.AddWebShopLogging("Basket");
 builder.Services.AddWebShopTracing(builder.Configuration, "Basket");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Basket");
 builder.Services.AddCustomExceptionHandler();
+builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
 
 var basketHealth = builder.Services.AddHealthChecks();
 if (string.Equals(builder.Configuration["Basket:Storage"], "Redis", StringComparison.OrdinalIgnoreCase)
@@ -65,11 +67,14 @@ builder.Services.AddGrpcClient<CatalogInternal.CatalogInternalClient>(options =>
     options.Address = new Uri(grpcUrl);
 });
 
+builder.Services.AddSingleton<IBasketCatalogClient, GrpcBasketCatalogClient>();
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
+app.UseWebShopAuth();
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
@@ -78,8 +83,8 @@ app.MapGet("/api/v1/basket/{userId}", (string userId, HttpContext httpContext, I
 {
     ValidateUserAuthorization(httpContext, userId);
 
-    var basket = store.Get(userId) ?? new ShoppingBasket(userId, []);
-    return Results.Ok(basket);
+    var basket = store.Get(userId);
+    return Results.Ok(basket ?? new ShoppingBasket(userId, "USD", []));
 });
 
 app.MapPut("/api/v1/basket/{userId}", async (
@@ -87,7 +92,7 @@ app.MapPut("/api/v1/basket/{userId}", async (
     UpdateBasketRequest request,
     HttpContext httpContext,
     IBasketStore store,
-    CatalogInternal.CatalogInternalClient catalogGrpcClient,
+    IBasketCatalogClient catalog,
     CancellationToken cancellationToken) =>
 {
     ValidateUserAuthorization(httpContext, userId);
@@ -98,6 +103,7 @@ app.MapPut("/api/v1/basket/{userId}", async (
     }
 
     var validatedItems = new List<BasketItem>();
+    string? basketCurrency = null;
 
     foreach (var item in request.Items)
     {
@@ -106,42 +112,42 @@ app.MapPut("/api/v1/basket/{userId}", async (
             return Results.BadRequest(new { error = $"Quantity for product '{item.Title}' must be positive." });
         }
 
+        BasketProduct? product;
         try
         {
-            var product = await catalogGrpcClient.GetProductAsync(
-                new GetProductRequest { Id = item.ProductId.ToString("D") },
-                cancellationToken: cancellationToken);
-
-            if (product is null || !product.IsActive)
-            {
-                return Results.BadRequest(new { error = $"Product '{item.Title}' is no longer active or available." });
-            }
-
-            var actualPrice = decimal.Parse(product.Price, CultureInfo.InvariantCulture);
-
-            // Overwrite UnitPrice with actual price from Catalog to prevent price tampering
-            validatedItems.Add(new BasketItem(
-                item.ProductId,
-                product.Title,
-                actualPrice,
-                item.Quantity));
+            product = await catalog.GetProductAsync(item.ProductId, cancellationToken);
         }
-        catch (RpcException ex) when (ex.StatusCode == StatusCode.NotFound)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return Results.BadRequest(new { error = $"Product ID '{item.ProductId}' not found in catalog." });
+            // Fail-closed: without the catalog we cannot verify price/availability.
+            // Trusting client-supplied prices here would allow tampering during outages.
+            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
         }
-        catch (Exception ex)
+
+        if (product is null || !product.IsActive)
         {
-            // If Catalog gRPC is temporarily unreachable, keep client item if valid
-            if (item.UnitPrice < 0)
-            {
-                return Results.BadRequest(new { error = "Unit price cannot be negative." });
-            }
-            validatedItems.Add(item);
+            return Results.BadRequest(new { error = $"Product '{item.Title}' is no longer active or available." });
+        }
+
+        // Overwrite UnitPrice with actual price from Catalog to prevent price tampering.
+        validatedItems.Add(new BasketItem(
+            product.Id,
+            product.Title,
+            product.Price,
+            item.Quantity));
+
+        // Single-currency baskets only — mixed currencies cannot check out coherently.
+        if (basketCurrency is null)
+        {
+            basketCurrency = product.Currency;
+        }
+        else if (!string.Equals(basketCurrency, product.Currency, StringComparison.OrdinalIgnoreCase))
+        {
+            return Results.BadRequest(new { error = "All products in the basket must use the same currency." });
         }
     }
 
-    var basket = new ShoppingBasket(userId, validatedItems);
+    var basket = new ShoppingBasket(userId, basketCurrency ?? "USD", validatedItems);
     store.Upsert(basket);
     return Results.Ok(basket);
 });
@@ -180,7 +186,7 @@ app.MapPost("/api/v1/basket/checkout", async (
         UserId: request.UserId,
         Items: basket.Items.Select(i => new BasketCheckoutItem(i.ProductId, i.Title, i.UnitPrice, i.Quantity)).ToList(),
         Total: basket.Items.Sum(i => i.UnitPrice * i.Quantity),
-        Currency: "USD"
+        Currency: string.IsNullOrWhiteSpace(basket.Currency) ? "USD" : basket.Currency
     );
 
     await eventBus.PublishAsync(checkoutEvent, cancellationToken);

@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../BuildingBlocks/Auth/Auth.csproj" />
     <ProjectReference Include="../../BuildingBlocks/Logging/Logging.csproj" />
     <ProjectReference Include="../../BuildingBlocks/Exceptions/Exceptions.csproj" />
   </ItemGroup>

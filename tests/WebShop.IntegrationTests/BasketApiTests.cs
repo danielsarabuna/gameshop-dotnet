@@ -4,11 +4,11 @@ using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace WebShop.IntegrationTests;
 
-public sealed class BasketApiTests : IClassFixture<WebApplicationFactory<Basket.API.Program>>
+public sealed class BasketApiTests : IClassFixture<SeededBasketFactory>
 {
-    private readonly WebApplicationFactory<Basket.API.Program> _factory;
+    private readonly SeededBasketFactory _factory;
 
-    public BasketApiTests(WebApplicationFactory<Basket.API.Program> factory)
+    public BasketApiTests(SeededBasketFactory factory)
     {
         _factory = factory;
     }
@@ -56,7 +56,9 @@ public sealed class BasketApiTests : IClassFixture<WebApplicationFactory<Basket.
         var basket = await get.Content.ReadFromJsonAsync<BasketDto>();
         Assert.NotNull(basket);
         Assert.Single(basket!.Items);
+        // Price is overwritten by the catalog (client sent 4.99, catalog says 1.99).
         Assert.Equal(2, basket.Items[0].Quantity);
+        Assert.Equal("EUR", basket.Currency);
     }
 
     [Fact]
@@ -83,7 +85,7 @@ public sealed class BasketApiTests : IClassFixture<WebApplicationFactory<Basket.
 
     private sealed record BasketItemDto(Guid ProductId, string Title, decimal UnitPrice, int Quantity);
 
-    private sealed record BasketDto(string UserId, List<BasketItemDto> Items);
+    private sealed record BasketDto(string UserId, string? Currency, List<BasketItemDto> Items);
 
     private sealed record UpdateBasketPayload(IReadOnlyList<BasketItemDto> Items);
 }
