@@ -49,7 +49,7 @@ public class XsollaPaymentProvider : IPaymentProvider
             {
                 currency = currency.ToUpperInvariant(),
                 language = "en",
-                return_url = _returnUrl
+                return_url = $"{_returnUrl}?order_id={orderId:D}"
             },
             purchase = new
             {

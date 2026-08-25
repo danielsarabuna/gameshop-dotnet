@@ -59,7 +59,7 @@ public class YooKassaPaymentProvider : IPaymentProvider
                 }
             },
             capture = true,
-            confirmation = new { type = "redirect", return_url = _returnUrl },
+            confirmation = new { type = "redirect", return_url = $"{_returnUrl}?order_id={orderId:D}" },
             description = $"Order {orderId:D}",
             metadata = new { order_id = orderId.ToString("D") }
         };
