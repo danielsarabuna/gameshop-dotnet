@@ -65,7 +65,7 @@ const FALLBACK_PLANS: SubPlan[] = [
 
 export const Subscription: React.FC = () => {
   const { t } = useLanguage();
-  const { addItem, openCartDrawer } = useCart();
+  const { addItem, openCartDrawer, reconcile } = useCart();
   const { region, storeChannel, gameVersion } = useAuth();
   const [catalogItems, setCatalogItems] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +78,8 @@ export const Subscription: React.FC = () => {
       if (items !== null) {
         setIsBackendConnected(true);
         setCatalogItems(items.filter((i) => i.type === 'Subscription'));
+        // Identity-driven context switch: re-price cart lines against the new config.
+        reconcile(items);
       } else {
         // Backend offline / unavailable
         setIsBackendConnected(false);
@@ -88,7 +90,8 @@ export const Subscription: React.FC = () => {
 
   useEffect(() => {
     fetchPlans();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [region, storeChannel, gameVersion]);
 
   const plans = React.useMemo<SubPlan[]>(() => {
     const rawPlans = (isBackendConnected === false || catalogItems === null)
