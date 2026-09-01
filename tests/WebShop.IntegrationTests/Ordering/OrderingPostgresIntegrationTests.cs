@@ -1,11 +1,15 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 using Ordering.Application.Abstractions;
 using Ordering.Application.Orders.CreateOrder;
+using Ordering.Application.Payments;
 using Ordering.Domain.Payments;
 using Ordering.Domain.Products;
+using Ordering.Infrastructure.Persistence;
 
 namespace WebShop.IntegrationTests.OrderingApi;
 
@@ -175,5 +179,159 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
             CancellationToken.None);
 
         Assert.Equal(8.22m, result.Total);
+    }
+
+    [SkippableFact]
+    public async Task Concurrent_payment_reservations_create_one_database_row()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var orderId = Guid.NewGuid();
+        using var scope = _factory!.Services.CreateScope();
+        var payments = scope.ServiceProvider.GetRequiredService<IPaymentStore>();
+        var attempts = Enumerable.Range(0, 20).Select(_ => payments.GetOrAddAsync(
+            new Payment(Guid.NewGuid(), orderId, PaymentMethod.Stripe, PaymentStatus.Pending, null, DateTimeOffset.UtcNow, null),
+            CancellationToken.None));
+
+        var reservations = await Task.WhenAll(attempts);
+
+        Assert.Single(reservations.Select(result => result.Payment.Id).Distinct());
+        Assert.Single(reservations, result => result.Created);
+        await using var connection = new NpgsqlConnection(_fixture.ConnectionString);
+        Assert.Equal(1, await ScalarAsync<int>(connection,
+            "SELECT count(*) FROM payments WHERE order_id = @orderId AND provider = @provider",
+            ("orderId", orderId), ("provider", (int)PaymentMethod.Stripe)));
+    }
+
+    [SkippableFact]
+    public async Task Concurrent_orders_cannot_overspend_promo_limit()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var code = $"ONCE{Guid.NewGuid():N}"[..20];
+        await using (var connection = new NpgsqlConnection(_fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(
+                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 1, 10, 'EUR', 1, 0)",
+                connection);
+            command.Parameters.AddWithValue("code", code);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var payload = new
+        {
+            gameUserId = "promo-race-user",
+            paymentMethod = "Stripe",
+            items = new[] { new { productId = DiamondPackId, quantity = 1 } },
+            promoCode = code
+        };
+        var client = _factory!.CreateClient();
+        var responses = await Task.WhenAll(
+            client.PostAsJsonAsync("/api/v1/orders/create", payload),
+            client.PostAsJsonAsync("/api/v1/orders/create", payload));
+
+        Assert.Single(responses, response => response.IsSuccessStatusCode);
+        Assert.Single(responses, response => response.StatusCode == System.Net.HttpStatusCode.BadRequest);
+        await using var verify = new NpgsqlConnection(_fixture.ConnectionString);
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT used_count FROM promo_codes WHERE code = @code", ("code", code)));
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT count(*) FROM promo_redemptions WHERE code = @code", ("code", code)));
+    }
+
+    [SkippableFact]
+    public async Task Successful_webhook_commits_payment_order_event_promo_and_outbox_together()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var code = $"PAY{Guid.NewGuid():N}"[..20];
+        await using (var connection = new NpgsqlConnection(_fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(
+                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 1, 10, 'EUR', 1, 0)",
+                connection);
+            command.Parameters.AddWithValue("code", code);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var create = await _factory!.CreateClient().PostAsJsonAsync("/api/v1/orders/create", new
+        {
+            gameUserId = "atomic-webhook-user",
+            paymentMethod = "Stripe",
+            items = new[] { new { productId = DiamondPackId, quantity = 1 } },
+            promoCode = code
+        });
+        create.EnsureSuccessStatusCode();
+        var body = await create.Content.ReadFromJsonAsync<JsonElement>();
+        var orderId = body.GetProperty("orderId").GetGuid();
+        Assert.Equal(0.12m, body.GetProperty("discountAmount").GetDecimal());
+        Assert.Equal(1.11m, body.GetProperty("total").GetDecimal());
+        var eventId = $"evt_{Guid.NewGuid():N}";
+
+        using var scope = _factory.Services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<HandleWebhookHandler>();
+        Assert.True(await handler.HandleAsync(
+            PaymentMethod.Stripe,
+            new PaymentWebhookRequest(eventId, orderId, Guid.NewGuid(), "succeeded", 1.11m, "EUR"),
+            CancellationToken.None));
+
+        await using var verify = new NpgsqlConnection(_fixture.ConnectionString);
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT status FROM orders WHERE id = @id", ("id", orderId)));
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT status FROM payments WHERE order_id = @id", ("id", orderId)));
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT count(*) FROM webhook_events WHERE event_id = @event", ("event", eventId)));
+        Assert.Equal(1, await ScalarAsync<int>(verify, "SELECT status FROM promo_redemptions WHERE order_id = @id", ("id", orderId)));
+        Assert.Equal(2, await ScalarAsync<int>(verify, "SELECT count(*) FROM outbox_events WHERE payload->>'orderId' = @id", ("id", orderId.ToString())));
+    }
+
+    [SkippableFact]
+    public async Task Outbox_lease_blocks_second_dispatcher_until_retry_releases_it()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var messageId = Guid.NewGuid();
+        await using (var connection = new NpgsqlConnection(_fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(
+                "INSERT INTO outbox_events (id, type, payload) VALUES (@id, 'lease-test', '{}'::jsonb)",
+                connection);
+            command.Parameters.AddWithValue("id", messageId);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        using var scope = _factory!.Services.CreateScope();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var environment = scope.ServiceProvider.GetRequiredService<IHostEnvironment>();
+        var first = new PostgresOutboxStore(configuration, environment);
+        var second = new PostgresOutboxStore(configuration, environment);
+        var firstClaim = await first.ClaimBatchAsync(100, CancellationToken.None);
+        var message = Assert.Single(firstClaim, item => item.Id == messageId);
+
+        Assert.DoesNotContain(await second.ClaimBatchAsync(100, CancellationToken.None), item => item.Id == messageId);
+        await first.RetryAsync(message, TimeSpan.Zero, "test retry", CancellationToken.None);
+        var reclaimed = Assert.Single(await second.ClaimBatchAsync(100, CancellationToken.None), item => item.Id == messageId);
+        await second.DeadLetterAsync(reclaimed, "poison test", CancellationToken.None);
+
+        await using var verify = new NpgsqlConnection(_fixture.ConnectionString);
+        Assert.Equal(1, await ScalarAsync<int>(verify,
+            "SELECT count(*) FROM outbox_events WHERE id = @id AND dead_lettered_at_utc IS NOT NULL AND last_error = 'poison test'",
+            ("id", messageId)));
+    }
+
+    private static async Task<T> ScalarAsync<T>(NpgsqlConnection connection, string sql, params (string Name, object Value)[] parameters)
+    {
+        if (connection.State != System.Data.ConnectionState.Open)
+        {
+            await connection.OpenAsync();
+        }
+
+        await using var command = new NpgsqlCommand(sql, connection);
+        foreach (var (name, value) in parameters)
+        {
+            command.Parameters.AddWithValue(name, value);
+        }
+
+        var result = await command.ExecuteScalarAsync();
+        return (T)Convert.ChangeType(result!, typeof(T), System.Globalization.CultureInfo.InvariantCulture);
     }
 }

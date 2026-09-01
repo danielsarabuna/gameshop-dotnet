@@ -12,9 +12,10 @@ public sealed class MockPaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
-        var mockExternalId = $"mock_tx_{Guid.NewGuid():N}";
+        var mockExternalId = $"mock_tx_{orderId:N}";
         var mockCheckoutUrl = $"/order/mock-checkout?orderId={orderId}&tx={mockExternalId}";
 
         return Task.FromResult(new PaymentIntentResult(

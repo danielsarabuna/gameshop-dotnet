@@ -3,7 +3,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -26,19 +25,50 @@ namespace BuildingBlocks.Auth;
 public static class JwtAuthExtensions
 {
     private const string DisabledAuthenticationScheme = "WebShopDisabled";
+    public const string CompositeAuthenticationScheme = "WebShopJwt";
+    public const string GameTicketAuthenticationScheme = "GameTicketJwt";
+    public const string KeycloakAuthenticationScheme = "KeycloakJwt";
     public const string GameSessionPolicy = "webshop-game-session";
 
     public static IServiceCollection AddWebShopJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
         var authEnabled = configuration.GetValue<bool>("Auth:Enabled");
-
         var gameTicketOptions = configuration.GetSection(GameTicketJwtOptions.SectionName).Get<GameTicketJwtOptions>() ?? new();
-        if (authEnabled && !string.IsNullOrWhiteSpace(gameTicketOptions.PublicKeyPemBase64))
+        var hasGameTickets = authEnabled && !string.IsNullOrWhiteSpace(gameTicketOptions.PublicKeyPemBase64);
+        var authority = configuration["Auth:Authority"];
+        var audience = configuration["Auth:Audience"];
+        var hasKeycloak = authEnabled && !string.IsNullOrWhiteSpace(authority) && !string.IsNullOrWhiteSpace(audience);
+        var defaultScheme = hasGameTickets && hasKeycloak
+            ? CompositeAuthenticationScheme
+            : hasGameTickets
+                ? GameTicketAuthenticationScheme
+                : KeycloakAuthenticationScheme;
+
+        if (authEnabled && !hasGameTickets && !hasKeycloak)
         {
-            var rsa = RSA.Create();
-            rsa.ImportFromPem(GameTicketPem.Decode(gameTicketOptions.PublicKeyPemBase64));
-            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            throw new InvalidOperationException(
+                "Auth:Enabled=true requires either GameTicketJwt:PublicKeyPemBase64 or Auth:Authority plus Auth:Audience.");
+        }
+
+        if (authEnabled)
+        {
+            var authentication = services.AddAuthentication(defaultScheme);
+
+            if (hasGameTickets && hasKeycloak)
+            {
+                authentication.AddPolicyScheme(CompositeAuthenticationScheme, CompositeAuthenticationScheme, options =>
+                {
+                    options.ForwardDefaultSelector = context => SelectJwtScheme(
+                        context.Request.Headers.Authorization.ToString(),
+                        gameTicketOptions.Issuer);
+                });
+            }
+
+            if (hasGameTickets)
+            {
+                var rsa = RSA.Create();
+                rsa.ImportFromPem(GameTicketPem.Decode(gameTicketOptions.PublicKeyPemBase64));
+                authentication.AddJwtBearer(GameTicketAuthenticationScheme, options =>
                 {
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
@@ -52,31 +82,24 @@ public static class JwtAuthExtensions
                         ClockSkew = TimeSpan.FromSeconds(30)
                     };
                 });
-        }
-        else if (authEnabled)
-        {
-            var authority = configuration["Auth:Authority"]
-                ?? throw new InvalidOperationException("Auth:Enabled=true but Auth:Authority is missing.");
-            var audience = configuration["Auth:Audience"]
-                ?? throw new InvalidOperationException("Auth:Enabled=true but Auth:Audience is missing.");
-            var requireHttpsMetadata = configuration.GetValue("Auth:RequireHttpsMetadata", false);
-
-            var validIssuers = new List<string> { authority.TrimEnd('/') };
-            foreach (var issuer in configuration.GetSection("Auth:ValidIssuers").Get<string[]>() ?? Array.Empty<string>())
-            {
-                if (!string.IsNullOrWhiteSpace(issuer))
-                {
-                    validIssuers.Add(issuer.TrimEnd('/'));
-                }
             }
 
-            services
-                .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-                .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            if (hasKeycloak)
+            {
+                var validIssuers = new List<string> { authority!.TrimEnd('/') };
+                foreach (var issuer in configuration.GetSection("Auth:ValidIssuers").Get<string[]>() ?? [])
+                {
+                    if (!string.IsNullOrWhiteSpace(issuer))
+                    {
+                        validIssuers.Add(issuer.TrimEnd('/'));
+                    }
+                }
+
+                authentication.AddJwtBearer(KeycloakAuthenticationScheme, options =>
                 {
                     options.Authority = authority;
                     options.Audience = audience;
-                    options.RequireHttpsMetadata = requireHttpsMetadata;
+                    options.RequireHttpsMetadata = configuration.GetValue("Auth:RequireHttpsMetadata", false);
                     options.TokenValidationParameters = new TokenValidationParameters
                     {
                         ValidateIssuer = true,
@@ -87,6 +110,7 @@ public static class JwtAuthExtensions
                         ClockSkew = TimeSpan.FromSeconds(30)
                     };
                 });
+            }
         }
         else
         {
@@ -102,7 +126,7 @@ public static class JwtAuthExtensions
             // Fail-closed default: when auth is enabled, every endpoint without explicit
             // [AllowAnonymous] requires an authenticated user (webhooks opt out explicitly).
             var policy = authEnabled
-                ? new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+                ? new AuthorizationPolicyBuilder(defaultScheme)
                     .RequireAuthenticatedUser()
                     .Build()
                 : new AuthorizationPolicyBuilder()
@@ -119,6 +143,26 @@ public static class JwtAuthExtensions
         });
 
         return services;
+    }
+
+    private static string SelectJwtScheme(string authorizationHeader, string gameTicketIssuer)
+    {
+        const string bearerPrefix = "Bearer ";
+        if (!authorizationHeader.StartsWith(bearerPrefix, StringComparison.OrdinalIgnoreCase))
+        {
+            return KeycloakAuthenticationScheme;
+        }
+
+        var token = authorizationHeader[bearerPrefix.Length..].Trim();
+        var handler = new JwtSecurityTokenHandler();
+        if (!handler.CanReadToken(token))
+        {
+            return KeycloakAuthenticationScheme;
+        }
+
+        return string.Equals(handler.ReadJwtToken(token).Issuer, gameTicketIssuer, StringComparison.Ordinal)
+            ? GameTicketAuthenticationScheme
+            : KeycloakAuthenticationScheme;
     }
 
     public static IServiceCollection AddGameTicketTokenIssuer(this IServiceCollection services, IConfiguration configuration)

@@ -41,6 +41,7 @@ public class XsollaPaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
         var requestBody = new
@@ -65,11 +66,11 @@ public class XsollaPaymentProvider : IPaymentProvider
                 order_id = orderId.ToString("D")
             }
         };
-
         var request = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v3/project/{_projectId}/admin/payment/token")
         {
             Content = JsonContent.Create(requestBody)
         };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);
         var content = await response.Content.ReadAsStringAsync(cancellationToken);

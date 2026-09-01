@@ -35,6 +35,7 @@ public class StripePaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
         // A bare PaymentIntent has NO payable URL; the redirect model requires a
@@ -67,7 +68,7 @@ public class StripePaymentProvider : IPaymentProvider
                     }
                 }
             ]
-        }, cancellationToken: cancellationToken);
+        }, new RequestOptions { IdempotencyKey = idempotencyKey }, cancellationToken);
 
         return new PaymentIntentResult(
             ExternalId: session.Id,

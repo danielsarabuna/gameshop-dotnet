@@ -37,13 +37,24 @@ public sealed class CreatePaymentHandler
             await _orders.UpdateAsync(order, cancellationToken);
         }
 
-        var existing = await _payments.GetByOrderAsync(orderId, provider, cancellationToken);
-        if (existing is not null && !string.IsNullOrEmpty(existing.ExternalId))
+        var reservation = await _payments.GetOrAddAsync(new Payment(
+            Id: Guid.NewGuid(),
+            OrderId: orderId,
+            Provider: provider,
+            Status: PaymentStatus.Pending,
+            ExternalId: null,
+            CreatedAtUtc: DateTimeOffset.UtcNow,
+            CompletedAtUtc: null), cancellationToken);
+
+        if (!string.IsNullOrEmpty(reservation.Payment.ExternalId))
         {
-            // Idempotent re-entry (double click / page reload): hand back the SAME
-            // payment with its real hosted-checkout URL, never a fabricated link.
-            return new CreatePaymentResult(existing.Id, existing.Provider, existing.Status,
-                string.IsNullOrWhiteSpace(existing.CheckoutUrl) ? BuildCheckoutUrl(existing) : existing.CheckoutUrl);
+            return new CreatePaymentResult(
+                reservation.Payment.Id,
+                reservation.Payment.Provider,
+                reservation.Payment.Status,
+                string.IsNullOrWhiteSpace(reservation.Payment.CheckoutUrl)
+                    ? BuildCheckoutUrl(reservation.Payment)
+                    : reservation.Payment.CheckoutUrl);
         }
 
         var paymentProvider = _providerAccessor.GetProvider(provider)
@@ -53,20 +64,17 @@ public sealed class CreatePaymentHandler
             order.Total,
             order.Currency,
             orderId,
+            $"payment:{provider}:{orderId:D}",
             cancellationToken);
 
-        var payment = new Payment(
-            Id: Guid.NewGuid(),
-            OrderId: orderId,
-            Provider: provider,
-            Status: intentResult.Status,
-            ExternalId: intentResult.ExternalId,
-            CreatedAtUtc: DateTimeOffset.UtcNow,
-            CompletedAtUtc: null,
-            CheckoutUrl: intentResult.CheckoutUrl
-        );
+        var payment = reservation.Payment with
+        {
+            Status = intentResult.Status,
+            ExternalId = intentResult.ExternalId,
+            CheckoutUrl = intentResult.CheckoutUrl
+        };
 
-        await _payments.AddAsync(payment, cancellationToken);
+        await _payments.UpdateAsync(payment, cancellationToken);
 
         return new CreatePaymentResult(payment.Id, payment.Provider, payment.Status, intentResult.CheckoutUrl);
     }

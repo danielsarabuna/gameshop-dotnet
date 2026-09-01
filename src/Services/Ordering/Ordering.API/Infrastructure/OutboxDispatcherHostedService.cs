@@ -60,16 +60,6 @@ public sealed class OutboxDispatcherHostedService(
         var messages = await store.ClaimBatchAsync(BatchSize, cancellationToken);
         foreach (var message in messages)
         {
-            if (message.Attempts >= OutboxBackoff.PoisonThreshold)
-            {
-                logger.LogError(
-                    "Outbox message {MessageId} ({MessageType}) exceeded {Threshold} attempts and is parked. " +
-                    "Inspect outbox_events and replay manually.",
-                    message.Id, message.Type, OutboxBackoff.PoisonThreshold);
-                await store.AckAsync(message, cancellationToken);
-                continue;
-            }
-
             try
             {
                 await ProcessAsync(scope.ServiceProvider, message, cancellationToken);
@@ -77,9 +67,18 @@ public sealed class OutboxDispatcherHostedService(
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
+                if (message.Attempts >= OutboxBackoff.PoisonThreshold)
+                {
+                    logger.LogError(ex,
+                        "Outbox message {MessageId} ({MessageType}) failed {Threshold} times and was dead-lettered.",
+                        message.Id, message.Type, OutboxBackoff.PoisonThreshold);
+                    await store.DeadLetterAsync(message, ex.Message, cancellationToken);
+                    continue;
+                }
+
                 logger.LogWarning(ex, "Outbox message {MessageId} ({MessageType}) failed (attempt {Attempt}).",
                     message.Id, message.Type, message.Attempts);
-                await store.RetryAsync(message, OutboxBackoff.Next(message.Attempts), cancellationToken);
+                await store.RetryAsync(message, OutboxBackoff.Next(message.Attempts), ex.Message, cancellationToken);
             }
         }
     }
@@ -103,8 +102,7 @@ public sealed class OutboxDispatcherHostedService(
                     break;
                 }
             default:
-                // Unknown type: ack so it does not clog the queue.
-                break;
+                throw new InvalidOperationException($"Unknown outbox message type '{message.Type}'.");
         }
     }
 }

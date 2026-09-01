@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using Ordering.Application.Abstractions;
 
 namespace WebShop.IntegrationTests.OrderingApi;
@@ -34,6 +36,7 @@ public sealed class OrderingPostgresFactory : WebApplicationFactory<global::Orde
 
         builder.ConfigureServices(services =>
         {
+            services.RemoveAll<IHostedService>();
             var existing = services
                 .Where(s => s.ServiceType == typeof(ICatalogClient))
                 .ToList();
