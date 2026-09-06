@@ -9,3 +9,9 @@ public interface IPromoCodeStore
     /// <summary>Atomically consumes one use of the code; false when unknown, inactive or exhausted.</summary>
     Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken);
 }
+
+/// <summary>Releases expired pending-order promo reservations.</summary>
+public interface IPromoReservationMaintenanceStore
+{
+    Task<int> ReleaseExpiredAsync(CancellationToken cancellationToken);
+}

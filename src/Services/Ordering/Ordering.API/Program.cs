@@ -42,6 +42,8 @@ if (usePostgres)
     builder.Services.AddSingleton<IPaymentStore, PostgresPaymentStore>();
     builder.Services.AddSingleton<IPaymentWebhookStore, PostgresPaymentWebhookStore>();
     builder.Services.AddSingleton<IPromoCodeStore, PostgresPromoCodeStore>();
+    builder.Services.AddSingleton<IPromoReservationMaintenanceStore>(sp =>
+        (PostgresPromoCodeStore)sp.GetRequiredService<IPromoCodeStore>());
     builder.Services.AddSingleton<OrderingDatabaseInitializer>();
 }
 else
@@ -169,6 +171,10 @@ builder.Services.AddCustomExceptionHandler();
 
 // Outbox: deferred side effects (event publication + Supabase delivery) drained with retries.
 builder.Services.AddHostedService<Ordering.API.Infrastructure.OutboxDispatcherHostedService>();
+if (usePostgres)
+{
+    builder.Services.AddHostedService<Ordering.API.Infrastructure.PromoReservationCleanupHostedService>();
+}
 
 var app = builder.Build();
 
