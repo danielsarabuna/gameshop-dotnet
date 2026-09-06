@@ -113,12 +113,21 @@ public sealed class OrderingDatabaseInitializer
                                code text NOT NULL REFERENCES promo_codes(code),
                                status int NOT NULL DEFAULT 0,
                                reserved_at_utc timestamptz NOT NULL DEFAULT now(),
+                               expires_at_utc timestamptz NOT NULL DEFAULT now() + interval '30 minutes',
                                consumed_at_utc timestamptz NULL,
                                released_at_utc timestamptz NULL
                            );
 
+                           ALTER TABLE promo_redemptions ADD COLUMN IF NOT EXISTS expires_at_utc timestamptz NULL;
+                           UPDATE promo_redemptions
+                           SET expires_at_utc = reserved_at_utc + interval '30 minutes'
+                           WHERE expires_at_utc IS NULL AND status = 0;
+
                            CREATE INDEX IF NOT EXISTS ix_promo_redemptions_code_status
                                ON promo_redemptions (code, status);
+                           CREATE INDEX IF NOT EXISTS ix_promo_redemptions_expiry
+                               ON promo_redemptions (expires_at_utc)
+                               WHERE status = 0;
                            """;
 
         await using var connection = new NpgsqlConnection(_connectionString);

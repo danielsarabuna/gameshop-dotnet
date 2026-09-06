@@ -239,6 +239,52 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
     }
 
     [SkippableFact]
+    public async Task Expired_promo_reservation_is_released_and_fails_the_abandoned_order()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var code = $"TTL{Guid.NewGuid():N}"[..20];
+        await using (var connection = new NpgsqlConnection(_fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(
+                "INSERT INTO promo_codes (code, type, value, currency, max_uses, used_count) VALUES (@code, 1, 10, 'EUR', 1, 0)",
+                connection);
+            command.Parameters.AddWithValue("code", code);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        var create = await _factory!.CreateClient().PostAsJsonAsync("/api/v1/orders/create", new
+        {
+            gameUserId = "expired-promo-user",
+            paymentMethod = "Stripe",
+            items = new[] { new { productId = DiamondPackId, quantity = 1 } },
+            promoCode = code
+        });
+        create.EnsureSuccessStatusCode();
+        var orderId = (await create.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("orderId").GetGuid();
+
+        await using (var connection = new NpgsqlConnection(_fixture.ConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var command = new NpgsqlCommand(
+                "UPDATE promo_redemptions SET expires_at_utc = now() - interval '1 second' WHERE order_id = @id",
+                connection);
+            command.Parameters.AddWithValue("id", orderId);
+            await command.ExecuteNonQueryAsync();
+        }
+
+        using var scope = _factory.Services.CreateScope();
+        var maintenance = scope.ServiceProvider.GetRequiredService<IPromoReservationMaintenanceStore>();
+        Assert.Equal(1, await maintenance.ReleaseExpiredAsync(CancellationToken.None));
+
+        await using var verify = new NpgsqlConnection(_fixture.ConnectionString);
+        Assert.Equal(0, await ScalarAsync<int>(verify, "SELECT used_count FROM promo_codes WHERE code = @code", ("code", code)));
+        Assert.Equal(2, await ScalarAsync<int>(verify, "SELECT status FROM promo_redemptions WHERE order_id = @id", ("id", orderId)));
+        Assert.Equal(2, await ScalarAsync<int>(verify, "SELECT status FROM orders WHERE id = @id", ("id", orderId)));
+    }
+
+    [SkippableFact]
     public async Task Successful_webhook_commits_payment_order_event_promo_and_outbox_together()
     {
         Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");

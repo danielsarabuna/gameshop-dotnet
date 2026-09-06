@@ -134,12 +134,21 @@ public static class JwtAuthExtensions
                     .Build();
             options.DefaultPolicy = policy;
             options.FallbackPolicy = policy;
-            options.AddPolicy(GameSessionPolicy, gamePolicy => gamePolicy.RequireAssertion(context =>
-                !authEnabled
-                || !string.Equals(
-                    context.User.FindFirst("webshop_session")?.Value,
-                    "recipient",
-                    StringComparison.OrdinalIgnoreCase)));
+            options.AddPolicy(GameSessionPolicy, gamePolicy =>
+            {
+                if (authEnabled)
+                {
+                    gamePolicy.AddAuthenticationSchemes(defaultScheme);
+                    gamePolicy.RequireAuthenticatedUser();
+                }
+
+                gamePolicy.RequireAssertion(context =>
+                    !authEnabled
+                    || !string.Equals(
+                        context.User.FindFirst("webshop_session")?.Value,
+                        "recipient",
+                        StringComparison.OrdinalIgnoreCase));
+            });
         });
 
         return services;
