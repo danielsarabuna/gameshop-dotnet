@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Ordering.Application.Payments;
@@ -20,14 +21,14 @@ public class PayPalPaymentProvider : IPaymentProvider
 
     public DomainPaymentMethod Provider => DomainPaymentMethod.PayPal;
 
-    public PayPalPaymentProvider(string clientId, string clientSecret, string mode = "sandbox", string? webhookSecret = null)
+    public PayPalPaymentProvider(string clientId, string clientSecret, string mode = "sandbox", string? webhookSecret = null, HttpClient? httpClient = null)
     {
         _clientId = clientId;
         _clientSecret = clientSecret;
         _baseUrl = string.Equals(mode, "live", StringComparison.OrdinalIgnoreCase)
             ? "https://api-m.paypal.com"
             : "https://api-m.sandbox.paypal.com";
-        _httpClient = new HttpClient();
+        _httpClient = httpClient ?? new HttpClient();
         _webhookSecret = webhookSecret;
     }
 
@@ -48,6 +49,7 @@ public class PayPalPaymentProvider : IPaymentProvider
                 new
                 {
                     reference_id = orderId.ToString("D"),
+                    custom_id = orderId.ToString("D"),
                     amount = new
                     {
                         currency_code = currency.ToUpperInvariant(),
@@ -86,11 +88,34 @@ public class PayPalPaymentProvider : IPaymentProvider
         );
     }
 
-    public Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
+    public async Task<WebhookResult?> ParseWebhookAsync(WebhookEnvelope envelope, CancellationToken cancellationToken)
     {
-        // Not a production provider (see docs/payments): webhook verification is intentionally
-        // unimplemented so it can never be trusted by accident.
-        throw new NotImplementedException("PayPal webhook verification is not implemented.");
+        if (string.IsNullOrWhiteSpace(_webhookSecret))
+            throw new InvalidOperationException("PayPal webhook ID is not configured.");
+
+        string Header(string name) => envelope.Headers.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value)
+            ? value : throw new UnauthorizedAccessException($"Missing {name} header.");
+
+        using var payload = JsonDocument.Parse(envelope.Body);
+        await EnsureAccessTokenAsync(cancellationToken);
+        var verification = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/notifications/verify-webhook-signature")
+        {
+            Content = JsonContent.Create(new { auth_algo = Header("PayPal-Auth-Algo"), cert_url = Header("PayPal-Cert-Url"), transmission_id = Header("PayPal-Transmission-Id"), transmission_sig = Header("PayPal-Transmission-Sig"), transmission_time = Header("PayPal-Transmission-Time"), webhook_id = _webhookSecret, webhook_event = payload.RootElement })
+        };
+        verification.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
+        using var response = await _httpClient.SendAsync(verification, cancellationToken);
+        var verified = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        if (!response.IsSuccessStatusCode || !verified.TryGetProperty("verification_status", out var status) || !string.Equals(status.GetString(), "SUCCESS", StringComparison.Ordinal))
+            throw new CryptographicException("PayPal webhook signature verification failed.");
+
+        var root = payload.RootElement;
+        if (!string.Equals(root.GetProperty("event_type").GetString(), "PAYMENT.CAPTURE.COMPLETED", StringComparison.Ordinal))
+            return null;
+        var resource = root.GetProperty("resource");
+        if (!Guid.TryParse(resource.GetProperty("custom_id").GetString(), out var orderId))
+            throw new InvalidOperationException("PayPal webhook is missing resource.custom_id order reference.");
+        var amount = resource.GetProperty("amount");
+        return new WebhookResult(orderId, Guid.NewGuid(), root.GetProperty("id").GetString()!, "succeeded", decimal.Parse(amount.GetProperty("value").GetString()!, CultureInfo.InvariantCulture), amount.GetProperty("currency_code").GetString());
     }
 
     private async Task EnsureAccessTokenAsync(CancellationToken cancellationToken)
