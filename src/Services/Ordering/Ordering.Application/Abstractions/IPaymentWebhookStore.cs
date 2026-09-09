@@ -19,5 +19,6 @@ public sealed record PaymentWebhookCommit(
 public enum PaymentWebhookCommitResult
 {
     Applied,
-    Duplicate
+    Duplicate,
+    ReconciliationRequired
 }

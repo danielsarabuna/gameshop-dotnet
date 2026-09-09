@@ -149,7 +149,10 @@ public sealed class HandleWebhookHandler
             outbox), cancellationToken);
 
     private async Task<bool> CommitCoreAsync(PaymentWebhookCommit command, CancellationToken cancellationToken)
-        => await _webhooks.CommitAsync(command, cancellationToken) == PaymentWebhookCommitResult.Applied;
+    {
+        var result = await _webhooks.CommitAsync(command, cancellationToken);
+        return result == PaymentWebhookCommitResult.Applied;
+    }
 
     private static Payment EnsurePayment(
         Payment? existing,
