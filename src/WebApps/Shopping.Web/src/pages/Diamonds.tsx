@@ -162,9 +162,12 @@ export const Diamonds: React.FC = () => {
         localizedBadge = { ...pack.badge, text: badgeText };
       }
 
-      // Localize title
+      // Backend titles already come from the selected regional catalog. Only
+      // synthesize localized labels for the built-in offline preview offers.
       const amt = pack.amount;
-      const localizedTitle = t(`${amt} Алмазов`, `${amt} Diamonds`, `${amt} Diamanten`, `${amt} Diamants`, `${amt} Diamantes`);
+      const localizedTitle = pack.isLiveBackend
+        ? pack.title
+        : t(`${amt} Алмазов`, `${amt} Diamonds`, `${amt} Diamanten`, `${amt} Diamants`, `${amt} Diamantes`);
 
       return {
         ...pack,
@@ -175,7 +178,7 @@ export const Diamonds: React.FC = () => {
   }, [catalogItems, isBackendConnected, t]);
 
   const handleAddToCart = (pack: DiamondPack) => {
-    addItem(pack.sku, pack.title, pack.price, 1, pack.imageUrl, pack.currency);
+    addItem(pack.sku, pack.title, pack.price, 1, pack.imageUrl, pack.currency, 'Currency');
     openCartDrawer();
   };
 
@@ -239,12 +242,13 @@ export const Diamonds: React.FC = () => {
               }}
             >
               <AlertCircle size={14} />
-              <span>{t('Сервер каталога недоступен. Показаны офферы.', 'Showing preview offers.')}</span>
+              <span>{t('Сервер каталога временно недоступен. Показаны офферы.', 'The catalog is temporarily unavailable. Showing preview offers.')}</span>
             </div>
           )}
 
           {/* All Cards Grid */}
           <div
+            className="cards-grid-3"
             style={{
               display: 'grid',
               gridTemplateColumns: packs.length === 1 ? '1fr' : 'repeat(auto-fit, minmax(260px, 1fr))',

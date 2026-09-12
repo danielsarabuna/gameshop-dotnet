@@ -7,6 +7,7 @@ interface CatalogItemLike {
   price?: number;
   imageUrl?: string | null;
   currency?: string;
+  type?: string;
 }
 
 interface CartContextType {
@@ -18,7 +19,7 @@ interface CartContextType {
   openCartDrawer: () => void;
   closeCartDrawer: () => void;
   toggleCartDrawer: () => void;
-  addItem: (sku: string, title: string, unitPrice: number, quantity?: number, imageUrl?: string, currency?: string) => void;
+  addItem: (sku: string, title: string, unitPrice: number, quantity?: number, imageUrl?: string, currency?: string, type?: string) => void;
   increment: (sku: string) => void;
   decrement: (sku: string) => void;
   removeItem: (sku: string) => void;
@@ -73,17 +74,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
     unitPrice: number,
     quantity = 1,
     imageUrl?: string,
-    currency?: string
+    currency?: string,
+    type?: string
   ) => {
     if (quantity <= 0 || !sku) return;
     setLines((prev) => {
       const existing = prev.find((item) => item.sku === sku);
       if (existing) {
         return prev.map((item) =>
-          item.sku === sku ? { ...item, quantity: item.quantity + quantity } : item
+          item.sku === sku ? { ...item, quantity: item.quantity + quantity, type: type ?? item.type } : item
         );
       }
-      return [...prev, { sku, title, unitPrice, quantity, imageUrl, currency }];
+      return [...prev, { sku, title, unitPrice, quantity, imageUrl, currency, type }];
     });
     triggerBump();
   };
@@ -127,6 +129,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
           unitPrice: typeof fresh.price === 'number' ? fresh.price : line.unitPrice,
           imageUrl: fresh.imageUrl ?? line.imageUrl,
           currency: fresh.currency ?? line.currency,
+          type: fresh.type ?? line.type,
         };
       })
     );

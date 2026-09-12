@@ -34,13 +34,16 @@ builder.Services.AddCors(options =>
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddFixedWindowLimiter("global-limiter", limiterOptions =>
-    {
-        limiterOptions.PermitLimit = 100;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
-        limiterOptions.QueueLimit = 10;
-    });
+    options.AddPolicy("per-client", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 100,
+                Window = TimeSpan.FromMinutes(1),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 10
+            }));
 });
 
 // Configure YARP with Header Transformations (Prevent spoofing and forward verified claims)
@@ -80,7 +83,7 @@ app.UseWebShopAuth();
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
 
-app.MapReverseProxy();
+app.MapReverseProxy().RequireRateLimiting("per-client");
 
 app.Run();
 

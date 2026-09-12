@@ -81,6 +81,21 @@ public sealed class GatewayAuthTests : IClassFixture<GatewayAuthTests.AuthEnable
             Environment.SetEnvironmentVariable("Auth__RequireHttpsMetadata", "false");
         }
 
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.ConfigureAppConfiguration((_, configuration) =>
+            {
+                // Keep route tests hermetic even when the developer's Docker stack
+                // happens to be listening on the default downstream ports.
+                configuration.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["ReverseProxy:Clusters:catalog:Destinations:d1:Address"] = "http://127.0.0.1:1/",
+                    ["ReverseProxy:Clusters:basket:Destinations:d1:Address"] = "http://127.0.0.1:1/",
+                    ["ReverseProxy:Clusters:ordering:Destinations:d1:Address"] = "http://127.0.0.1:1/"
+                });
+            });
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)

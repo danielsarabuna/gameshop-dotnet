@@ -40,8 +40,8 @@ test.describe('Tablet Portrait (768x1024)', () => {
   });
 
   const routes = [
-    { path: '/diamonds', selector: '.cards-grid-3 > *' },
-    { path: '/subscription', selector: '.cards-grid-3 > *' },
+    { path: '/diamonds', selector: '.diamonds-snap-container section:first-of-type .glass-card' },
+    { path: '/subscription', selector: '.sub-snap-container #sub-plans-section .glass-card' },
     { path: '/projects', selector: '.cards-grid-3 > *' },
     { path: '/about', selector: '.cards-grid > *' },
   ];

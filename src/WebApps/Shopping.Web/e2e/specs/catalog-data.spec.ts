@@ -63,7 +63,7 @@ test.describe('Catalog Data, Currency & Offline Fallback', () => {
     await page.waitForLoadState('domcontentloaded');
 
     // Wait for fallback data and amber warning banner to appear
-    const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+    const warningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
     await expect(warningBanner).toBeVisible();
 
     // Verify fallback packs are still displayed
@@ -79,7 +79,7 @@ test.describe('Catalog Data, Currency & Offline Fallback', () => {
     await page.goto('/subscription');
     await page.waitForLoadState('domcontentloaded');
 
-    const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+    const warningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
     await expect(warningBanner).toBeVisible();
 
     const plans = page.locator('.cards-grid-3 .glass-card');

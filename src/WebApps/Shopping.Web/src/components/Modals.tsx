@@ -139,16 +139,14 @@ export const ProfileModal: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', background: 'rgba(0,0,0,0.3)', padding: '18px', borderRadius: '16px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>Player ID:</span>
-            <span style={{ fontWeight: 800, color: 'var(--accent-pink)' }}>{playerId || '—'}</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Игрок:', 'Player:', 'Spieler:', 'Joueur :', 'Jugador:')}</span>
+            <span style={{ fontWeight: 800, color: '#ffffff', textAlign: 'right' }}>{playerName || t('Имя не задано', 'Name not set')}</span>
           </div>
-          {playerName && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Имя:', 'Name:', 'Name:', 'Nom :', 'Nombre:')}</span>
-              <span style={{ fontWeight: 700, color: '#ffffff' }}>{playerName}</span>
-            </div>
-          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>Player ID:</span>
+            <code style={{ color: 'var(--text-dim)', fontSize: '0.72rem', overflowWrap: 'anywhere', textAlign: 'right' }}>{playerId || '—'}</code>
+          </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
             <span style={{ color: 'var(--text-muted)', fontSize: '0.88rem' }}>{t('Регион:', 'Region:', 'Region:', 'Région :', 'Región:')}</span>
             <span style={{ fontWeight: 700, color: '#ffffff' }}>{region}</span>

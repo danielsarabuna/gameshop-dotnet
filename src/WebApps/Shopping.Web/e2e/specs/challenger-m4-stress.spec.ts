@@ -76,7 +76,7 @@ test.describe('Challenger M4 — Tier 5 Adversarial & Extreme Breakpoint Coverag
       await page.waitForLoadState('domcontentloaded');
 
       // Verify amber warning banner is shown for missing/invalid catalog
-      const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+      const warningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
       await expect(warningBanner).toBeVisible();
 
       // Verify fallback diamond packs render safely
@@ -92,7 +92,7 @@ test.describe('Challenger M4 — Tier 5 Adversarial & Extreme Breakpoint Coverag
       await page.goto('/diamonds');
       await page.waitForLoadState('domcontentloaded');
 
-      const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+      const warningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
       await expect(warningBanner).toBeVisible();
 
       const cards = page.locator('.cards-grid-3 .glass-card');
@@ -106,7 +106,7 @@ test.describe('Challenger M4 — Tier 5 Adversarial & Extreme Breakpoint Coverag
       await page.goto('/subscription');
       await page.waitForLoadState('domcontentloaded');
 
-      const warningBanner = page.getByText('Сервер каталога временно недоступен', { exact: false });
+      const warningBanner = page.locator('.desktop-only-view').getByText('Сервер каталога временно недоступен', { exact: false });
       await expect(warningBanner).toBeVisible();
 
       const plans = page.locator('.cards-grid-3 .glass-card');

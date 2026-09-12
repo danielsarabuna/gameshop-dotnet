@@ -1,3 +1,5 @@
+name: webshop-local
+
 services:
   web:
     build:
@@ -5,6 +7,7 @@ services:
       dockerfile: src/WebApps/Shopping.Web/Dockerfile
     ports:
       - "5200:8080"
+      - "5173:8080"
     depends_on:
       apigateway:
         condition: service_healthy
@@ -16,21 +19,23 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      Otel__Enabled: "true"
-      Otel__Endpoint: http://jaeger:4317
+      Auth__Enabled: "true"
+      GameTicketJwt__Issuer: webshop-game-ticket
+      GameTicketJwt__Audience: webshop-api
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64:?run make local-init}
+      Otel__Enabled: "false"
     ports:
       - "5100:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
       catalog-api:
         condition: service_healthy
-      basket-api:
-        condition: service_healthy
       ordering-api:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
 
   catalog-api:
     build:
@@ -39,36 +44,26 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      Catalog__Storage: Mongo
-      Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
-      Otel__Enabled: "true"
-      Otel__Endpoint: http://jaeger:4317
+      Kestrel__HttpPort: "8080"
+      Kestrel__GrpcPort: "8081"
+      Catalog__Remote__SupabaseBaseUrl: ${SUPABASE_URL:?set SUPABASE_URL in .env.local}
+      Catalog__Remote__Bucket: ${CATALOG_BUCKET:-dev}
+      Supabase__Url: ${SUPABASE_URL}
+      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?set SUPABASE_SERVICE_ROLE_KEY in .env.local}
+      Supabase__DefaultRegion: global
+      Supabase__DefaultStore: global
+      Supabase__DefaultGameVersion: global
+      GameTicketJwt__Issuer: webshop-game-ticket
+      GameTicketJwt__Audience: webshop-api
+      GameTicketJwt__PrivateKeyPemBase64: ${GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64:?run make local-init}
+      Otel__Enabled: "false"
     ports:
       - "5101:8080"
-    depends_on:
-      mongodb:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
-
-  basket-api:
-    build:
-      context: .
-      dockerfile: src/Services/Basket.API/Dockerfile
-    environment:
-      ASPNETCORE_ENVIRONMENT: Docker
-      ASPNETCORE_URLS: http://+:8080
-      Basket__Storage: Redis
-      Basket__Redis__ConnectionString: redis:6379
-      Otel__Enabled: "true"
-      Otel__Endpoint: http://jaeger:4317
-    ports:
-      - "5102:8080"
-    depends_on:
-      redis:
-        condition: service_healthy
-      jaeger:
-        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   ordering-api:
     build:
@@ -78,26 +73,70 @@ services:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
       Ordering__Storage: Postgres
-      Ordering__Postgres__ConnectionString: Host=postgres;Port=5432;Username=webshop;Password=webshop;Database=ordering
-      EventBus__Provider: RabbitMq
-      EventBus__RabbitMq__Host: rabbitmq
-      EventBus__RabbitMq__Username: guest
-      EventBus__RabbitMq__Password: guest
+      Ordering__Postgres__ConnectionString: Host=postgres;Port=5432;Username=${POSTGRES_USER:-webshop};Password=${POSTGRES_PASSWORD:-webshop-local-only};Database=${POSTGRES_DB:-ordering}
+      EventBus__Provider: "Null"
       Catalog__Transport: Grpc
       Catalog__GrpcUrl: http://catalog-api:8081
-      Otel__Enabled: "true"
-      Otel__Endpoint: http://jaeger:4317
+      Auth__Enabled: "true"
+      GameTicketJwt__Issuer: webshop-game-ticket
+      GameTicketJwt__Audience: webshop-api
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64:?run make local-init}
+      Supabase__Url: ${SUPABASE_URL}
+      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY}
+      Payments__MockProvider__Enabled: ${PAYMENTS_MOCK_ENABLED:-true}
+      Otel__Enabled: "false"
     ports:
       - "5103:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
+      catalog-api:
         condition: service_healthy
-      jaeger:
-        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-webshop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-webshop-local-only}
+      POSTGRES_DB: ${POSTGRES_DB:-ordering}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  basket-api:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: src/Services/Basket.API/Dockerfile
+    environment:
+      ASPNETCORE_ENVIRONMENT: Docker
+      ASPNETCORE_URLS: http://+:8080
+      Basket__Storage: Redis
+      Basket__Redis__ConnectionString: redis:6379
+      Auth__Enabled: "true"
+      GameTicketJwt__Issuer: webshop-game-ticket
+      GameTicketJwt__Audience: webshop-api
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
+      Otel__Enabled: "false"
+    ports:
+      - "5102:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
 
   redis:
+    profiles: ["full"]
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -107,42 +146,15 @@ services:
       timeout: 3s
       retries: 10
 
-  mongodb:
-    image: mongo:7
-    ports:
-      - "27017:27017"
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: webshop
-      POSTGRES_PASSWORD: webshop
-      POSTGRES_DB: ordering
-    ports:
-      - "5432:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U webshop -d ordering"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
   rabbitmq:
+    profiles: ["full"]
     image: rabbitmq:3-management-alpine
     ports:
       - "5672:5672"
       - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   keycloak:
+    profiles: ["full"]
     image: quay.io/keycloak/keycloak:26.1
     command: ["start-dev", "--import-realm"]
     environment:
@@ -152,17 +164,15 @@ services:
       - ./infra/keycloak/import:/opt/keycloak/data/import:ro
     ports:
       - "8080:8080"
-    healthcheck:
-      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && echo -e 'GET /realms/webshop/.well-known/openid-configuration HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '"]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 30s
 
   jaeger:
+    profiles: ["full"]
     image: jaegertracing/all-in-one:1.62.0
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
     ports:
       - "16686:16686"
       - "4317:4317"
+
+volumes:
+  postgres_local_data:

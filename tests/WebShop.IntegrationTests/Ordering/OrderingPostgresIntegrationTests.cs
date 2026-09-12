@@ -100,8 +100,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
             paymentMethod = "Stripe",
             items = new[]
             {
-                new { productId = DiamondPackId, quantity = 2 },
-                new { productId = PremiumMonthId, quantity = 1 }
+                new { productId = DiamondPackId, quantity = 2 }
             },
             promoCode = (string?)null
         };
@@ -112,8 +111,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         var created = await createResp.Content.ReadFromJsonAsync<JsonElement>();
         var orderId = created.GetProperty("orderId").GetGuid();
         Assert.NotEqual(Guid.Empty, orderId);
-        // 2×1.23 + 1×6.99 = 9.45
-        Assert.Equal(9.45m, created.GetProperty("subtotal").GetDecimal());
+        Assert.Equal(2.46m, created.GetProperty("subtotal").GetDecimal());
         Assert.Equal("Pending", created.GetProperty("status").GetString());
 
         // Round-trip via API
@@ -122,7 +120,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         var fetched = await getResp.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("test-user-001", fetched.GetProperty("gameUserId").GetString());
         Assert.Equal("Stripe", fetched.GetProperty("paymentMethod").GetString());
-        Assert.Equal(2, fetched.GetProperty("items").GetArrayLength());
+        Assert.Single(fetched.GetProperty("items").EnumerateArray());
 
         // Verify directly in Postgres that the row landed in the orders table
         await using var conn = new NpgsqlConnection(_fixture.ConnectionString);
@@ -137,5 +135,24 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         Assert.Equal((int)PaymentMethod.Stripe, reader.GetInt32(1));
         Assert.Equal("EUR", reader.GetString(2));
         Assert.Equal(0, reader.GetInt32(3)); // OrderStatus.Pending
+    }
+
+    [SkippableFact]
+    public async Task Create_order_rejects_mixed_reward_types()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        var response = await _factory!.CreateClient().PostAsJsonAsync("/api/v1/orders/create", new
+        {
+            gameUserId = "test-user-001",
+            paymentMethod = "Stripe",
+            items = new[]
+            {
+                new { productId = DiamondPackId, quantity = 1 },
+                new { productId = PremiumMonthId, quantity = 1 }
+            }
+        });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
     }
 }

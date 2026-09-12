@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { PaymentMethodInfo } from '../types';
-import { getPaymentMethods, applyPromoCode, createOrder, createPayment } from '../services/api';
+import { getPaymentMethods, getCatalogPaymentProviders, applyPromoCode, createOrder, createPayment, completeMockPayment } from '../services/api';
 import { ShoppingBagIcon } from './Icons';
-import { ShoppingCart, X, Minus, Plus, Tag, User, CreditCard } from 'lucide-react';
+import { ShoppingCart, X, Minus, Plus, Tag, User, CreditCard, CheckCircle2 } from 'lucide-react';
 import { formatPrice } from '../utils/format';
 
 export const CartDrawer: React.FC = () => {
+  const navigate = useNavigate();
   const {
     lines,
     total,
@@ -27,6 +29,9 @@ export const CartDrawer: React.FC = () => {
     setPlayerName,
     playerEmail,
     setPlayerEmail,
+    region,
+    storeChannel,
+    gameVersion,
   } = useAuth();
 
   const [promoCode, setPromoCode] = useState('');
@@ -35,39 +40,52 @@ export const CartDrawer: React.FC = () => {
   const [promoMessage, setPromoMessage] = useState<string | null>(null);
   const [promoBusy, setPromoBusy] = useState(false);
 
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<(PaymentMethodInfo & { isAvailable: boolean; isSandbox?: boolean })[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('');
   const [paymentMethodsFailed, setPaymentMethodsFailed] = useState(false);
 
   const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false);
+  const [pendingMockOrderId, setPendingMockOrderId] = useState('');
 
   // Production sessions are established only by a signed game deeplink ticket.
   const [idCheck, setIdCheck] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const handlePlayerIdCommit = () => setIdCheck(playerId ? 'invalid' : 'idle');
 
-  const FALLBACK_PAYMENT_METHODS: PaymentMethodInfo[] = [
-    { code: 'card', name: 'Банковская карта (Visa / MasterCard / МИР)' },
-    { code: 'sbp', name: 'Система Быстрых Платежей (СБП)' },
-    { code: 'telegram', name: 'Telegram Stars / Wallet' },
-  ];
-
   useEffect(() => {
     let mounted = true;
-    getPaymentMethods().then((list) => {
+    Promise.all([
+      getPaymentMethods(),
+      getCatalogPaymentProviders(region, storeChannel, gameVersion || 'global'),
+    ]).then(([configured, regional]) => {
       if (!mounted) return;
-      if (list && list.length > 0) {
-        setPaymentMethods(list);
-        setPaymentMethodsFailed(false);
-      } else {
-        setPaymentMethods(FALLBACK_PAYMENT_METHODS);
-        setPaymentMethodsFailed(true);
-      }
+      const configuredByCode = new Map((configured ?? []).map((method) => [method.code.toLowerCase(), method]));
+      const regionalMethods = (regional ?? []).filter((provider) => provider.isEnabled).map((provider) => {
+        const configuredMethod = configuredByCode.get(provider.id.toLowerCase());
+        return {
+          code: provider.id.toLowerCase(),
+          name: provider.displayName || configuredMethod?.name || provider.id,
+          iconUrl: provider.iconUrl || configuredMethod?.iconUrl,
+          isSandbox: provider.isSandbox,
+          isAvailable: Boolean(configuredMethod),
+        };
+      });
+      const list = regionalMethods.length > 0
+        ? regionalMethods
+        : (configured ?? []).map((method) => ({ ...method, isAvailable: true }));
+      const available = list.filter((method) => method.isAvailable);
+      setPaymentMethods(list);
+      setSelectedPaymentMethod((current) =>
+        available.some((method) => method.code === current)
+          ? current
+          : available.length === 1 ? available[0].code : ''
+      );
+      setPaymentMethodsFailed(available.length === 0);
     });
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [region, storeChannel, gameVersion]);
 
   useEffect(() => {
     if (!cartDrawerOpen) return;
@@ -83,10 +101,11 @@ export const CartDrawer: React.FC = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val);
   };
 
+  const hasMixedRewardTypes = new Set(lines.map((line) => line.type).filter(Boolean)).size > 1;
   const canCheckout =
     lines.length > 0 &&
+    !hasMixedRewardTypes &&
     Boolean(playerId.trim()) &&
-    Boolean(playerName.trim()) &&
     isValidEmail(playerEmail.trim()) &&
     Boolean(selectedPaymentMethod);
 
@@ -134,7 +153,21 @@ export const CartDrawer: React.FC = () => {
   };
 
   const handleCheckout = async () => {
-    if (!canCheckout) return;
+    if (hasMixedRewardTypes) {
+      setCheckoutMessage(t(
+        'Этот заказ нельзя создать одним платежом. Удалите подписку или алмазы и оформите покупки по очереди.',
+        'This order cannot be created as one payment. Remove either the subscription or diamonds and buy them separately.'
+      ));
+      return;
+    }
+
+    if (!canCheckout) {
+      setCheckoutMessage(t(
+        'Проверьте вход через игру, email и выбранный способ оплаты.',
+        'Check the game sign-in, email, and selected payment method.'
+      ));
+      return;
+    }
 
     setCheckoutBusy(true);
     setCheckoutMessage(null);
@@ -164,7 +197,7 @@ export const CartDrawer: React.FC = () => {
     const paymentRes = await createPayment(orderRes.data.orderId, selectedPaymentMethod);
     setCheckoutBusy(false);
 
-    if (!paymentRes.success || !paymentRes.data?.checkoutUrl) {
+    if (!paymentRes.success || !paymentRes.data) {
       setCheckoutMessage(
         paymentRes.error ||
           t(
@@ -178,7 +211,41 @@ export const CartDrawer: React.FC = () => {
       return;
     }
 
+    if (selectedPaymentMethod.toLowerCase() === 'mockprovider') {
+      setPendingMockOrderId(orderRes.data.orderId);
+      return;
+    }
+
+    if (!paymentRes.data.checkoutUrl) {
+      setCheckoutMessage(t('Провайдер не вернул ссылку оплаты.', 'The provider did not return a checkout URL.'));
+      return;
+    }
+
     window.location.href = paymentRes.data.checkoutUrl;
+  };
+
+  const finishMockPayment = async (status: 'succeeded' | 'failed') => {
+    if (!pendingMockOrderId || checkoutBusy) return;
+    setCheckoutBusy(true);
+    setCheckoutMessage(null);
+    const completed = await completeMockPayment(pendingMockOrderId, status);
+    setCheckoutBusy(false);
+    if (!completed) {
+      setCheckoutMessage(t('Не удалось завершить тестовую оплату.', 'Could not complete the test payment.'));
+      return;
+    }
+
+    if (status === 'succeeded') {
+      const orderId = pendingMockOrderId;
+      clearCart();
+      setPendingMockOrderId('');
+      closeCartDrawer();
+      navigate(`/order/complete?order_id=${encodeURIComponent(orderId)}`);
+      return;
+    }
+
+    setPendingMockOrderId('');
+    setCheckoutMessage(t('Тестовый платёж отклонён. Корзина сохранена для повтора.', 'Test payment declined. Your cart is ready to retry.'));
   };
 
   // Catalog is single-currency per region; use the first line's currency for drawer totals.
@@ -461,30 +528,67 @@ export const CartDrawer: React.FC = () => {
                   <CreditCard size={14} />
                   {t('Способ оплаты', 'Payment method', 'Zahlungsmethode', 'Mode de paiement', 'Método de pago')} *
                 </label>
-                <select
-                  value={selectedPaymentMethod}
-                  onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: '#1d1823',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '10px',
-                    padding: '10px 12px',
-                    color: '#fff',
-                    fontSize: '0.88rem',
-                  }}
-                >
-                  <option value="">
-                    {t('Выберите способ оплаты', 'Select payment method', 'Zahlungsmethode wählen', 'Choisir le mode de paiement', 'Elegir método de pago')}
-                  </option>
-                  {paymentMethods.map((m) => (
-                    <option key={m.code} value={m.code}>
-                      {m.name}
-                    </option>
-                  ))}
-                </select>
+                <div style={{ display: 'grid', gap: 8 }}>
+                  {paymentMethods.map((method) => {
+                    const selected = selectedPaymentMethod === method.code;
+                    return (
+                      <button
+                        type="button"
+                        key={method.code}
+                        disabled={!method.isAvailable || checkoutBusy}
+                        onClick={() => setSelectedPaymentMethod(method.code)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          padding: '10px 12px',
+                          borderRadius: 12,
+                          border: `1px solid ${selected ? 'var(--accent-pink)' : 'var(--border-color)'}`,
+                          background: selected ? 'rgba(255,51,102,.13)' : 'rgba(255,255,255,.035)',
+                          color: method.isAvailable ? '#fff' : 'var(--text-dim)',
+                          cursor: method.isAvailable ? 'pointer' : 'not-allowed',
+                          opacity: method.isAvailable ? 1 : 0.62,
+                          textAlign: 'left',
+                        }}
+                      >
+                        <span style={{ fontWeight: 750 }}>{method.name}</span>
+                        <span style={{ fontSize: '.72rem', color: selected ? 'var(--accent-pink)' : 'var(--text-dim)' }}>
+                          {method.isAvailable
+                            ? method.isSandbox ? 'Sandbox' : t('Доступно', 'Available')
+                            : t('Нужны ключи', 'Credentials required')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {paymentMethodsFailed && (
+                  <div style={{ marginTop: 8, fontSize: '.76rem', color: '#ff7d8f' }}>
+                    {t('Ни один способ оплаты не настроен локально.', 'No payment method is configured locally.')}
+                  </div>
+                )}
               </div>
             </div>
+
+            {pendingMockOrderId && (
+              <div style={{ marginBottom: 20, padding: 16, borderRadius: 14, border: '1px solid rgba(0,242,254,.35)', background: 'rgba(0,242,254,.08)' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: '#fff', fontWeight: 800, marginBottom: 6 }}>
+                  <CheckCircle2 size={18} color="var(--accent-cyan)" />
+                  {t('Тестовая оплата', 'Test payment')}
+                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '.82rem', lineHeight: 1.45, marginBottom: 12 }}>
+                  {t('Деньги не списываются. Подтвердите результат прямо здесь, чтобы проверить начисление в Unity.', 'No money is charged. Confirm the result here to test delivery in Unity.')}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <button type="button" className="btn btn-primary btn-sm" disabled={checkoutBusy} onClick={() => finishMockPayment('succeeded')}>
+                    {t('Подтвердить', 'Approve')}
+                  </button>
+                  <button type="button" className="btn btn-outline btn-sm" disabled={checkoutBusy} onClick={() => finishMockPayment('failed')}>
+                    {t('Отклонить', 'Decline')}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* TOTAL & CHECKOUT FOOTER */}
             <div style={{ marginTop: 'auto', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
@@ -503,11 +607,31 @@ export const CartDrawer: React.FC = () => {
                 </div>
               )}
 
-              {!canCheckout && (
+              {hasMixedRewardTypes ? (
+                <div
+                  role="alert"
+                  style={{
+                    fontSize: '0.82rem',
+                    color: '#ff9aaa',
+                    marginBottom: '10px',
+                    padding: '10px 12px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 77, 109, .55)',
+                    background: 'rgba(255, 51, 102, .10)',
+                    textAlign: 'center',
+                    lineHeight: 1.4,
+                  }}
+                >
+                  {t(
+                    'Алмазы и подписку нужно оформить отдельно. Удалите один тип товара, оплатите его, затем оформите второй.',
+                    'Diamonds and subscriptions must be purchased separately. Remove one reward type, pay, then buy the other.'
+                  )}
+                </div>
+              ) : !canCheckout && (
                 <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginBottom: '10px', textAlign: 'center' }}>
                   {t(
-                    'Укажите ID игрока, имя и выберите способ оплаты для заказа.',
-                    'Enter player ID, name, and select a payment method.'
+                    'Откройте магазин из игры и выберите способ оплаты.',
+                    'Open the shop from the game and select a payment method.'
                   )}
                 </div>
               )}
@@ -516,7 +640,7 @@ export const CartDrawer: React.FC = () => {
                 type="button"
                 className="btn btn-primary"
                 style={{ width: '100%', padding: '14px', borderRadius: '14px', fontSize: '1rem' }}
-                disabled={!canCheckout || checkoutBusy}
+                disabled={lines.length === 0 || checkoutBusy}
                 onClick={handleCheckout}
               >
                 {checkoutBusy

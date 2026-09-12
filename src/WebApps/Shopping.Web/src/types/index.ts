@@ -7,11 +7,20 @@ export interface CartItem {
   quantity: number;
   imageUrl?: string;
   currency?: string;
+  type?: string;
 }
 
 export interface PaymentMethodInfo {
   code: string;
   name: string;
+  iconUrl?: string;
+}
+
+export interface CatalogPaymentProvider {
+  id: string;
+  displayName: string;
+  isEnabled: boolean;
+  isSandbox: boolean;
   iconUrl?: string;
 }
 

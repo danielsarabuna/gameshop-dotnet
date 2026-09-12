@@ -49,7 +49,7 @@ export default defineConfig({
     },
     {
       name: 'desktop',
-      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/challenger-m4-stress.spec.ts', '**/challenger-m3-c2-boundary-stress.spec.ts'],
+      testMatch: ['**/desktop-landscape.spec.ts', '**/catalog-data.spec.ts', '**/challenger-m4-stress.spec.ts', '**/challenger-m3-c2-boundary-stress.spec.ts', '**/local-unity-flow.spec.ts'],
       use: {
         browserName: 'chromium',
         viewport: { width: 1280, height: 720 },

@@ -14,6 +14,12 @@ public sealed class ApplyPromoCodeHandler
     }
 
     public async Task<ApplyPromoCodeResult> HandleAsync(ApplyPromoCodeRequest request, CancellationToken cancellationToken)
+        => await HandleAsync(request, CatalogScope.Default, cancellationToken);
+
+    public async Task<ApplyPromoCodeResult> HandleAsync(
+        ApplyPromoCodeRequest request,
+        CatalogScope catalogScope,
+        CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Code))
         {
@@ -36,7 +42,7 @@ public sealed class ApplyPromoCodeHandler
         var products = new List<(CatalogProduct product, int quantity)>(request.Items.Count);
         foreach (var line in request.Items)
         {
-            var product = await _catalog.GetProductAsync(line.ProductId, cancellationToken);
+            var product = await _catalog.GetProductAsync(line.ProductId, catalogScope, cancellationToken);
             if (product is null)
             {
                 return Invalid("Product not found.");
@@ -116,4 +122,3 @@ public sealed class ApplyPromoCodeHandler
 
     private static ApplyPromoCodeResult Invalid(string error) => new(false, error, 0m, 0m, 0m, string.Empty);
 }
-

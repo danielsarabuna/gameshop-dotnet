@@ -42,11 +42,11 @@ public interface IOrderRepository
 
 public interface ISupabaseOrderDelivery
 {
-    /// <summary>Upserts the paid order into webshop_orders (game granting contract) and appends purchases audit rows.</summary>
+    /// <summary>Upserts the paid order into webshop_orders (game granting contract) and appends webshop_purchases audit rows.</summary>
     Task DeliverAsync(SupabaseOrderDelivery delivery, CancellationToken cancellationToken);
 }
 
-/// <summary>Delivery contract describing a paid order to the game backend (Supabase webshop_orders / purchases).</summary>
+/// <summary>Delivery contract describing a paid order to the game backend (Supabase webshop_orders / webshop_purchases).</summary>
 public sealed record SupabaseOrderDelivery(
     Guid OrderId,
     string GameUserId,

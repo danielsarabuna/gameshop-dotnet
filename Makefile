@@ -1,6 +1,10 @@
 SHELL := /bin/bash
 
-.PHONY: build build-all run-local run-local-api run-docker test clean-logs check
+.PHONY: build build-all run-local run-local-api run-docker test clean-logs check \
+	local-init local-up local-up-full local-doctor local-logs local-down \
+	local-publish-catalog
+
+LOCAL_COMPOSE := docker compose --env-file .env.local -f docker-compose.yml
 
 build:
 	dotnet build src/ApiGateway/WebShop.ApiGateway/WebShop.ApiGateway.csproj -c Debug -m:1
@@ -18,7 +22,30 @@ run-local-api:
 	bash ./run-local.sh
 
 run-docker:
-	docker compose up --build
+	$(MAKE) local-up
+
+local-init:
+	bash ./scripts/local-init.sh
+
+local-up: local-init
+	COMPOSE_PARALLEL_LIMIT=2 $(LOCAL_COMPOSE) up --build -d
+	$(MAKE) local-doctor
+
+local-up-full: local-init
+	COMPOSE_PARALLEL_LIMIT=2 $(LOCAL_COMPOSE) --profile full up --build -d
+	$(MAKE) local-doctor
+
+local-publish-catalog: local-init
+	bash ./scripts/publish-local-catalog.sh
+
+local-doctor:
+	bash ./scripts/local-doctor.sh
+
+local-logs:
+	$(LOCAL_COMPOSE) logs -f --tail=150 web apigateway catalog-api ordering-api postgres
+
+local-down:
+	$(LOCAL_COMPOSE) --profile full down
 
 test:
 	dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Debug -p:NuGetAudit=false

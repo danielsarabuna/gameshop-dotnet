@@ -71,7 +71,9 @@ test.describe('Challenger 2 — M2 Page Cards & Overlay Stress Tests', () => {
       await page.goto('/subscription');
       await page.waitForLoadState('networkidle');
 
-      const planCard = page.locator('.glass-card').filter({ hasText: 'МАКСИМАЛЬНАЯ ВЫГОДА' });
+      const planCard = page
+        .locator('.sub-snap-container #sub-plans-section .glass-card')
+        .filter({ hasText: 'МАКСИМАЛЬНАЯ ВЫГОДА' });
       await expect(planCard).toBeVisible();
 
       const badge = planCard.locator('.badge-tag');

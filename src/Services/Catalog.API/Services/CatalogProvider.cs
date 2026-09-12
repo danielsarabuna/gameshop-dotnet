@@ -193,7 +193,7 @@ public sealed class CatalogProvider : ICatalogProvider
 
         foreach (var item in dto.Items)
         {
-            if (string.IsNullOrWhiteSpace(item.Id) || string.IsNullOrWhiteSpace(item.Title))
+            if (!Guid.TryParse(item.Id, out _) || string.IsNullOrWhiteSpace(item.Title))
             {
                 return false;
             }
@@ -318,7 +318,7 @@ public sealed class CatalogProvider : ICatalogProvider
         Enum.TryParse<CatalogProductType>(dto.Type, true, out var productType);
         var metadata = dto.Metadata ?? new Dictionary<string, string>();
         return new CatalogItem(
-            Id: Guid.TryParse(dto.Id, out var parsedGuid) ? parsedGuid : Guid.NewGuid(),
+            Id: Guid.Parse(dto.Id!),
             Title: string.IsNullOrWhiteSpace(dto.Title) ? "Unknown Offer" : dto.Title,
             Description: dto.Description ?? "",
             Type: productType,

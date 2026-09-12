@@ -35,6 +35,7 @@ var usePostgres = string.Equals(storageMode, "Postgres", StringComparison.Ordina
 if (usePostgres)
 {
     builder.Services.AddSingleton<IOrderRepository, PostgresOrderRepository>();
+    builder.Services.AddSingleton<IOutboxDispatcherStore, PostgresOutboxStore>();
     builder.Services.AddSingleton<IPaymentStore, PostgresPaymentStore>();
     builder.Services.AddSingleton<IWebhookIdempotencyStore, PostgresWebhookIdempotencyStore>();
     builder.Services.AddSingleton<IPromoCodeStore, PostgresPromoCodeStore>();
@@ -42,7 +43,9 @@ if (usePostgres)
 }
 else
 {
-    builder.Services.AddSingleton<IOrderRepository, InMemoryOrderRepository>();
+    builder.Services.AddSingleton<InMemoryOrderRepository>();
+    builder.Services.AddSingleton<IOrderRepository>(sp => sp.GetRequiredService<InMemoryOrderRepository>());
+    builder.Services.AddSingleton<IOutboxDispatcherStore>(sp => sp.GetRequiredService<InMemoryOrderRepository>());
     builder.Services.AddSingleton<IPaymentStore, InMemoryPaymentStore>();
     builder.Services.AddSingleton<IWebhookIdempotencyStore, InMemoryWebhookIdempotencyStore>();
     builder.Services.AddSingleton<IPromoCodeStore, InMemoryPromoCodeStore>();
@@ -198,6 +201,7 @@ app.MapGet("/api/v1/payment-methods", (IPaymentProviderAccessor accessor) =>
 
 app.MapPost("/api/v1/payments/{provider}", CreatePayment).RequireAuthorization();
 app.MapPost("/payments/{provider}", CreatePayment).RequireAuthorization();
+app.MapPost("/api/v1/payments/mockprovider/{orderId:guid}/complete", CompleteMockPayment).RequireAuthorization();
 
 app.MapPost("/api/v1/webhooks/{provider}", HandleWebhook).AllowAnonymous();
 app.MapPost("/webhooks/{provider}", HandleWebhook).AllowAnonymous();
@@ -211,7 +215,7 @@ static async Task<IResult> CreateOrder(
     CancellationToken cancellationToken)
 {
     ValidateUserAuthorization(httpContext, request.GameUserId);
-    var result = await handler.HandleAsync(request, cancellationToken);
+    var result = await handler.HandleAsync(request, GetCatalogScope(httpContext), cancellationToken);
     return Results.Created($"/api/v1/orders/{result.OrderId}", result);
 }
 
@@ -224,9 +228,9 @@ static async Task<IResult> GetOrder(Guid id, HttpContext httpContext, IOrderRepo
     return Results.Ok(order);
 }
 
-static async Task<IResult> ApplyPromoCode(ApplyPromoCodeRequest request, ApplyPromoCodeHandler handler, CancellationToken cancellationToken)
+static async Task<IResult> ApplyPromoCode(ApplyPromoCodeRequest request, HttpContext httpContext, ApplyPromoCodeHandler handler, CancellationToken cancellationToken)
 {
-    var result = await handler.HandleAsync(request, cancellationToken);
+    var result = await handler.HandleAsync(request, GetCatalogScope(httpContext), cancellationToken);
     return Results.Ok(result);
 }
 
@@ -265,6 +269,49 @@ static async Task<IResult> CreatePayment(
     {
         return Results.BadRequest(new { error = ex.Message });
     }
+}
+
+static async Task<IResult> CompleteMockPayment(
+    Guid orderId,
+    MockPaymentCompletionRequest request,
+    HttpContext httpContext,
+    IConfiguration configuration,
+    IHostEnvironment environment,
+    IOrderRepository orders,
+    HandleWebhookHandler handler,
+    CancellationToken cancellationToken)
+{
+    if (environment.IsProduction()
+        || !configuration.GetValue<bool>("Payments:MockProvider:Enabled"))
+    {
+        return Results.NotFound();
+    }
+
+    var order = await orders.GetAsync(orderId, cancellationToken);
+    if (order is null)
+    {
+        return Results.NotFound();
+    }
+
+    ValidateUserAuthorization(httpContext, order.GameUserId);
+    var status = request.Status?.Trim().ToLowerInvariant();
+    if (status is not ("succeeded" or "failed"))
+    {
+        return Results.BadRequest(new { error = "Mock status must be succeeded or failed." });
+    }
+
+    await handler.HandleAsync(
+        DomainPaymentMethod.MockProvider,
+        new PaymentWebhookRequest(
+            EventId: $"mock_{orderId:N}_{status}",
+            OrderId: orderId,
+            PaymentId: Guid.Empty,
+            Status: status,
+            Amount: order.Total,
+            Currency: order.Currency),
+        cancellationToken);
+
+    return Results.Ok(new { orderId, status });
 }
 
 // Fail-closed webhook pipeline:
@@ -412,7 +459,20 @@ static void ValidateUserAuthorization(HttpContext context, string targetUserId)
     }
 }
 
+static CatalogScope GetCatalogScope(HttpContext context)
+{
+    static string ClaimOrDefault(HttpContext current, string claim, string fallback)
+        => current.User.FindFirst(claim)?.Value?.Trim() is { Length: > 0 } value ? value : fallback;
+
+    return new CatalogScope(
+        ClaimOrDefault(context, "region", "global"),
+        ClaimOrDefault(context, "store", "global"),
+        ClaimOrDefault(context, "game_version", "global"));
+}
+
 namespace Ordering.API
 {
     public sealed class Program;
 }
+
+public sealed record MockPaymentCompletionRequest(string? Status);

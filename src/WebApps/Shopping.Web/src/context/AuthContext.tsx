@@ -27,6 +27,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const AUTH_STORAGE_KEY = 'GameShop_player_session';
+const TICKET_SESSION_KEY = 'GameShop_webshop_ticket_session';
+
+const readTicketParam = () => {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('ticket') || params.get('auth_ticket') || params.get('code');
+};
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [playerId, setPlayerId] = useState('');
@@ -44,12 +50,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(AUTH_STORAGE_KEY);
+      const ticketParam = readTicketParam();
+      // Remove identity data left by older builds that persisted it across browser sessions.
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+      const saved = sessionStorage.getItem(AUTH_STORAGE_KEY);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.playerId) setPlayerId(parsed.playerId);
-        if (parsed.playerName) setPlayerName(parsed.playerName);
+        // A fresh Unity ticket is authoritative. Never flash or reuse another
+        // character's cached identity while the ticket is being claimed.
+        if (!ticketParam && parsed.playerId) setPlayerId(parsed.playerId);
+        if (!ticketParam && parsed.playerName) setPlayerName(parsed.playerName);
         if (parsed.playerEmail) setPlayerEmail(parsed.playerEmail);
+      }
+
+      const ticketSession = sessionStorage.getItem(TICKET_SESSION_KEY);
+      if (ticketSession && !ticketParam) {
+        const parsed = JSON.parse(ticketSession);
+        if (parsed.accessToken && (!parsed.expiresAtUtc || Date.parse(parsed.expiresAtUtc) > Date.now())) {
+          setAccessToken(parsed.accessToken);
+          setPlayerId(parsed.playerId || '');
+          setPlayerName(parsed.playerName || '');
+          setRegion(parsed.region || 'global');
+          setStoreChannel(parsed.storeChannel || 'global');
+          setGameVersion(parsed.gameVersion || 'global');
+        } else {
+          sessionStorage.removeItem(TICKET_SESSION_KEY);
+        }
+      } else if (ticketParam) {
+        setAccessToken('');
+        sessionStorage.removeItem(TICKET_SESSION_KEY);
       }
     } catch (e) {
       console.error('Failed to parse auth storage', e);
@@ -58,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     try {
-      localStorage.setItem(
+      sessionStorage.setItem(
         AUTH_STORAGE_KEY,
         JSON.stringify({ playerId, playerName, playerEmail })
       );
@@ -68,31 +97,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [playerId, playerName, playerEmail]);
 
   useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const ticketParam = searchParams.get('ticket') || searchParams.get('auth_ticket') || searchParams.get('code');
-    const regionParam = searchParams.get('region');
-    const storeParam = searchParams.get('store') || searchParams.get('store_channel');
-    const versionParam = searchParams.get('version') || searchParams.get('game_version');
-
-    // Query params give an immediate first guess; the backend verifier then resolves the
-    // authoritative region/store/version for this player (per the player-context requirement).
-    if (regionParam) setRegion(regionParam);
-    if (storeParam) setStoreChannel(storeParam);
-    if (versionParam) setGameVersion(versionParam);
-
+    const ticketParam = readTicketParam();
     const resolve = async () => {
       // Ticket deeplink → consume via backend (authoritative region/store/version from Supabase).
       if (ticketParam) {
+        // Strip the bearer ticket and legacy player metadata from browser history
+        // before the asynchronous claim can emit any outbound request.
+        window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash}`);
         const ctx = await claimTicket(ticketParam);
         if (ctx?.isValid) {
           setPlayerId(ctx.userId);
+          setPlayerName(ctx.playerName || '');
           if (!ctx.accessToken) return;
           setAccessToken(ctx.accessToken);
-          window.history.replaceState({}, document.title, window.location.pathname);
           if (ctx.region) setRegion(ctx.region);
           if (ctx.store) setStoreChannel(ctx.store);
           if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
-          setDeeplinkToastMessage(`Signed in! Player ID: ${ctx.userId}`);
+          sessionStorage.setItem(TICKET_SESSION_KEY, JSON.stringify({
+            accessToken: ctx.accessToken,
+            expiresAtUtc: ctx.expiresAtUtc,
+            playerId: ctx.userId,
+            playerName: ctx.playerName,
+            region: ctx.region,
+            storeChannel: ctx.store,
+            gameVersion: ctx.gameVersion,
+          }));
+          setDeeplinkToastMessage(ctx.playerName ? `С возвращением, ${ctx.playerName}!` : 'Вход выполнен');
           scheduleDismiss();
           return;
         }
@@ -138,6 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfileModalOpen(false);
     setLoginModalOpen(false);
     localStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(AUTH_STORAGE_KEY);
+    sessionStorage.removeItem(TICKET_SESSION_KEY);
   };
 
   useEffect(() => {

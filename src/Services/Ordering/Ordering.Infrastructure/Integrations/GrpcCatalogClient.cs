@@ -17,11 +17,20 @@ public sealed class GrpcCatalogClient : ICatalogClient
     }
 
     public async Task<AppCatalogProduct?> GetProductAsync(Guid id, CancellationToken cancellationToken)
+        => await GetProductAsync(id, CatalogScope.Default, cancellationToken);
+
+    public async Task<AppCatalogProduct?> GetProductAsync(Guid id, CatalogScope scope, CancellationToken cancellationToken)
     {
         try
         {
             var response = await _client.GetProductAsync(
-                new GetProductRequest { Id = id.ToString("D") },
+                new GetProductRequest
+                {
+                    Id = id.ToString("D"),
+                    Region = scope.Region,
+                    Store = scope.Store,
+                    GameVersion = scope.GameVersion
+                },
                 cancellationToken: cancellationToken);
 
             var price = decimal.Parse(response.Price, NumberStyles.Number, CultureInfo.InvariantCulture);

@@ -12,9 +12,9 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
     test.use({ viewport: { width: 1280, height: 720 } });
 
     test('should maintain zero element overlap and handle text truncation when extreme long username is injected', async ({ page }) => {
-      // Inject session with an extreme long playerName into localStorage prior to navigation
+      // Inject session with an extreme long playerName into tab-scoped storage prior to navigation
       await page.addInitScript(() => {
-        localStorage.setItem(
+        sessionStorage.setItem(
           'GameShop_player_session',
           JSON.stringify({
             playerId: 'player_9999999999999999',
@@ -221,7 +221,7 @@ test.describe('Challenger Tier 5 — Layout & Responsiveness Adversarial Coverag
       await page.waitForLoadState('networkidle');
 
       // Clicking 'В корзину' adds item and automatically opens Cart Drawer
-      const buyBtn = page.locator('.cards-grid-3 .glass-card button.btn-primary').first();
+      const buyBtn = page.locator('.diamonds-snap-container .glass-card button.btn-primary').first();
       await buyBtn.click();
 
       const cart = new CartDrawerPOM(page);
