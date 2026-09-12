@@ -60,6 +60,9 @@ services:
       # Tokens carry the PUBLIC issuer; services reach Keycloak internally.
       Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
       Auth__RequireHttpsMetadata: "false" # internal discovery call is plain http
+      GameTicketJwt__Issuer: webshop-game-ticket
+      GameTicketJwt__Audience: webshop-api
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
       Cors__Origins__0: https://${SHOP_DOMAIN}
     depends_on:
       catalog-api:
@@ -85,6 +88,7 @@ services:
       Catalog__Storage: Mongo
       Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
       Catalog__Remote__Bucket: ${CATALOG_BUCKET:-prod}
+      GameTicketJwt__PrivateKeyPemBase64: ${GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64}
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
@@ -117,6 +121,7 @@ services:
       Auth__Audience: webshop-api
       Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
       Auth__RequireHttpsMetadata: "false"
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
@@ -153,6 +158,7 @@ services:
       Auth__Audience: webshop-api
       Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
       Auth__RequireHttpsMetadata: "false"
+      GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
       Supabase__Url: ${SUPABASE_URL}
       Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY}
       Payments__YooKassa__ShopId: ${PAYMENTS_YOOKASSA_SHOPID:-}
@@ -211,6 +217,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-keycloak.sql:/docker-entrypoint-initdb.d/10-keycloak.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -238,10 +245,16 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.1
     restart: unless-stopped
-    command: ["start-dev", "--import-realm"] # start-dev: switch to production start with TLS terminator once domain routing is finalized
+    command: ["start", "--import-realm", "--http-enabled=true"]
     environment:
-      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
-      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_PROXY_HEADERS: xforwarded
+      KC_HOSTNAME: keycloak
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
     volumes:
       - ./infra/keycloak/import:/opt/keycloak/data/import:ro
     healthcheck:
@@ -252,6 +265,9 @@ services:
       start_period: 30s
     networks:
       - backend
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   jaeger:
     image: jaegertracing/all-in-one:1.62.0
