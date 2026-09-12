@@ -1,5 +1,8 @@
 BEGIN;
 
+-- Depends on 202609120000_webshop_core.sql. Keeps the server-side payment
+-- audit and Unity delivery queue update in one database transaction.
+
 CREATE TABLE IF NOT EXISTS public.webshop_purchases
 (
     id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -19,7 +22,7 @@ CREATE TABLE IF NOT EXISTS public.webshop_purchases
 );
 
 ALTER TABLE public.webshop_purchases ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON public.webshop_purchases FROM anon, authenticated;
+REVOKE ALL ON public.webshop_purchases FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE ON public.webshop_purchases TO service_role;
 
 CREATE OR REPLACE FUNCTION public.record_webshop_paid_order(
@@ -82,7 +85,7 @@ $$;
 
 REVOKE ALL ON FUNCTION public.record_webshop_paid_order(
     uuid, uuid, uuid, text, text, integer, numeric, text, text, text,
-    timestamptz, jsonb) FROM PUBLIC;
+    timestamptz, jsonb) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_webshop_paid_order(
     uuid, uuid, uuid, text, text, integer, numeric, text, text, text,
     timestamptz, jsonb) TO service_role;
