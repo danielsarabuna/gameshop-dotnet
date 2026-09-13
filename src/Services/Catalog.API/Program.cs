@@ -5,7 +5,9 @@ using Catalog.API.Grpc;
 using Catalog.API.Services;
 using Catalog.API.Storage;
 using Logging;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
+using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -67,11 +69,25 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddGrpc();
 builder.Services.AddCustomExceptionHandler();
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.AddPolicy("player-resolution", context =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 10,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+});
 
 var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseCors();
+app.UseRateLimiter();
 app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 
@@ -88,18 +104,25 @@ app.MapPost("/api/v1/auth/claim-ticket", async (ClaimTicketRequest request, ISup
         return Results.BadRequest(result);
     }
 
-    var token = issuer.Issue(result.UserId, result.Region, result.Store, result.GameVersion);
-    return Results.Ok(new PlayerSessionResult(result, token.AccessToken, token.ExpiresAtUtc));
+    var token = issuer.Issue(result.UserId, result.Region, result.Store, result.GameVersion, deliveryContractVersion: result.DeliveryContractVersion);
+    return Results.Ok(new PlayerSessionResult(result, token.AccessToken, token.ExpiresAtUtc, "game"));
 });
 
-if (app.Environment.IsDevelopment())
+app.MapPost("/api/v1/auth/resolve-player", async (
+    ResolvePlayerRequest request,
+    ISupabasePlayerVerifier verifier,
+    GameTicketTokenIssuer issuer,
+    CancellationToken ct) =>
 {
-    app.MapPost("/api/v1/auth/verify-player", async (string userId, ISupabasePlayerVerifier verifier, CancellationToken ct) =>
+    var result = await verifier.ResolvePlayerAsync(request.PlayerId, ct);
+    if (!result.IsValid)
     {
-        var result = await verifier.VerifyDirectPlayerIdAsync(userId, ct);
-        return result.IsValid ? Results.Ok(result) : Results.BadRequest(result);
-    });
-}
+        return Results.BadRequest(result);
+    }
+
+    var token = issuer.Issue(result.UserId, result.Region, result.Store, result.GameVersion, "recipient", result.DeliveryContractVersion);
+    return Results.Ok(new PlayerSessionResult(result, token.AccessToken, token.ExpiresAtUtc, "recipient"));
+}).RequireRateLimiting("player-resolution");
 
 // Эндпоинт получения товаров с поддержкой регионов, сторов и версий игры (lazy fetch from Supabase)
 app.MapGet("/api/v1/catalog/items", async (string? region, string? store, string? gameVersion, ICatalogProvider provider, SupabaseOptions options, CancellationToken ct) =>
@@ -192,7 +215,7 @@ namespace Catalog.API
     public sealed class Program;
 }
 
-public sealed record PlayerSessionResult(PlayerContextResult Player, string AccessToken, DateTimeOffset ExpiresAtUtc)
+public sealed record PlayerSessionResult(PlayerContextResult Player, string AccessToken, DateTimeOffset ExpiresAtUtc, string SessionKind)
 {
     public bool IsValid => Player.IsValid;
     public string UserId => Player.UserId;
@@ -201,6 +224,9 @@ public sealed record PlayerSessionResult(PlayerContextResult Player, string Acce
     public string GameVersion => Player.GameVersion;
     public string? PlayerName => Player.PlayerName;
     public string? ErrorMessage => Player.ErrorMessage;
+    public string? ErrorCode => Player.ErrorCode;
+    public int DeliveryContractVersion => Player.DeliveryContractVersion;
 }
 
 public sealed record ClaimTicketRequest(Guid Ticket);
+public sealed record ResolvePlayerRequest(string PlayerId);

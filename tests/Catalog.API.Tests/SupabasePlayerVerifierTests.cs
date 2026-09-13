@@ -37,6 +37,7 @@ public class SupabasePlayerVerifierTests
             "region": "russia",
             "store_channel": "ru_store",
             "game_version": "0.0.36",
+            "delivery_contract_version": 2,
             "is_valid": true
           }
         ]
@@ -63,6 +64,7 @@ public class SupabasePlayerVerifierTests
         Assert.Equal("russia", result.Region);
         Assert.Equal("ru_store", result.Store);
         Assert.Equal("0.0.36", result.GameVersion);
+        Assert.Equal(2, result.DeliveryContractVersion);
         Assert.Equal("Мирослава", result.PlayerName);
     }
 
@@ -129,39 +131,54 @@ public class SupabasePlayerVerifierTests
     }
 
     [Fact]
-    public async Task VerifyDirectPlayerIdAsync_ShouldReturnValidResult_ForValidUuid()
+    public async Task ResolvePlayerAsync_WithSynchronizedContext_ReturnsPlayerMetadata()
     {
         // Arrange
         var handler = new MockHttpMessageHandler();
         var client = new HttpClient(handler);
         var options = new SupabaseOptions();
 
-        var json = """
+        var contextJson = """
         [
           {
             "user_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            "updated_at": "2026-08-10T12:00:00Z"
+            "region": "russia",
+            "store_channel": "ru_store",
+            "game_version": "0.0.36",
+            "delivery_contract_version": 2
           }
         ]
         """;
 
-        handler.ResponseToReturn = new HttpResponseMessage(HttpStatusCode.OK)
+        handler.ResponseFactory = request => new HttpResponseMessage(HttpStatusCode.OK)
         {
-            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json")
+            Content = new StringContent(
+                request.RequestUri?.AbsolutePath.Contains("webshop_player_context") == true
+                    ? contextJson
+                    : request.RequestUri?.AbsolutePath.Contains("user_character_state") == true
+                        ? "[{\"data\":{\"currentState\":\"active\",\"characters\":[{\"Id\":{\"Value\":\"active\"},\"meta\":{\"name\":\"Тимофей\"}}]}}]"
+                        : "[]",
+                System.Text.Encoding.UTF8,
+                "application/json")
         };
 
         var verifier = new SupabasePlayerVerifier(client, options, NullLogger<SupabasePlayerVerifier>.Instance);
 
         // Act
-        var result = await verifier.VerifyDirectPlayerIdAsync("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", CancellationToken.None);
+        var result = await verifier.ResolvePlayerAsync("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", CancellationToken.None);
 
         // Assert
         Assert.True(result.IsValid);
         Assert.Equal("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", result.UserId);
+        Assert.Equal("Тимофей", result.PlayerName);
+        Assert.Equal("russia", result.Region);
+        Assert.Equal("ru_store", result.Store);
+        Assert.Equal("0.0.36", result.GameVersion);
+        Assert.Equal(2, result.DeliveryContractVersion);
     }
 
     [Fact]
-    public async Task VerifyDirectPlayerIdAsync_ShouldReturnError_ForEmptyId()
+    public async Task ResolvePlayerAsync_WithEmptyId_ReturnsSafeValidationError()
     {
         // Arrange
         var handler = new MockHttpMessageHandler();
@@ -171,10 +188,66 @@ public class SupabasePlayerVerifierTests
         var verifier = new SupabasePlayerVerifier(client, options, NullLogger<SupabasePlayerVerifier>.Instance);
 
         // Act
-        var result = await verifier.VerifyDirectPlayerIdAsync("", CancellationToken.None);
+        var result = await verifier.ResolvePlayerAsync("", CancellationToken.None);
 
         // Assert
         Assert.False(result.IsValid);
-        Assert.Equal("Player ID cannot be empty.", result.ErrorMessage);
+        Assert.Equal("invalid_player", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ResolvePlayerAsync_WithoutSynchronizedContext_RequiresGameSync()
+    {
+        var handler = new MockHttpMessageHandler
+        {
+            ResponseToReturn = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("[]", System.Text.Encoding.UTF8, "application/json")
+            }
+        };
+        var verifier = new SupabasePlayerVerifier(
+            new HttpClient(handler),
+            new SupabaseOptions { Url = "https://mock.supabase.co" },
+            NullLogger<SupabasePlayerVerifier>.Instance);
+
+        var result = await verifier.ResolvePlayerAsync("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", CancellationToken.None);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("context_missing", result.ErrorCode);
+    }
+
+    [Fact]
+    public async Task ResolvePlayerAsync_BeforeContextMigration_UsesLatestTicketAsV1Fallback()
+    {
+        var handler = new MockHttpMessageHandler
+        {
+            ResponseFactory = request => request.RequestUri?.AbsolutePath.Contains("webshop_player_context") == true
+                ? new HttpResponseMessage(HttpStatusCode.NotFound)
+                {
+                    Content = new StringContent("{\"code\":\"PGRST205\"}")
+                }
+                : new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(
+                        request.RequestUri?.AbsolutePath.Contains("webshop_tickets") == true
+                            ? "[{\"user_id\":\"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee\",\"region\":\"russia\",\"store_channel\":\"ru_store\",\"game_version\":\"0.0.36\"}]"
+                            : "[{\"data\":{\"currentState\":\"active\",\"characters\":[{\"Id\":{\"Value\":\"active\"},\"meta\":{\"name\":\"Дарья\"}}]}}]",
+                        System.Text.Encoding.UTF8,
+                        "application/json")
+                }
+        };
+        var verifier = new SupabasePlayerVerifier(
+            new HttpClient(handler),
+            new SupabaseOptions { Url = "https://mock.supabase.co" },
+            NullLogger<SupabasePlayerVerifier>.Instance);
+
+        var result = await verifier.ResolvePlayerAsync("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", CancellationToken.None);
+
+        Assert.True(result.IsValid);
+        Assert.Equal("Дарья", result.PlayerName);
+        Assert.Equal("russia", result.Region);
+        Assert.Equal("ru_store", result.Store);
+        Assert.Equal("0.0.36", result.GameVersion);
+        Assert.Equal(1, result.DeliveryContractVersion);
     }
 }

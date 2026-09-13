@@ -1,16 +1,21 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { claimTicket, setAccessToken } from '../services/api';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { claimTicket, resolvePlayer, setAccessToken, PlayerContext } from '../services/api';
+
+export type AuthStatus = 'initializing' | 'anonymous' | 'resolving' | 'game-session' | 'recipient-session' | 'error';
 
 interface AuthContextType {
   playerId: string;
-  setPlayerId: (id: string) => void;
   playerName: string;
-  setPlayerName: (name: string) => void;
-  playerEmail: string;
-  setPlayerEmail: (email: string) => void;
   region: string;
   storeChannel: string;
   gameVersion: string;
+  deliveryContractVersion: number;
+  authStatus: AuthStatus;
+  authErrorCode: string | null;
+  authErrorMessage: string | null;
+  resolvePlayerId: (playerId: string) => Promise<PlayerContext | null>;
+  confirmRecipient: (context: PlayerContext) => void;
+  retryDeeplink: () => Promise<void>;
   setRegion: (value: string) => void;
   setStoreChannel: (value: string) => void;
   setGameVersion: (value: string) => void;
@@ -22,12 +27,25 @@ interface AuthContextType {
   closeProfileModal: () => void;
   deeplinkToastMessage: string | null;
   dismissDeeplinkToast: () => void;
+  dismissAuthError: () => void;
   clearSession: () => void;
 }
 
+interface StoredSession {
+  accessToken: string;
+  expiresAtUtc?: string;
+  playerId: string;
+  playerName?: string;
+  region?: string;
+  storeChannel?: string;
+  gameVersion?: string;
+  deliveryContractVersion?: number;
+  sessionKind?: 'game' | 'recipient';
+}
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const AUTH_STORAGE_KEY = 'GameShop_player_session';
-const TICKET_SESSION_KEY = 'GameShop_webshop_ticket_session';
+const SESSION_KEY = 'GameShop_webshop_session';
+const LEGACY_KEYS = ['GameShop_player_session', 'GameShop_webshop_ticket_session'];
 
 const readTicketParam = () => {
   const params = new URLSearchParams(window.location.search);
@@ -37,172 +55,190 @@ const readTicketParam = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [playerId, setPlayerId] = useState('');
   const [playerName, setPlayerName] = useState('');
-  const [playerEmail, setPlayerEmail] = useState('');
-  // No deeplink context → Global config (backend resolves bucket/global/global).
-  // Real values arrive from the game deeplink / ticket verification.
   const [region, setRegion] = useState('global');
   const [storeChannel, setStoreChannel] = useState('global');
   const [gameVersion, setGameVersion] = useState('');
-
+  const [deliveryContractVersion, setDeliveryContractVersion] = useState(1);
+  const [authStatus, setAuthStatus] = useState<AuthStatus>('initializing');
+  const [authErrorCode, setAuthErrorCode] = useState<string | null>(null);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const [loginModalOpen, setLoginModalOpen] = useState(false);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [deeplinkToastMessage, setDeeplinkToastMessage] = useState<string | null>(null);
+  const ticketRef = useRef<string | null>(null);
+  const claimStarted = useRef(false);
+  const lastSessionStatus = useRef<'anonymous' | 'game-session' | 'recipient-session'>('anonymous');
 
-  useEffect(() => {
-    try {
-      const ticketParam = readTicketParam();
-      // Remove identity data left by older builds that persisted it across browser sessions.
-      localStorage.removeItem(AUTH_STORAGE_KEY);
-      const saved = sessionStorage.getItem(AUTH_STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // A fresh Unity ticket is authoritative. Never flash or reuse another
-        // character's cached identity while the ticket is being claimed.
-        if (!ticketParam && parsed.playerId) setPlayerId(parsed.playerId);
-        if (!ticketParam && parsed.playerName) setPlayerName(parsed.playerName);
-        if (parsed.playerEmail) setPlayerEmail(parsed.playerEmail);
-      }
-
-      const ticketSession = sessionStorage.getItem(TICKET_SESSION_KEY);
-      if (ticketSession && !ticketParam) {
-        const parsed = JSON.parse(ticketSession);
-        if (parsed.accessToken && (!parsed.expiresAtUtc || Date.parse(parsed.expiresAtUtc) > Date.now())) {
-          setAccessToken(parsed.accessToken);
-          setPlayerId(parsed.playerId || '');
-          setPlayerName(parsed.playerName || '');
-          setRegion(parsed.region || 'global');
-          setStoreChannel(parsed.storeChannel || 'global');
-          setGameVersion(parsed.gameVersion || 'global');
-        } else {
-          sessionStorage.removeItem(TICKET_SESSION_KEY);
-        }
-      } else if (ticketParam) {
-        setAccessToken('');
-        sessionStorage.removeItem(TICKET_SESSION_KEY);
-      }
-    } catch (e) {
-      console.error('Failed to parse auth storage', e);
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(
-        AUTH_STORAGE_KEY,
-        JSON.stringify({ playerId, playerName, playerEmail })
-      );
-    } catch (e) {
-      console.error('Failed to save auth storage', e);
-    }
-  }, [playerId, playerName, playerEmail]);
-
-  useEffect(() => {
-    const ticketParam = readTicketParam();
-    const resolve = async () => {
-      // Ticket deeplink → consume via backend (authoritative region/store/version from Supabase).
-      if (ticketParam) {
-        // Strip the bearer ticket and legacy player metadata from browser history
-        // before the asynchronous claim can emit any outbound request.
-        window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash}`);
-        const ctx = await claimTicket(ticketParam);
-        if (ctx?.isValid) {
-          setPlayerId(ctx.userId);
-          setPlayerName(ctx.playerName || '');
-          if (!ctx.accessToken) return;
-          setAccessToken(ctx.accessToken);
-          if (ctx.region) setRegion(ctx.region);
-          if (ctx.store) setStoreChannel(ctx.store);
-          if (ctx.gameVersion) setGameVersion(ctx.gameVersion);
-          sessionStorage.setItem(TICKET_SESSION_KEY, JSON.stringify({
-            accessToken: ctx.accessToken,
-            expiresAtUtc: ctx.expiresAtUtc,
-            playerId: ctx.userId,
-            playerName: ctx.playerName,
-            region: ctx.region,
-            storeChannel: ctx.store,
-            gameVersion: ctx.gameVersion,
-          }));
-          setDeeplinkToastMessage(ctx.playerName ? `С возвращением, ${ctx.playerName}!` : 'Вход выполнен');
-          scheduleDismiss();
-          return;
-        }
-      }
-    };
-
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const scheduleDismiss = () => {
-      timer = setTimeout(() => setDeeplinkToastMessage(null), 5000);
-    };
-
-    if (ticketParam) {
-      resolve();
-    }
-
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const openLoginModal = () => {
-    setLoginModalOpen(true);
-    setProfileModalOpen(false);
+  const clearErrors = () => {
+    setAuthErrorCode(null);
+    setAuthErrorMessage(null);
   };
 
-  const closeLoginModal = () => setLoginModalOpen(false);
+  const applySession = useCallback((ctx: PlayerContext, kind: 'game' | 'recipient') => {
+    if (!ctx.accessToken) return false;
+    setAccessToken(ctx.accessToken);
+    setPlayerId(ctx.userId);
+    setPlayerName(ctx.playerName || '');
+    setRegion(ctx.region || 'global');
+    setStoreChannel(ctx.store || 'global');
+    setGameVersion(ctx.gameVersion || 'global');
+    setDeliveryContractVersion(ctx.deliveryContractVersion ?? 1);
+    setAuthStatus(kind === 'game' ? 'game-session' : 'recipient-session');
+    lastSessionStatus.current = kind === 'game' ? 'game-session' : 'recipient-session';
+    setAuthErrorCode(null);
+    setAuthErrorMessage(null);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+      accessToken: ctx.accessToken,
+      expiresAtUtc: ctx.expiresAtUtc,
+      playerId: ctx.userId,
+      playerName: ctx.playerName,
+      region: ctx.region,
+      storeChannel: ctx.store,
+      gameVersion: ctx.gameVersion,
+      deliveryContractVersion: ctx.deliveryContractVersion ?? 1,
+      sessionKind: kind,
+    } satisfies StoredSession));
+    return true;
+  }, []);
 
-  const openProfileModal = () => {
-    setProfileModalOpen(true);
-    setLoginModalOpen(false);
-  };
+  const claimDeeplink = useCallback(async (ticket: string) => {
+    setAuthStatus('resolving');
+    clearErrors();
+    const ctx = await claimTicket(ticket);
+    if (ctx?.isValid && applySession(ctx, 'game')) {
+      setDeeplinkToastMessage(ctx.playerName ? `С возвращением, ${ctx.playerName}!` : 'Вход через игру выполнен');
+      window.setTimeout(() => setDeeplinkToastMessage(null), 5000);
+      return;
+    }
+    setAuthStatus('error');
+    setAuthErrorCode(ctx?.errorCode || 'ticket_failed');
+    setAuthErrorMessage(ctx?.errorMessage || 'Не удалось подтвердить вход через игру.');
+  }, [applySession]);
 
-  const closeProfileModal = () => setProfileModalOpen(false);
+  useEffect(() => {
+    if (claimStarted.current) return;
+    claimStarted.current = true;
+    LEGACY_KEYS.forEach((key) => {
+      localStorage.removeItem(key);
+      sessionStorage.removeItem(key);
+    });
 
-  const dismissDeeplinkToast = () => setDeeplinkToastMessage(null);
+    const ticket = readTicketParam();
+    if (ticket) {
+      ticketRef.current = ticket;
+      window.history.replaceState({}, document.title, `${window.location.pathname}${window.location.hash}`);
+      void claimDeeplink(ticket);
+      return;
+    }
 
-  const clearSession = () => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (!saved) {
+        setAuthStatus('anonymous');
+        return;
+      }
+      const parsed = JSON.parse(saved) as StoredSession;
+      if (!parsed.accessToken || (parsed.expiresAtUtc && Date.parse(parsed.expiresAtUtc) <= Date.now())) {
+        sessionStorage.removeItem(SESSION_KEY);
+        setAuthStatus('anonymous');
+        return;
+      }
+      applySession({
+        isValid: true,
+        userId: parsed.playerId,
+        playerName: parsed.playerName,
+        region: parsed.region || 'global',
+        store: parsed.storeChannel || 'global',
+        gameVersion: parsed.gameVersion || 'global',
+        deliveryContractVersion: parsed.deliveryContractVersion ?? 1,
+        accessToken: parsed.accessToken,
+        expiresAtUtc: parsed.expiresAtUtc,
+        sessionKind: parsed.sessionKind,
+      }, parsed.sessionKind || 'game');
+    } catch {
+      sessionStorage.removeItem(SESSION_KEY);
+      setAuthStatus('anonymous');
+    }
+  }, [applySession, claimDeeplink]);
+
+  const resolvePlayerId = useCallback(async (rawPlayerId: string) => {
+    setAuthStatus('resolving');
+    clearErrors();
+    const ctx = await resolvePlayer(rawPlayerId.trim());
+    if (ctx?.isValid && ctx.accessToken) {
+      setAuthStatus(lastSessionStatus.current);
+      return ctx;
+    }
+    setAuthStatus('error');
+    setAuthErrorCode(ctx?.errorCode || 'lookup_unavailable');
+    setAuthErrorMessage(ctx?.errorMessage || 'Не удалось найти игрока.');
+    return null;
+  }, []);
+
+  const confirmRecipient = useCallback((ctx: PlayerContext) => {
+    if (!applySession(ctx, 'recipient')) return;
+    setDeeplinkToastMessage(ctx.playerName ? `Получатель: ${ctx.playerName}` : 'Получатель подтверждён');
+    window.setTimeout(() => setDeeplinkToastMessage(null), 5000);
+  }, [applySession]);
+
+  const retryDeeplink = useCallback(async () => {
+    if (ticketRef.current) await claimDeeplink(ticketRef.current);
+    else setLoginModalOpen(true);
+  }, [claimDeeplink]);
+
+  const clearSession = useCallback(() => {
     setPlayerId('');
     setPlayerName('');
-    setPlayerEmail('');
+    setRegion('global');
+    setStoreChannel('global');
+    setGameVersion('');
+    setDeliveryContractVersion(1);
     setAccessToken('');
+    setAuthStatus('anonymous');
+    lastSessionStatus.current = 'anonymous';
+    clearErrors();
     setProfileModalOpen(false);
     setLoginModalOpen(false);
-    localStorage.removeItem(AUTH_STORAGE_KEY);
-    sessionStorage.removeItem(AUTH_STORAGE_KEY);
-    sessionStorage.removeItem(TICKET_SESSION_KEY);
-  };
+    sessionStorage.removeItem(SESSION_KEY);
+  }, []);
 
   useEffect(() => {
     window.addEventListener('webshop-auth-expired', clearSession);
     return () => window.removeEventListener('webshop-auth-expired', clearSession);
-  });
+  }, [clearSession]);
 
   return (
-    <AuthContext.Provider
-      value={{
-        playerId,
-        setPlayerId,
-        playerName,
-        setPlayerName,
-        playerEmail,
-        setPlayerEmail,
-    region,
-    storeChannel,
-    gameVersion,
-    setRegion,
-    setStoreChannel,
-    setGameVersion,
-        loginModalOpen,
-        openLoginModal,
-        closeLoginModal,
-        profileModalOpen,
-        openProfileModal,
-        closeProfileModal,
-        deeplinkToastMessage,
-        dismissDeeplinkToast,
-        clearSession,
-      }}
-    >
+    <AuthContext.Provider value={{
+      playerId,
+      playerName,
+      region,
+      storeChannel,
+      gameVersion,
+      deliveryContractVersion,
+      authStatus,
+      authErrorCode,
+      authErrorMessage,
+      resolvePlayerId,
+      confirmRecipient,
+      retryDeeplink,
+      setRegion,
+      setStoreChannel,
+      setGameVersion,
+      loginModalOpen,
+      openLoginModal: () => { setLoginModalOpen(true); setProfileModalOpen(false); clearErrors(); },
+      closeLoginModal: () => {
+        setLoginModalOpen(false);
+        if (authStatus === 'error') setAuthStatus(lastSessionStatus.current);
+        clearErrors();
+      },
+      profileModalOpen,
+      openProfileModal: () => { setProfileModalOpen(true); setLoginModalOpen(false); },
+      closeProfileModal: () => setProfileModalOpen(false),
+      deeplinkToastMessage,
+      dismissDeeplinkToast: () => setDeeplinkToastMessage(null),
+      dismissAuthError: clearErrors,
+      clearSession,
+    }}>
       {children}
     </AuthContext.Provider>
   );
@@ -210,8 +246,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 };

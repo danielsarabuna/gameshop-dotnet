@@ -37,14 +37,14 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
     }
 
     [Fact]
-    public async Task Gateway_Auth_VerifyPlayer_Route_Is_Anonymous_And_Mapped()
+    public async Task Gateway_Auth_ResolvePlayer_Route_Is_Anonymous_And_Mapped()
     {
         using var factory = new GatewayAuthTests.AuthEnabledGatewayFactory();
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
         using var response = await client.PostAsync(
-            "/api/v1/auth/verify-player?userId=player_123",
-            new StringContent("{}", Encoding.UTF8, "application/json"));
+            "/api/v1/auth/resolve-player",
+            JsonContent.Create(new { playerId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" }));
 
         // Must NOT be 401 Unauthorized (proves anonymous policy)
         Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -84,10 +84,10 @@ public sealed class M2EmpiricalChallengerTests : IClassFixture<M2EmpiricalChalle
     }
 
     [Fact]
-    public async Task Catalog_Auth_VerifyPlayer_Endpoint_Direct_Call_Returns_BadRequest_For_Unknown_Player()
+    public async Task Catalog_Auth_ResolvePlayer_Endpoint_Direct_Call_Returns_BadRequest_For_Unknown_Player()
     {
         using var client = _fixture.CreateClient();
-        using var response = await client.PostAsync("/api/v1/auth/verify-player?userId=unknown_player_999", null);
+        using var response = await client.PostAsJsonAsync("/api/v1/auth/resolve-player", new { playerId = "unknown_player_999" });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }

@@ -85,7 +85,7 @@ app.MapGet("/api/v1/basket/{userId}", (string userId, HttpContext httpContext, I
 
     var basket = store.Get(userId);
     return Results.Ok(basket ?? new ShoppingBasket(userId, "USD", []));
-}).RequireAuthorization();
+}).RequireAuthorization(JwtAuthExtensions.GameSessionPolicy);
 
 app.MapPut("/api/v1/basket/{userId}", async (
     string userId,
@@ -150,7 +150,7 @@ app.MapPut("/api/v1/basket/{userId}", async (
     var basket = new ShoppingBasket(userId, basketCurrency ?? "USD", validatedItems);
     store.Upsert(basket);
     return Results.Ok(basket);
-}).RequireAuthorization();
+}).RequireAuthorization(JwtAuthExtensions.GameSessionPolicy);
 
 app.MapDelete("/api/v1/basket/{userId}", (string userId, HttpContext httpContext, IBasketStore store) =>
 {
@@ -158,7 +158,7 @@ app.MapDelete("/api/v1/basket/{userId}", (string userId, HttpContext httpContext
 
     store.Delete(userId);
     return Results.NoContent();
-}).RequireAuthorization();
+}).RequireAuthorization(JwtAuthExtensions.GameSessionPolicy);
 
 app.MapPost("/api/v1/basket/checkout", async (
     CheckoutBasketRequest request,
@@ -193,7 +193,7 @@ app.MapPost("/api/v1/basket/checkout", async (
     store.Delete(request.UserId);
 
     return Results.Accepted(value: new { message = "Checkout initiated.", checkoutId = checkoutEvent.Id });
-}).RequireAuthorization();
+}).RequireAuthorization(JwtAuthExtensions.GameSessionPolicy);
 
 app.Run();
 

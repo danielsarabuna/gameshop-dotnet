@@ -464,10 +464,14 @@ static CatalogScope GetCatalogScope(HttpContext context)
     static string ClaimOrDefault(HttpContext current, string claim, string fallback)
         => current.User.FindFirst(claim)?.Value?.Trim() is { Length: > 0 } value ? value : fallback;
 
+    var deliveryVersion = int.TryParse(context.User.FindFirst("webshop_delivery_contract")?.Value, out var parsedDeliveryVersion)
+        ? Math.Max(1, parsedDeliveryVersion)
+        : 1;
     return new CatalogScope(
         ClaimOrDefault(context, "region", "global"),
         ClaimOrDefault(context, "store", "global"),
-        ClaimOrDefault(context, "game_version", "global"));
+        ClaimOrDefault(context, "game_version", "global"),
+        deliveryVersion);
 }
 
 namespace Ordering.API

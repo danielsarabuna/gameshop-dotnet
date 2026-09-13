@@ -68,6 +68,7 @@ test.describe('Challenger 2 — M2 Page Cards & Overlay Stress Tests', () => {
     test.use({ viewport: { width: 320, height: 568 } });
 
     test('badge tag for 12 Месяцев does not collide with duration title', async ({ page }) => {
+      await page.route('**/api/v1/catalog/items*', (route) => route.abort('failed'));
       await page.goto('/subscription');
       await page.waitForLoadState('networkidle');
 

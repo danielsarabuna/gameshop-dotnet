@@ -8,7 +8,8 @@ BEGIN
     FOREACH relation_name IN ARRAY ARRAY[
         'public.webshop_orders',
         'public.webshop_purchases',
-        'public.webshop_tickets'
+        'public.webshop_tickets',
+        'public.webshop_player_context'
     ]
     LOOP
         IF to_regclass(relation_name) IS NULL THEN
@@ -22,7 +23,8 @@ BEGIN
         WHERE oid IN (
             'public.webshop_orders'::regclass,
             'public.webshop_purchases'::regclass,
-            'public.webshop_tickets'::regclass)
+            'public.webshop_tickets'::regclass,
+            'public.webshop_player_context'::regclass)
           AND NOT relrowsecurity)
     THEN
         RAISE EXCEPTION 'RLS must be enabled on every WebShop table';
@@ -52,6 +54,14 @@ BEGIN
        OR has_table_privilege('authenticated', 'public.webshop_tickets', 'INSERT')
        OR has_table_privilege('authenticated', 'public.webshop_tickets', 'UPDATE')
        OR has_table_privilege('authenticated', 'public.webshop_tickets', 'DELETE')
+       OR has_table_privilege('anon', 'public.webshop_player_context', 'SELECT')
+       OR has_table_privilege('anon', 'public.webshop_player_context', 'INSERT')
+       OR has_table_privilege('anon', 'public.webshop_player_context', 'UPDATE')
+       OR has_table_privilege('anon', 'public.webshop_player_context', 'DELETE')
+       OR has_table_privilege('authenticated', 'public.webshop_player_context', 'SELECT')
+       OR has_table_privilege('authenticated', 'public.webshop_player_context', 'INSERT')
+       OR has_table_privilege('authenticated', 'public.webshop_player_context', 'UPDATE')
+       OR has_table_privilege('authenticated', 'public.webshop_player_context', 'DELETE')
     THEN
         RAISE EXCEPTION 'Unexpected authenticated table grants';
     END IF;
@@ -75,7 +85,7 @@ BEGIN
         SELECT 1
         FROM pg_policies
         WHERE schemaname = 'public'
-          AND tablename IN ('webshop_purchases', 'webshop_tickets'))
+          AND tablename IN ('webshop_purchases', 'webshop_tickets', 'webshop_player_context'))
     THEN
         RAISE EXCEPTION 'Server-only WebShop tables must not have client RLS policies';
     END IF;
@@ -95,9 +105,22 @@ BEGIN
         FROM pg_publication_tables
         WHERE pubname = 'supabase_realtime'
           AND schemaname = 'public'
-          AND tablename IN ('webshop_purchases', 'webshop_tickets'))
+          AND tablename IN ('webshop_purchases', 'webshop_tickets', 'webshop_player_context'))
     THEN
         RAISE EXCEPTION 'Server-only WebShop tables must not be published to Realtime';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'webshop_orders' AND column_name = 'reward_items')
+       OR NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'webshop_player_context' AND column_name = 'delivery_contract_version')
+       OR NOT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'webshop_tickets' AND column_name = 'delivery_contract_version')
+    THEN
+        RAISE EXCEPTION 'WebShop delivery v2 columns are missing';
     END IF;
 
     FOREACH function_name IN ARRAY ARRAY[
@@ -106,8 +129,12 @@ BEGIN
         'public.complete_webshop_order(uuid,uuid)',
         'public.release_webshop_order(uuid,uuid)',
         'public.create_webshop_ticket(text,text,text)',
+        'public.create_webshop_ticket_v2(text,text,text,integer)',
+        'public.sync_webshop_player_context(text,text,text)',
+        'public.sync_webshop_player_context_v2(text,text,text,integer)',
         'public.consume_webshop_ticket(uuid)',
-        'public.record_webshop_paid_order(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb)'
+        'public.record_webshop_paid_order(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb)',
+        'public.record_webshop_paid_order_v2(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb,jsonb)'
     ]
     LOOP
         IF to_regprocedure(function_name) IS NULL THEN
@@ -119,14 +146,19 @@ BEGIN
     END LOOP;
 
     IF NOT has_function_privilege('authenticated', 'public.create_webshop_ticket(text,text,text)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.create_webshop_ticket_v2(text,text,text,integer)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.sync_webshop_player_context(text,text,text)', 'EXECUTE')
+       OR NOT has_function_privilege('authenticated', 'public.sync_webshop_player_context_v2(text,text,text,integer)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.reserve_webshop_order(uuid,uuid)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.complete_webshop_order(uuid,uuid)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.release_webshop_order(uuid,uuid)', 'EXECUTE')
        OR NOT has_function_privilege('authenticated', 'public.release_expired_webshop_claims()', 'EXECUTE')
        OR has_function_privilege('authenticated', 'public.consume_webshop_ticket(uuid)', 'EXECUTE')
        OR has_function_privilege('authenticated', 'public.record_webshop_paid_order(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb)', 'EXECUTE')
+       OR has_function_privilege('authenticated', 'public.record_webshop_paid_order_v2(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb,jsonb)', 'EXECUTE')
        OR NOT has_function_privilege('service_role', 'public.consume_webshop_ticket(uuid)', 'EXECUTE')
        OR NOT has_function_privilege('service_role', 'public.record_webshop_paid_order(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb)', 'EXECUTE')
+       OR NOT has_function_privilege('service_role', 'public.record_webshop_paid_order_v2(uuid,uuid,uuid,text,text,integer,numeric,text,text,text,timestamptz,jsonb,jsonb)', 'EXECUTE')
     THEN
         RAISE EXCEPTION 'Unexpected WebShop RPC grants';
     END IF;
@@ -142,8 +174,12 @@ BEGIN
               'complete_webshop_order',
               'release_webshop_order',
               'create_webshop_ticket',
+              'create_webshop_ticket_v2',
+              'sync_webshop_player_context',
+              'sync_webshop_player_context_v2',
               'consume_webshop_ticket',
-              'record_webshop_paid_order')
+              'record_webshop_paid_order',
+              'record_webshop_paid_order_v2')
           AND (
               NOT p.prosecdef
               OR NOT EXISTS (

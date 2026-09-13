@@ -26,6 +26,7 @@ namespace BuildingBlocks.Auth;
 public static class JwtAuthExtensions
 {
     private const string DisabledAuthenticationScheme = "WebShopDisabled";
+    public const string GameSessionPolicy = "webshop-game-session";
 
     public static IServiceCollection AddWebShopJwtAuthentication(this IServiceCollection services, IConfiguration configuration)
     {
@@ -109,6 +110,12 @@ public static class JwtAuthExtensions
                     .Build();
             options.DefaultPolicy = policy;
             options.FallbackPolicy = policy;
+            options.AddPolicy(GameSessionPolicy, gamePolicy => gamePolicy.RequireAssertion(context =>
+                !authEnabled
+                || !string.Equals(
+                    context.User.FindFirst("webshop_session")?.Value,
+                    "recipient",
+                    StringComparison.OrdinalIgnoreCase)));
         });
 
         return services;
@@ -163,7 +170,9 @@ public sealed class GameTicketTokenIssuer
         string gameUserId,
         string region,
         string store,
-        string gameVersion)
+        string gameVersion,
+        string sessionKind = "game",
+        int deliveryContractVersion = 1)
     {
         var expiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(Math.Clamp(_options.LifetimeMinutes, 1, 60));
         var token = new JwtSecurityToken(
@@ -175,7 +184,12 @@ public sealed class GameTicketTokenIssuer
                 new("sub", gameUserId),
                 new("region", region),
                 new("store", store),
-                new("game_version", gameVersion)
+                new("game_version", gameVersion),
+                new("webshop_delivery_contract", Math.Max(1, deliveryContractVersion).ToString(System.Globalization.CultureInfo.InvariantCulture)),
+                new("webshop_session", sessionKind),
+                new("scope", string.Equals(sessionKind, "recipient", StringComparison.OrdinalIgnoreCase)
+                    ? "webshop.checkout"
+                    : "webshop.game")
             ],
             notBefore: DateTime.UtcNow,
             expires: expiresAtUtc.UtcDateTime,

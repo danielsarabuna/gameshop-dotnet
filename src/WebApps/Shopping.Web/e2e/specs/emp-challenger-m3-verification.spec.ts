@@ -93,39 +93,37 @@ test.describe('EMPIRICAL CHALLENGER M3 — E2E Suite Layout & Viewport Correctne
   /* 3. Cart Drawer Width Assertions across Mobile & Desktop                    */
   /* -------------------------------------------------------------------------- */
   test.describe('3. Cart Drawer Width Assertions (Mobile vs Desktop)', () => {
-    test('should be 100vw on 390x844 mobile', async ({ page }) => {
+    test('should be a compact bottom sheet on 390x844 mobile', async ({ page }) => {
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto('/diamonds');
       await page.waitForLoadState('networkidle');
 
-      const header = new HeaderPOM(page);
       const cart = new CartDrawerPOM(page);
 
-      await header.openCart();
-      await cart.assert100vwMobileWidth();
+      await page.getByRole('button', { name: 'В корзину' }).first().click();
+      await cart.assertMobileBottomSheet();
 
       const box = await cart.getDrawerBoundingBox();
       expect(box).not.toBeNull();
       expect(Math.abs(box!.width - 390)).toBeLessThanOrEqual(2);
     });
 
-    test('should be 100vw on 320x568 ultra-small mobile', async ({ page }) => {
+    test('should keep the sticky footer on 320x568 ultra-small mobile', async ({ page }) => {
       await page.setViewportSize({ width: 320, height: 568 });
       await page.goto('/diamonds');
       await page.waitForLoadState('networkidle');
 
-      const header = new HeaderPOM(page);
       const cart = new CartDrawerPOM(page);
 
-      await header.openCart();
-      await cart.assert100vwMobileWidth();
+      await page.getByRole('button', { name: 'В корзину' }).first().click();
+      await cart.assertMobileBottomSheet();
 
       const box = await cart.getDrawerBoundingBox();
       expect(box).not.toBeNull();
       expect(Math.abs(box!.width - 320)).toBeLessThanOrEqual(2);
     });
 
-    test('should be fixed 420px on 1024x768 desktop/landscape mode', async ({ page }) => {
+    test('should stay within the 420–460px desktop drawer range', async ({ page }) => {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.goto('/diamonds');
       await page.waitForLoadState('networkidle');
@@ -138,7 +136,8 @@ test.describe('EMPIRICAL CHALLENGER M3 — E2E Suite Layout & Viewport Correctne
 
       const box = await cart.getDrawerBoundingBox();
       expect(box).not.toBeNull();
-      expect(Math.abs(box!.width - 420)).toBeLessThanOrEqual(3);
+      expect(box!.width).toBeGreaterThanOrEqual(420);
+      expect(box!.width).toBeLessThanOrEqual(460);
     });
   });
 

@@ -1,77 +1,131 @@
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, CheckCircle2, Clock, LoaderCircle, RefreshCw, RotateCcw, X, XCircle } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { getOrderStatus } from '../services/api';
-import { CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { createPayment, getOrderStatus } from '../services/api';
 import { useCart } from '../context/CartContext';
+import { useDialogA11y } from '../components/Modals';
+import {
+  clearPendingPayment,
+  readPendingPayment,
+  safeReturnPath,
+  StoredPaymentResult,
+} from '../services/paymentSession';
 
-type Phase = 'loading' | 'paid' | 'pending' | 'failed' | 'unknown';
+type Phase = 'paid' | 'processing' | 'cancelled' | 'failed' | 'missing-order' | 'status-unavailable';
 
-// Landing page for provider redirects (Stripe Success/Cancel, YooKassa/Xsolla
-// return_url). The webhook — not this page — is what actually credits the order;
-// here we only reflect its status while the player waits.
-export const OrderResult: React.FC<{ outcome: 'complete' | 'cancelled' }> = ({ outcome }) => {
-  const { t } = useLanguage();
-  const { clearCart } = useCart();
+interface PaymentReturnProps {
+  outcome: StoredPaymentResult['outcome'];
+  onResult: (result: StoredPaymentResult) => void;
+}
+
+export const PaymentReturn: React.FC<PaymentReturnProps> = ({ outcome, onResult }) => {
+  const navigate = useNavigate();
   const [params] = useSearchParams();
   const orderId = params.get('order_id') ?? '';
-  const [phase, setPhase] = useState<Phase>(outcome === 'cancelled' ? 'pending' : 'loading');
-  const cartCleared = useRef(false);
 
   useEffect(() => {
-    if (outcome === 'cancelled' || !orderId) return;
+    const pending = readPendingPayment();
+    onResult({ orderId, outcome });
+    navigate(safeReturnPath(pending?.returnPath), { replace: true });
+  }, [navigate, onResult, orderId, outcome]);
 
-    let mounted = true;
+  return null;
+};
+
+interface PaymentResultModalProps {
+  result: StoredPaymentResult;
+  onClose: () => void;
+}
+
+export const PaymentResultModal: React.FC<PaymentResultModalProps> = ({ result, onClose }) => {
+  const { t } = useLanguage();
+  const { clearCart, openCartDrawer } = useCart();
+  const { orderId, outcome } = result;
+  const [phase, setPhase] = useState<Phase>(!orderId ? 'missing-order' : outcome === 'cancelled' ? 'cancelled' : outcome === 'failed' ? 'failed' : 'processing');
+  const [retryBusy, setRetryBusy] = useState(false);
+  const [statusCheckVersion, setStatusCheckVersion] = useState(0);
+  const cartCleared = useRef(false);
+  const cardRef = useRef<HTMLElement>(null);
+  useDialogA11y(true, onClose, cardRef);
+
+  const checkStatus = useCallback(() => {
+    if (!orderId || outcome !== 'complete') return () => undefined;
+    let active = true;
     let attempts = 0;
+    let failures = 0;
+    let timer: number | undefined;
+    setPhase('processing');
     const tick = async () => {
       attempts += 1;
       const status = await getOrderStatus(orderId);
-      if (!mounted) return;
+      if (!active) return;
       if (status === 'Paid') setPhase('paid');
       else if (status === 'Failed') setPhase('failed');
-      else if (attempts < 40) setTimeout(tick, 3000); // webhook may still be in flight
-      else setPhase('pending');
+      else {
+        failures = status === null ? failures + 1 : 0;
+        if (failures >= 5 || attempts >= 40) setPhase('status-unavailable');
+        else timer = window.setTimeout(tick, 3000);
+      }
     };
-    tick();
-    return () => {
-      mounted = false;
-    };
-  }, [orderId, outcome]);
+    void tick();
+    return () => { active = false; if (timer) window.clearTimeout(timer); };
+  }, [orderId, outcome, statusCheckVersion]);
 
+  useEffect(() => checkStatus(), [checkStatus]);
   useEffect(() => {
-    if (phase === 'paid' && !cartCleared.current) {
-      cartCleared.current = true;
-      clearCart();
-    }
+    if (phase !== 'paid' || cartCleared.current) return;
+    cartCleared.current = true;
+    clearCart();
+    clearPendingPayment();
   }, [phase, clearCart]);
 
-  const icon = phase === 'paid' ? <CheckCircle2 size={56} color="#00f2fe" />
-    : phase === 'failed' ? <XCircle size={56} color="#ff4d4d" />
-    : <Clock size={56} color="var(--accent-pink)" />;
+  const retryPayment = async () => {
+    if (retryBusy) return;
+    const pending = readPendingPayment();
+    if (pending?.orderId !== orderId || !pending.provider) {
+      setPhase('status-unavailable');
+      return;
+    }
+    try {
+      setRetryBusy(true);
+      const payment = await createPayment(orderId, pending.provider);
+      if (payment.success && payment.data?.checkoutUrl) window.location.assign(payment.data.checkoutUrl);
+      else setPhase('status-unavailable');
+    } finally {
+      setRetryBusy(false);
+    }
+  };
 
-  const title = phase === 'paid' ? t('Оплата прошла!', 'Payment received!', 'Zahlung erhalten!', 'Paiement reçu !', '¡Pago recibido!')
-    : phase === 'failed' ? t('Платёж не прошёл', 'Payment failed', 'Zahlung fehlgeschlagen', 'Paiement échoué', 'Pago fallido')
-    : t('Платёж обрабатывается…', 'Payment is being processed…', 'Zahlung wird verarbeitet…', 'Paiement en cours…', 'Pago en proceso…');
+  const returnToCheckout = () => {
+    onClose();
+    openCartDrawer();
+  };
 
-  const subtitle = phase === 'paid'
-    ? t('Награда придёт в игру автоматически.', 'Your reward will arrive in the game automatically.', 'Die Belohnung kommt automatisch ins Spiel.', 'La récompense arrivera automatiquement dans le jeu.', 'Tu recompensa llegará al juego automáticamente.')
-    : phase === 'failed'
-      ? t('Вы можете попробовать ещё раз в любое время.', 'You can try again at any time.', 'Du kannst es jederzeit erneut versuchen.', 'Vous pouvez réessayer à tout moment.', 'Puedes intentarlo de nuevo en cualquier momento.')
-      : t('Обычно это занимает меньше минуты. Награда придёт автоматически.', 'It usually takes less than a minute. The reward arrives automatically.', 'Dauert meist weniger als eine Minute. Die Belohnung kommt automatisch.', 'Cela prend généralement moins d’une minute.', 'Suele tardar menos de un minuto.');
+  const content = {
+    paid: [<CheckCircle2 size={32} />, t('Оплата прошла', 'Payment received'), t('Награда отправлена в игру и появится в окне получения покупки.', 'Your reward has been sent to the game and will appear in the purchase reward popup.')],
+    processing: [<Clock size={32} />, t('Платёж обрабатывается', 'Payment is processing'), t('Обычно это занимает меньше минуты. Статус обновится автоматически.', 'This usually takes less than a minute. The status updates automatically.')],
+    cancelled: [<RotateCcw size={32} />, t('Оплата отменена', 'Payment cancelled'), t('Деньги не списаны. Корзина сохранена, и оплату можно повторить.', 'No money was charged. Your cart is saved and you can retry.')],
+    failed: [<XCircle size={32} />, t('Платёж не прошёл', 'Payment failed'), t('Корзина сохранена. Вернитесь к оплате и попробуйте ещё раз.', 'Your cart is saved. Return to checkout and try again.')],
+    'missing-order': [<AlertCircle size={32} />, t('Заказ не найден', 'Order not found'), t('В ссылке отсутствует номер заказа. Корзина и магазин по-прежнему доступны.', 'The link has no order ID. Your cart and the shop are still available.')],
+    'status-unavailable': [<AlertCircle size={32} />, t('Статус пока недоступен', 'Status is unavailable'), t('Заказ сохранён. Проверьте статус ещё раз или продолжите покупки.', 'Your order is saved. Check again or continue shopping.')],
+  }[phase];
 
   return (
-    <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, textAlign: 'center', padding: '24px' }}>
-      {icon}
-      <h1 style={{ fontSize: '1.6rem', fontWeight: 900, color: '#fff', margin: 0 }}>{title}</h1>
-      <p style={{ color: 'var(--text-muted)', maxWidth: 420, margin: 0 }}>{subtitle}</p>
-      {orderId && (
-        <div style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-          {t('Заказ', 'Order', 'Bestellung', 'Commande', 'Pedido')}: {orderId}
+    <div className="modal-overlay payment-result-overlay" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <section ref={cardRef} className={`payment-card payment-result-modal ${phase}`} role="dialog" aria-modal="true" aria-labelledby="payment-result-title" aria-live="polite">
+        <button type="button" className="cart-close payment-result-close" aria-label={t('Закрыть', 'Close')} onClick={onClose}><X size={17} /></button>
+        <span className="payment-card-icon">{phase === 'processing' ? <LoaderCircle className="spin" size={32} /> : content[0]}</span>
+        <h1 id="payment-result-title">{content[1]}</h1>
+        <p>{content[2]}</p>
+        {orderId && <details className="payment-order-details"><summary>{t('Детали заказа', 'Order details')}</summary><div className="payment-order-id">{orderId}</div></details>}
+        <div className={`payment-actions ${phase === 'paid' || phase === 'missing-order' ? 'single' : ''}`}>
+          {phase === 'cancelled' && <button className="btn btn-primary" disabled={retryBusy} onClick={() => void retryPayment()}>{retryBusy ? <LoaderCircle className="spin" size={17} /> : <RefreshCw size={17} />}{t('Повторить оплату', 'Retry payment')}</button>}
+          {phase === 'failed' && <button className="btn btn-primary" onClick={returnToCheckout}><RefreshCw size={17} />{t('Вернуться к оплате', 'Return to checkout')}</button>}
+          {phase === 'status-unavailable' && <button className="btn btn-primary" onClick={() => setStatusCheckVersion((value) => value + 1)}><RefreshCw size={17} />{t('Проверить ещё раз', 'Check again')}</button>}
+          <button type="button" className={phase === 'paid' || phase === 'missing-order' ? 'btn btn-primary' : 'btn btn-outline'} onClick={onClose}>{t('Продолжить покупки', 'Continue shopping')}</button>
         </div>
-      )}
-      <Link to="/diamonds" className="btn btn-primary" style={{ marginTop: 10, padding: '12px 28px', borderRadius: 14 }}>
-        {t('Вернуться в магазин', 'Back to shop', 'Zurück zum Shop', 'Retour à la boutique', 'Volver a la tienda')}
-      </Link>
+      </section>
     </div>
   );
 };

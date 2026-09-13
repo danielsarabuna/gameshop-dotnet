@@ -1,7 +1,9 @@
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Ordering.Application.Abstractions;
+using Ordering.Application.Orders.CreateOrder;
 using Ordering.Domain.Payments;
 using Ordering.Domain.Products;
 
@@ -138,7 +140,7 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
     }
 
     [SkippableFact]
-    public async Task Create_order_rejects_mixed_reward_types()
+    public async Task Create_order_v1_rejects_mixed_reward_types()
     {
         Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
 
@@ -154,5 +156,24 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
         });
 
         Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [SkippableFact]
+    public async Task Create_order_v2_accepts_mixed_reward_types()
+    {
+        Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
+
+        using var scope = _factory!.Services.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<CreateOrderHandler>();
+        var result = await handler.HandleAsync(
+            new CreateOrderRequest(
+                "test-user-001",
+                PaymentMethod.Stripe,
+                [new CreateOrderLine(DiamondPackId, 1), new CreateOrderLine(PremiumMonthId, 1)],
+                null),
+            new CatalogScope("global", "global", "global", 2),
+            CancellationToken.None);
+
+        Assert.Equal(8.22m, result.Total);
     }
 }

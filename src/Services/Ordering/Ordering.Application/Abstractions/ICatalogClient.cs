@@ -10,7 +10,7 @@ public interface ICatalogClient
         => GetProductAsync(id, cancellationToken);
 }
 
-public sealed record CatalogScope(string Region, string Store, string GameVersion)
+public sealed record CatalogScope(string Region, string Store, string GameVersion, int DeliveryContractVersion = 1)
 {
     public static readonly CatalogScope Default = new("global", "global", "global");
 }
