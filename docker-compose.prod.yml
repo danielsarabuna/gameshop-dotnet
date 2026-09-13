@@ -88,6 +88,8 @@ services:
       Catalog__Storage: Mongo
       Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
       Catalog__Remote__Bucket: ${CATALOG_BUCKET:-prod}
+      Catalog__Remote__SupabaseBaseUrl: ${SUPABASE_URL}
+      Catalog__CacheInvalidation__SharedSecret: ${CATALOG_CACHE_INVALIDATION_SECRET:?set CATALOG_CACHE_INVALIDATION_SECRET in .env.prod}
       GameTicketJwt__PrivateKeyPemBase64: ${GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64}
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317

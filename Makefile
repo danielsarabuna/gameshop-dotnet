@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 .PHONY: build build-all run-local run-local-api run-docker test clean-logs check \
 	local-init local-up local-up-full local-doctor local-logs local-down \
-	local-publish-catalog supabase-plan supabase-apply supabase-verify supabase-test
+	supabase-plan supabase-apply supabase-verify supabase-test
 
 LOCAL_COMPOSE := docker compose --env-file .env.local -f docker-compose.yml
 
@@ -34,9 +34,6 @@ local-up: local-init
 local-up-full: local-init
 	COMPOSE_PARALLEL_LIMIT=2 $(LOCAL_COMPOSE) --profile full up --build -d
 	$(MAKE) local-doctor
-
-local-publish-catalog: local-init
-	bash ./scripts/publish-local-catalog.sh
 
 supabase-plan:
 	bash ./scripts/supabase-schema.sh plan "$${SUPABASE_ENV_FILE:-.env.local}"

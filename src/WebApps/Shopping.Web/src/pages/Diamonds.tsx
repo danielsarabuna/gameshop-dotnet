@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { getCatalogItems } from '../services/api';
+import { catalogLocaleForLanguage, getCatalogItems } from '../services/api';
 import { SkeletonCard } from '../components/Skeleton';
 import { DiamondIcon } from '../components/Icons';
 import { ShoppingCart, RefreshCw, AlertCircle, ChevronDown } from 'lucide-react';
@@ -19,6 +19,13 @@ interface DiamondPack {
   imageUrl: string;
   isLiveBackend?: boolean;
 }
+
+const replaceWithDiamondFallback = (image: HTMLImageElement, amount: number) => {
+  const fallback = getDiamondImageFallback(amount);
+  if (!image.src.endsWith(fallback)) {
+    image.src = fallback;
+  }
+};
 
 const FALLBACK_DIAMOND_PACKS: DiamondPack[] = [
   {
@@ -93,7 +100,7 @@ const FALLBACK_DIAMOND_PACKS: DiamondPack[] = [
 ];
 
 export const Diamonds: React.FC = () => {
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const { addItem, openCartDrawer, reconcile } = useCart();
   const { region, storeChannel, gameVersion } = useAuth();
   const [catalogItems, setCatalogItems] = useState<any[] | null>(null);
@@ -102,7 +109,7 @@ export const Diamonds: React.FC = () => {
 
   const fetchCatalog = () => {
     setLoading(true);
-    getCatalogItems(region, storeChannel, gameVersion).then((items) => {
+    getCatalogItems(region, storeChannel, gameVersion, catalogLocaleForLanguage[language]).then((items) => {
       setLoading(false);
       if (items !== null) {
         setIsBackendConnected(true);
@@ -122,7 +129,7 @@ export const Diamonds: React.FC = () => {
   useEffect(() => {
     fetchCatalog();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [region, storeChannel, gameVersion]);
+  }, [region, storeChannel, gameVersion, language]);
 
   const packs = React.useMemo<DiamondPack[]>(() => {
     const rawPacks = (isBackendConnected === false || catalogItems === null)
@@ -303,11 +310,16 @@ export const Diamonds: React.FC = () => {
                       style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain', filter: 'drop-shadow(0 6px 16px rgba(153, 51, 255, 0.4))' }}
                       onError={(e) => {
                         const target = e.currentTarget;
-                        const fallback = getDiamondImageFallback(pack.amount);
-                        if (!target.src.endsWith(fallback)) {
-                          target.src = fallback;
-                        } else {
+                        if (target.src.endsWith(getDiamondImageFallback(pack.amount))) {
                           target.onerror = null;
+                          return;
+                        }
+                        replaceWithDiamondFallback(target, pack.amount);
+                      }}
+                      onLoad={(e) => {
+                        const target = e.currentTarget;
+                        if (target.naturalWidth <= 1 || target.naturalHeight <= 1) {
+                          replaceWithDiamondFallback(target, pack.amount);
                         }
                       }}
                     />
@@ -427,11 +439,16 @@ export const Diamonds: React.FC = () => {
                         style={{ maxHeight: '85px', maxWidth: '85px', objectFit: 'contain', filter: 'drop-shadow(0 6px 16px rgba(153, 51, 255, 0.4))' }}
                         onError={(e) => {
                           const target = e.currentTarget;
-                          const fallback = getDiamondImageFallback(pack.amount);
-                          if (!target.src.endsWith(fallback)) {
-                            target.src = fallback;
-                          } else {
+                          if (target.src.endsWith(getDiamondImageFallback(pack.amount))) {
                             target.onerror = null;
+                            return;
+                          }
+                          replaceWithDiamondFallback(target, pack.amount);
+                        }}
+                        onLoad={(e) => {
+                          const target = e.currentTarget;
+                          if (target.naturalWidth <= 1 || target.naturalHeight <= 1) {
+                            replaceWithDiamondFallback(target, pack.amount);
                           }
                         }}
                       />

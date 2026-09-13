@@ -8,9 +8,9 @@ public sealed class SupabaseOptions
     public string ServiceRoleKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// Fallbacks used when a request arrives WITHOUT region/store/version context
+    /// Fallbacks used when a request arrives WITHOUT region/store context
     /// (e.g. an anonymous visitor who did not come from the game deeplink).
-    /// Convention: bucket/global/global/webshop_config_global.json
+    /// CatalogProvider resolves the highest published config version for the selected region/store.
     /// </summary>
     public string DefaultRegion { get; set; } = "global";
     public string DefaultStore { get; set; } = "global";

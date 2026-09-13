@@ -12,6 +12,9 @@ public sealed class InMemoryCatalogStore : ICatalogStore
     public void SetConfig(string region, string store, string gameVersion, WebShopCatalogConfig config)
         => _configs[BuildKey(region, store, gameVersion)] = config;
 
+    public bool RemoveConfig(string region, string store, string gameVersion)
+        => _configs.TryRemove(BuildKey(region, store, gameVersion), out _);
+
     public CatalogItem? GetItemById(Guid id)
     {
         foreach (var config in _configs.Values)
