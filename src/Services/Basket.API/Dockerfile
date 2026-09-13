@@ -3,6 +3,7 @@ WORKDIR /src
 
 COPY WebShop.sln ./
 COPY src/Services/Basket.API/Basket.API.csproj src/Services/Basket.API/
+COPY src/BuildingBlocks/Auth/Auth.csproj src/BuildingBlocks/Auth/
 COPY src/BuildingBlocks/Logging/Logging.csproj src/BuildingBlocks/Logging/
 COPY src/BuildingBlocks/EventBus/EventBus.csproj src/BuildingBlocks/EventBus/
 COPY src/BuildingBlocks/EventBus.RabbitMq/EventBus.RabbitMq.csproj src/BuildingBlocks/EventBus.RabbitMq/
@@ -29,4 +30,3 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=10 --start-period=15s \
 COPY --from=build /app/publish .
 USER app
 ENTRYPOINT ["dotnet", "Basket.API.dll"]
-
