@@ -23,8 +23,11 @@ public sealed class PayPalWebhookContractTests
         var provider = new PayPalPaymentProvider("client", "secret", webhookSecret: "WEBHOOK_ID", httpClient: client);
         var result = await provider.ParseWebhookAsync(new WebhookEnvelope(body, new Dictionary<string, string>
         {
-            ["PayPal-Auth-Algo"] = "SHA256withRSA", ["PayPal-Cert-Url"] = "https://api.sandbox.paypal.com/cert",
-            ["PayPal-Transmission-Id"] = "tx-1", ["PayPal-Transmission-Sig"] = "signature", ["PayPal-Transmission-Time"] = "2026-01-01T00:00:00Z"
+            ["PayPal-Auth-Algo"] = "SHA256withRSA",
+            ["PayPal-Cert-Url"] = "https://api.sandbox.paypal.com/cert",
+            ["PayPal-Transmission-Id"] = "tx-1",
+            ["PayPal-Transmission-Sig"] = "signature",
+            ["PayPal-Transmission-Time"] = "2026-01-01T00:00:00Z"
         }, null), CancellationToken.None);
 
         Assert.NotNull(result);
