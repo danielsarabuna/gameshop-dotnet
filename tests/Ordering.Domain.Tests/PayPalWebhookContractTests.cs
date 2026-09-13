@@ -12,13 +12,8 @@ public sealed class PayPalWebhookContractTests
     public async Task ParseWebhookAsync_OfficialCaptureShapeAndVerifiedSignature_ReturnsSucceededPayment()
     {
         var orderId = Guid.NewGuid();
-        var body = JsonSerializer.Serialize(new
-        {
-            id = "WH-123",
-            event_type = "PAYMENT.CAPTURE.COMPLETED",
-            resource = new { custom_id = orderId.ToString("D"), amount = new { value = "12.34", currency_code = "EUR" } }
-        });
-        var handler = new ContractHandler();
+        var body = $"{{\n \"id\" : \"WH-123\", \"event_type\":\"PAYMENT.CAPTURE.COMPLETED\", \"resource\" : {{ \"custom_id\":\"{orderId:D}\", \"amount\" : {{\"value\":\"12.3400\",\"currency_code\":\"EUR\"}} }}\n}}";
+        var handler = new ContractHandler(body);
         using var client = new HttpClient(handler);
         var provider = new PayPalPaymentProvider("client", "secret", webhookSecret: "WEBHOOK_ID", httpClient: client);
         var result = await provider.ParseWebhookAsync(new WebhookEnvelope(body, new Dictionary<string, string>
@@ -37,7 +32,7 @@ public sealed class PayPalWebhookContractTests
         Assert.True(handler.VerificationRequested);
     }
 
-    private sealed class ContractHandler : HttpMessageHandler
+    private sealed class ContractHandler(string expectedRawBody) : HttpMessageHandler
     {
         public bool VerificationRequested { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -45,7 +40,9 @@ public sealed class PayPalWebhookContractTests
             if (request.RequestUri!.AbsolutePath == "/v1/oauth2/token")
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { access_token = "token" }) };
             VerificationRequested = request.RequestUri.AbsolutePath == "/v1/notifications/verify-webhook-signature";
-            var sent = await request.Content!.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var raw = await request.Content!.ReadAsStringAsync(cancellationToken);
+            Assert.Contains($"\"webhook_event\":{expectedRawBody}", raw, StringComparison.Ordinal);
+            var sent = JsonDocument.Parse(raw).RootElement;
             Assert.Equal("WEBHOOK_ID", sent.GetProperty("webhook_id").GetString());
             Assert.Equal("tx-1", sent.GetProperty("transmission_id").GetString());
             return new HttpResponseMessage(HttpStatusCode.OK) { Content = JsonContent.Create(new { verification_status = "SUCCESS" }) };
