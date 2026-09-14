@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { assertZeroHorizontalScroll } from '../utils/layout-helpers';
 
-test.describe('Challenger M3 — Tablet Responsiveness & Orientation Stress Tests', () => {
+test.describe('Tablet responsiveness and orientation', () => {
   // Boundary 1: Tablet Portrait exact breakpoint at 768x1024
   test.describe('Tablet Portrait Boundary (768x1024)', () => {
     test.use({ viewport: { width: 768, height: 1024 } });

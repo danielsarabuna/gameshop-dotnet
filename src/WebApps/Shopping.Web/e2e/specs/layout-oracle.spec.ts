@@ -3,7 +3,7 @@ import { assertZeroHorizontalScroll } from '../utils/layout-helpers';
 import { HeaderPOM } from '../page-objects/header.page';
 import { CartDrawerPOM } from '../page-objects/cart.page';
 
-test.describe('EMPIRICAL CHALLENGER M3 — E2E Suite Layout & Viewport Correctness', () => {
+test.describe('Layout and viewport oracle', () => {
 
   /* -------------------------------------------------------------------------- */
   /* 1. Sensitivity Test: Zero Horizontal Scroll Assertion Verification         */

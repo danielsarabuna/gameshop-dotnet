@@ -52,8 +52,11 @@ public sealed class WebhookSecurityTests
 
     private static string ComputeXsollaSignature(string body, string secret)
     {
+#pragma warning disable CA5350, CA5351 // Required to reproduce the documented Xsolla webhook signature protocol.
         var md5Hex = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(body + secret)));
-        return Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(md5Hex)));
+        var signature = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(md5Hex)));
+#pragma warning restore CA5350, CA5351
+        return signature;
     }
 
     // ---------- YooKassa: source allowlist ----------

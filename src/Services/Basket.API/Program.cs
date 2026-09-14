@@ -1,14 +1,15 @@
 using System.Globalization;
 using System.Security.Claims;
 using Basket.API.Storage;
+using BuildingBlocks.Auth;
 using BuildingBlocks.Exceptions;
 using Catalog.Grpc;
 using EventBus;
 using EventBus.RabbitMq;
 using Grpc.Core;
 using IntegrationEvents;
-using BuildingBlocks.Auth;
 using Logging;
+using Scalar.AspNetCore;
 using ShoppingBasket = Basket.API.Storage.Basket;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -18,6 +19,7 @@ builder.Services.AddWebShopTracing(builder.Configuration, "Basket");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Basket");
 builder.Services.AddCustomExceptionHandler();
 builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
+builder.Services.AddOpenApi();
 
 var basketHealth = builder.Services.AddHealthChecks();
 if (string.Equals(builder.Configuration["Basket:Storage"], "Redis", StringComparison.OrdinalIgnoreCase)
@@ -70,6 +72,12 @@ builder.Services.AddGrpcClient<CatalogInternal.CatalogInternalClient>(options =>
 builder.Services.AddSingleton<IBasketCatalogClient, GrpcBasketCatalogClient>();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 
 app.UseExceptionHandler();
 app.UseWebShopSecurityHeaders();

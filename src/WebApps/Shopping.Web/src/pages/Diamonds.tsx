@@ -215,7 +215,7 @@ export const Diamonds: React.FC = () => {
     <>
       {/* DESKTOP VIEW (≥1024px): Single Page with all diamond cards */}
       <div className="desktop-only-view" style={{ position: 'relative', overflow: 'hidden' }}>
-        <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+        <img src="/images/story-bg.jpg" alt="" className="showcase-bg" />
         <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
 
         <div style={{ position: 'relative', zIndex: 3, maxWidth: 1100, margin: '0 auto' }}>
@@ -371,7 +371,7 @@ export const Diamonds: React.FC = () => {
               overflow: 'hidden',
             }}
           >
-            <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+            <img src="/images/story-bg.jpg" alt="" className="showcase-bg" />
             <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
 
             <div style={{ position: 'relative', zIndex: 3, width: '100%', maxWidth: 860, margin: '0 auto', textAlign: 'center' }}>

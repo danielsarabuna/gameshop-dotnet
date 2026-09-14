@@ -89,19 +89,19 @@ public sealed class OutboxDispatcherHostedService(
         switch (message.Type)
         {
             case OutboxMessageTypes.OrderCompleted:
-            {
-                var completed = JsonSerializer.Deserialize<OrderCompleted>(message.PayloadJson, PayloadOptions)
-                                ?? throw new InvalidOperationException("Unreadable OrderCompleted payload.");
-                await services.GetRequiredService<IEventBus>().PublishAsync(completed, cancellationToken);
-                break;
-            }
+                {
+                    var completed = JsonSerializer.Deserialize<OrderCompleted>(message.PayloadJson, PayloadOptions)
+                                    ?? throw new InvalidOperationException("Unreadable OrderCompleted payload.");
+                    await services.GetRequiredService<IEventBus>().PublishAsync(completed, cancellationToken);
+                    break;
+                }
             case OutboxMessageTypes.SupabaseOrderPaid:
-            {
-                var delivery = JsonSerializer.Deserialize<SupabaseOrderDelivery>(message.PayloadJson, PayloadOptions)
-                               ?? throw new InvalidOperationException("Unreadable SupabaseOrderDelivery payload.");
-                await services.GetRequiredService<ISupabaseOrderDelivery>().DeliverAsync(delivery, cancellationToken);
-                break;
-            }
+                {
+                    var delivery = JsonSerializer.Deserialize<SupabaseOrderDelivery>(message.PayloadJson, PayloadOptions)
+                                   ?? throw new InvalidOperationException("Unreadable SupabaseOrderDelivery payload.");
+                    await services.GetRequiredService<ISupabaseOrderDelivery>().DeliverAsync(delivery, cancellationToken);
+                    break;
+                }
             default:
                 // Unknown type: ack so it does not clog the queue.
                 break;

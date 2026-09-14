@@ -231,14 +231,8 @@ export const Header: React.FC = () => {
             </li>
           </ul>
           <div className="mobile-social-bar">
-            <a href="https://t.me/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="Telegram">
-              <img src="/icons/telegram.svg" alt="Telegram" />
-            </a>
-            <a href="https://vk.com/example-game-studio" target="_blank" rel="noreferrer" className="social-icon-link" title="VK">
-              <img src="/icons/vk.svg" alt="VK" />
-            </a>
-            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-icon-link" title="YouTube">
-              <img src="/icons/youtube.svg" alt="YouTube" />
+            <a href="https://github.com/danielsarabuna/web-shop" target="_blank" rel="noreferrer" className="social-icon-link" title="GitHub">
+              <img src="/icons/github.svg" alt="GitHub" />
             </a>
           </div>
         </div>

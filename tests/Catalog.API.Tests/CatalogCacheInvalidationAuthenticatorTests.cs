@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -16,7 +17,7 @@ public sealed class CatalogCacheInvalidationAuthenticatorTests
     public void TryValidate_AcceptsCorrectSignature()
     {
         var authenticator = CreateAuthenticator();
-        var timestamp = Now.ToUnixTimeSeconds().ToString();
+        var timestamp = Now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
 
         var valid = authenticator.TryValidate(timestamp, Sign(timestamp, Body), Body, Now, out var isReplay);
 
@@ -28,11 +29,11 @@ public sealed class CatalogCacheInvalidationAuthenticatorTests
     public void TryValidate_RejectsInvalidSignatureAndExpiredTimestamp()
     {
         var authenticator = CreateAuthenticator();
-        var timestamp = Now.ToUnixTimeSeconds().ToString();
+        var timestamp = Now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
 
         Assert.False(authenticator.TryValidate(timestamp, new string('0', 64), Body, Now, out _));
 
-        var expired = (Now - TimeSpan.FromMinutes(6)).ToUnixTimeSeconds().ToString();
+        var expired = (Now - TimeSpan.FromMinutes(6)).ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
         Assert.False(authenticator.TryValidate(expired, Sign(expired, Body), Body, Now, out _));
     }
 
@@ -40,7 +41,7 @@ public sealed class CatalogCacheInvalidationAuthenticatorTests
     public void TryValidate_MarksRepeatedEventAsReplay()
     {
         var authenticator = CreateAuthenticator();
-        var timestamp = Now.ToUnixTimeSeconds().ToString();
+        var timestamp = Now.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture);
         var signature = Sign(timestamp, Body);
 
         Assert.True(authenticator.TryValidate(timestamp, signature, Body, Now, out var firstReplay));

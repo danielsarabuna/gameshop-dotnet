@@ -7,7 +7,7 @@ export const About: React.FC = () => {
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+      <img src="/images/story-bg.jpg" alt="" className="showcase-bg" />
       <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
       <div className="page-content page-container" style={{ padding: '130px 6% 80px', maxWidth: 1000, margin: '0 auto' }}>
           <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 40 }}>

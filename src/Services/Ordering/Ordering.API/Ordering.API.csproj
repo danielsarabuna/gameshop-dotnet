@@ -13,10 +13,12 @@
     <ProjectReference Include="../../../Contracts/Catalog.Grpc/Catalog.Grpc.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
     <BuildInParallel>false</BuildInParallel>
   </PropertyGroup>
 

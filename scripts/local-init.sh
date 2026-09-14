@@ -3,16 +3,11 @@ set -euo pipefail
 
 repo_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 env_file="$repo_dir/.env.local"
-example_file="$repo_dir/.env.local.example"
 
 if [[ ! -f "$env_file" ]]; then
-  if [[ -f "$repo_dir/.env" ]]; then
-    cp "$repo_dir/.env" "$env_file"
-    echo "Created .env.local from the existing ignored .env."
-  else
-    cp "$example_file" "$env_file"
-    echo "Created .env.local from .env.local.example."
-  fi
+  touch "$env_file"
+  chmod 600 "$env_file"
+  echo "Created an ignored .env.local with safe local defaults."
 fi
 
 upsert_env() {
@@ -28,6 +23,26 @@ upsert_env() {
   ' "$env_file" > "$next_file"
   mv "$next_file" "$env_file"
 }
+
+set_default_env() {
+  local key="$1"
+  local value="$2"
+  if ! awk -F= -v key="$key" '$1 == key { found = 1 } END { exit !found }' "$env_file"; then
+    upsert_env "$key" "$value"
+  fi
+}
+
+set_default_env POSTGRES_USER "webshop"
+set_default_env POSTGRES_PASSWORD "webshop-local-only"
+set_default_env POSTGRES_DB "ordering"
+set_default_env SUPABASE_URL ""
+set_default_env SUPABASE_SERVICE_ROLE_KEY ""
+set_default_env SUPABASE_DB_URL ""
+set_default_env CATALOG_BUCKET "dev"
+set_default_env CATALOG_CACHE_INVALIDATION_SECRET ""
+set_default_env GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64 ""
+set_default_env GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64 ""
+set_default_env PAYMENTS_MOCK_ENABLED "true"
 
 private_key="$(awk -F= '$1 == "GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64" { sub(/^[^=]*=/, ""); print; exit }' "$env_file")"
 public_key="$(awk -F= '$1 == "GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64" { sub(/^[^=]*=/, ""); print; exit }' "$env_file")"
@@ -51,9 +66,11 @@ if [[ -z "$cache_invalidation_secret" ]]; then
   echo "Generated a local-only catalog cache-invalidation secret."
 fi
 
-if rg -q 'replace-with-development-service-role-key|your-project\.supabase\.co' "$env_file"; then
-  echo "Action required: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in .env.local."
-  exit 1
+supabase_url="$(awk -F= '$1 == "SUPABASE_URL" { sub(/^[^=]*=/, ""); print; exit }' "$env_file")"
+supabase_service_key="$(awk -F= '$1 == "SUPABASE_SERVICE_ROLE_KEY" { sub(/^[^=]*=/, ""); print; exit }' "$env_file")"
+if [[ -z "$supabase_url" || -z "$supabase_service_key" ]]; then
+  echo "Optional setup: add SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY for the remote catalog and purchase-delivery flow."
+  echo "See README.md for the complete environment variable reference."
 fi
 
 echo "Local environment is ready: $env_file"

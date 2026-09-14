@@ -68,14 +68,14 @@ public sealed class OrderingPostgresIntegrationTests : IClassFixture<PostgresFix
     }
 
     [SkippableFact]
-    public async Task Apply_promocode_LOVE10_returns_10_percent_discount()
+    public async Task Apply_promocode_GAME10_returns_10_percent_discount()
     {
         Skip.IfNot(_fixture.IsAvailable, $"Docker unavailable: {_fixture.UnavailabilityReason}");
 
         var client = _factory!.CreateClient();
         var payload = new
         {
-            code = "LOVE10",
+            code = "GAME10",
             items = new[] { new { productId = DiamondPackId, quantity = 10 } }
         };
 

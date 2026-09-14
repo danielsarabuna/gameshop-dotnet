@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { HeaderPOM } from '../page-objects/header.page';
 
-test.describe('Tier 5 Catalog & Asset Proxy Resiliency Adversarial Coverage', () => {
+test.describe('Catalog and asset proxy resilience', () => {
   // Scenario 1: Upstream catalog service network failure / HTTP 503 response
   test('should handle HTTP 503 response with amber warning banner, 8 fallback diamond packs, 3 subscription plans, and add-to-cart capability', async ({ page }) => {
     // Intercept catalog API requests and respond with HTTP 503 Service Unavailable

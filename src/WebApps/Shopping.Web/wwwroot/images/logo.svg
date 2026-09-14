@@ -1,11 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="10 5 168 50" width="168" height="50">
   <defs>
-    <linearGradient id="Example Game StudioGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="exampleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#ff3388" />
       <stop offset="50%" stop-color="#9933ff" />
       <stop offset="100%" stop-color="#00f2fe" />
     </linearGradient>
-    <filter id="Example Game StudioGlow">
+    <filter id="exampleGlow">
       <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
       <feMerge>
         <feMergeNode in="coloredBlur"/>
@@ -15,9 +15,9 @@
   </defs>
   <g transform="translate(10, 5)">
     <!-- Crystal Star Chandelier Emblem -->
-    <path d="M 25 5 L 30 20 L 45 25 L 30 30 L 25 45 L 20 30 L 5 25 L 20 20 Z" fill="url(#Example Game StudioGrad)" filter="url(#Example Game StudioGlow)"/>
+    <path d="M 25 5 L 30 20 L 45 25 L 30 30 L 25 45 L 20 30 L 5 25 L 20 20 Z" fill="url(#exampleGrad)" filter="url(#exampleGlow)"/>
     <circle cx="25" cy="25" r="4" fill="#ffffff" />
   </g>
-  <text x="65" y="32" font-family="'Inter', system-ui, sans-serif" font-weight="900" font-size="22" fill="#ffffff" letter-spacing="2" filter="url(#Example Game StudioGlow)">Example Game Studio</text>
-  <text x="65" y="48" font-family="'Inter', system-ui, sans-serif" font-weight="700" font-size="12" fill="#00f2fe" letter-spacing="5">G A M E S</text>
+  <text x="65" y="32" font-family="'Inter', system-ui, sans-serif" font-weight="900" font-size="21" fill="#ffffff" letter-spacing="1" filter="url(#exampleGlow)">GAMESHOP</text>
+  <text x="65" y="48" font-family="'Inter', system-ui, sans-serif" font-weight="700" font-size="9" fill="#00f2fe" letter-spacing="2">EXAMPLE STUDIO</text>
 </svg>

@@ -63,7 +63,7 @@ public sealed class CatalogApiTests : IClassFixture<SeededCatalogFactory>
     {
         using var client = _factory.CreateClient();
         using var itemsResponse = await client.GetAsync("/api/v1/catalog/items");
-        
+
         using var assetResponse = await client.GetAsync("/api/v1/catalog/assets/russia/ru_store/0.0.36/diamonds_60.png");
         if (assetResponse.StatusCode == HttpStatusCode.OK)
         {

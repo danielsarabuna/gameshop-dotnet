@@ -40,7 +40,7 @@ public sealed class InMemoryPromoCodeStore : IPromoCodeStore
 
         return
         [
-            new PromoCode("LOVE10", DiscountType.Percent, 10m, "EUR", true, null, now.AddDays(365), 10_000, 0, new HashSet<Guid>()),
+            new PromoCode("GAME10", DiscountType.Percent, 10m, "EUR", true, null, now.AddDays(365), 10_000, 0, new HashSet<Guid>()),
             new PromoCode("PREM20", DiscountType.Percent, 20m, "EUR", true, null, now.AddDays(90), 2_000, 0, new HashSet<Guid>(PremiumProductIds)),
             new PromoCode("SAVE5", DiscountType.FixedAmount, 5m, "EUR", true, null, now.AddDays(30), 500, 0, new HashSet<Guid>(DiamondProductIds)),
         ];

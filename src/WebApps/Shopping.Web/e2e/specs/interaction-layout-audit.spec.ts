@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Challenger M1 Empirical Stress & Edge Cases', () => {
+test.describe('Interaction layout edge cases', () => {
 
   test('M1-STRESS-1: Unknown currency code fallback in formatPrice', async ({ page }) => {
     await page.route('**/api/v1/catalog/items*', (route) => {

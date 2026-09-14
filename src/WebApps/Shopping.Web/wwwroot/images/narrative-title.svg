@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 140" width="500" height="140">
+  <defs>
+    <linearGradient id="narrativeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff4d8d" />
+      <stop offset="100%" stop-color="#ff99cc" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <path d="M250 15 C 230 -10, 180 10, 200 45 C 215 70, 250 95, 250 105 C 250 95, 285 70, 300 45 C 320 10, 270 -10, 250 15 Z" fill="none" stroke="url(#narrativeGrad)" stroke-width="4" filter="url(#glow)" />
+  <text x="250" y="85" text-anchor="middle" font-family="serif" font-weight="900" font-size="44" fill="#ffffff" letter-spacing="2" filter="url(#glow)">STORY WORLD</text>
+  <text x="250" y="115" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="14" fill="#ffb3d9" letter-spacing="8">INTERACTIVE STORIES</text>
+</svg>

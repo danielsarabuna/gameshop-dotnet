@@ -9,7 +9,7 @@ const MOBILE_VIEWPORTS = [
 
 const TARGET_ROUTES = ['/subscription', '/help', '/about'];
 
-test.describe('Challenger 2 — M2 Page Cards & Overlay Stress Tests', () => {
+test.describe('Mobile page cards and overlays', () => {
 
   for (const vp of MOBILE_VIEWPORTS) {
     test.describe(`Viewport: ${vp.name}`, () => {

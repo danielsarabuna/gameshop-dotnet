@@ -5,54 +5,123 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CI: true
+
 jobs:
-  build-test:
+  formatting:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: 9.0.x
-      - name: Build (Release)
-        run: dotnet build WebShop.sln -c Release -m:1 -p:NuGetAudit=true
-      # Postgres-интеграционные тесты используют Testcontainers — Docker есть на runner'е.
-      - name: Unit tests
-        run: dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release -p:NuGetAudit=true --no-build
-      - name: Integration tests (InMemory + Testcontainers Postgres)
-        run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release -p:NuGetAudit=true --no-build
-      - name: Catalog tests
-        run: dotnet test tests/Catalog.API.Tests/Catalog.API.Tests.csproj -c Release -p:NuGetAudit=true --no-build
-      - name: Supabase schema migrations
-        run: bash scripts/test-supabase-schema.sh
+          global-json-file: global.json
+      - run: dotnet restore WebShop.sln
+      - run: dotnet format WebShop.sln --verify-no-changes --no-restore
 
-  e2e:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: dotnet restore WebShop.sln -p:NuGetAudit=true
+      - run: dotnet build WebShop.sln -c Release --no-restore -m:1
+
+  unit-api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Domain tests with coverage
+        run: dotnet test tests/Ordering.Domain.Tests/Ordering.Domain.Tests.csproj -c Release --collect:"XPlat Code Coverage" --results-directory TestResults/ordering
+      - name: Catalog tests with coverage
+        run: dotnet test tests/Catalog.API.Tests/Catalog.API.Tests.csproj -c Release --collect:"XPlat Code Coverage" --results-directory TestResults/catalog
+      - name: API tests with coverage
+        run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release --filter "Category!=Integration" --collect:"XPlat Code Coverage" --results-directory TestResults/api
+      - name: Coverage no-regression gate
+        run: bash scripts/check-coverage.sh TestResults 30
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: coverage-cobertura
+          path: TestResults/**/coverage.cobertura.xml
+
+  postgres-integration-tests:
+    runs-on: ubuntu-latest
+    env:
+      REQUIRE_DOCKER_TESTS: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - run: docker info
+      - run: dotnet test tests/WebShop.IntegrationTests/WebShop.IntegrationTests.csproj -c Release --filter "Category=Integration"
+      - run: bash scripts/test-supabase-schema.sh
+
+  frontend-e2e:
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src/WebApps/Shopping.Web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
           cache-dependency-path: src/WebApps/Shopping.Web/package-lock.json
       - run: npm ci
-      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: playwright-results
+          path: src/WebApps/Shopping.Web/test-results
 
   docker-build:
     runs-on: ubuntu-latest
     env:
-      # Compose validates runtime variables before a build even though the
-      # values are not baked into these images.
       SUPABASE_URL: https://example.invalid
       SUPABASE_SERVICE_ROLE_KEY: build-only
       CATALOG_CACHE_INVALIDATION_SECRET: build-only
       GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64: build-only
       GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64: build-only
     steps:
-      - uses: actions/checkout@v4
-      - name: Build all service images
-        run: docker compose build web apigateway catalog-api basket-api ordering-api
+      - uses: actions/checkout@v7
+      - run: docker compose build web apigateway catalog-api basket-api ordering-api
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/WebApps/Shopping.Web/package-lock.json
+      - run: dotnet restore WebShop.sln -p:NuGetAudit=true
+      - run: dotnet list WebShop.sln package --vulnerable --include-transitive
+      - run: npm ci
+        working-directory: src/WebApps/Shopping.Web
+      - run: npm audit --audit-level=high
+        working-directory: src/WebApps/Shopping.Web
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

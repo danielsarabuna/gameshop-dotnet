@@ -16,13 +16,13 @@ export const Help: React.FC = () => {
     },
     {
       q: t('Что делать, если возникла ошибка оплаты?', 'What if a payment error occurs?'),
-      a: t('Обратитесь в нашу службу поддержки через Telegram или Email с указанием номера заказа.', 'Contact support via Telegram or Email with your order ID.'),
+      a: t('Обратитесь в службу поддержки по email, указав номер заказа.', 'Contact support by email and include your order ID.'),
     },
   ];
 
   return (
     <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-      <img src="/images/Story Realms-bg.jpg" alt="" className="showcase-bg" />
+      <img src="/images/story-bg.jpg" alt="" className="showcase-bg" />
       <div className="vignette-overlay" style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
       <div className="page-content page-container" style={{ padding: '130px 6% 80px', maxWidth: 840, margin: '0 auto' }}>
           <div className="page-header seq-item seq-delay-1" style={{ textAlign: 'center', marginBottom: 40 }}>
@@ -70,11 +70,11 @@ export const Help: React.FC = () => {
               {t('Свяжитесь с нами напрямую, мы на связи 24/7.', 'Contact us directly, we are available 24/7.')}
             </p>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <a href="https://t.me/example-game-studio" target="_blank" rel="noreferrer" className="btn btn-primary">
+              <a href="https://github.com/danielsarabuna/web-shop/issues" target="_blank" rel="noreferrer" className="btn btn-primary">
                 <MessageSquare size={18} />
-                Telegram Support
+                GitHub Issues
               </a>
-              <a href="mailto:support@GameShop.com" className="btn btn-outline">
+              <a href="mailto:support@example.invalid" className="btn btn-outline">
                 <Mail size={18} />
                 Email Support
               </a>

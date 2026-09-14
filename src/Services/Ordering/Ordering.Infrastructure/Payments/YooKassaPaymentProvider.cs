@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Net.Sockets;
@@ -31,7 +32,7 @@ public class YooKassaPaymentProvider : IPaymentProvider
         _secretKey = secretKey;
         _trustedIps = trustedIps?.ToArray() ?? [];
         // Where the player's browser lands after paying at YooKassa.
-        _returnUrl = returnUrl ?? "https://GameShop.local/order/complete";
+        _returnUrl = returnUrl ?? "https://example.invalid/order/complete";
         _httpClient = new HttpClient();
         var auth = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{shopId}:{secretKey}"));
         _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", auth);
@@ -49,7 +50,7 @@ public class YooKassaPaymentProvider : IPaymentProvider
         {
             amount = new
             {
-                value = amount.ToString("F2"),
+                value = amount.ToString("F2", CultureInfo.InvariantCulture),
                 currency = currency.ToUpperInvariant() switch
                 {
                     "EUR" => "EUR",
@@ -204,7 +205,12 @@ public static class YooKassaWebhookSource
             return network.AddressFamily == ip.AddressFamily && network.Equals(ip);
         }
 
-        var prefixLength = parts.Length == 2 ? int.Parse(parts[1]) : 32;
+        var prefixLength = 32;
+        if (parts.Length == 2
+            && !int.TryParse(parts[1], NumberStyles.None, CultureInfo.InvariantCulture, out prefixLength))
+        {
+            return false;
+        }
         if (prefixLength is < 0 or > 32)
         {
             return false;

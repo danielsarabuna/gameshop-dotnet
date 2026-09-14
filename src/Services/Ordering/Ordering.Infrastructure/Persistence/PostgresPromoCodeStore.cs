@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Dapper;
 using Microsoft.Extensions.Configuration;
@@ -51,9 +52,9 @@ public sealed class PostgresPromoCodeStore : IPromoCodeStore
             var productIds = promo.ProductIds.Count == 0
                 ? "NULL"
                 : $"CAST('{JsonSerializer.Serialize(promo.ProductIds, JsonOptions)}' AS jsonb)";
-            var value = promo.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var value = promo.Value.ToString(CultureInfo.InvariantCulture);
 
-            builder.AppendLine($"""
+            builder.AppendLine(CultureInfo.InvariantCulture, $"""
                                 INSERT INTO promo_codes (code, type, value, currency, is_active, starts_at_utc, expires_at_utc, max_uses, used_count, product_ids)
                                 VALUES ('{promo.Code}', {(int)promo.Type}, {value}, '{promo.Currency}', TRUE, {startsAt}, {expiresAt}, {promo.MaxUses}, 0, {productIds})
                                 ON CONFLICT (code) DO NOTHING;

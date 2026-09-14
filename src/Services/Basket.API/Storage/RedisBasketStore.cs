@@ -46,7 +46,7 @@ public sealed class RedisBasketStore : IBasketStore
             return null;
         }
 
-        var basket = JsonSerializer.Deserialize<Basket>(value!, JsonOptions);
+        var basket = JsonSerializer.Deserialize<Basket>(value.ToString(), JsonOptions);
         if (basket is null)
         {
             _logger.LogWarning("Failed to deserialize basket for user {UserId}.", userId);
@@ -65,7 +65,14 @@ public sealed class RedisBasketStore : IBasketStore
     {
         var key = BuildKey(basket.UserId);
         var payload = JsonSerializer.Serialize(basket, JsonOptions);
-        _database.StringSet(key, payload, _ttl);
+        if (_ttl.HasValue)
+        {
+            _database.StringSet(key, payload, _ttl.Value);
+        }
+        else
+        {
+            _database.StringSet(key, payload);
+        }
     }
 
     public void Delete(string userId)

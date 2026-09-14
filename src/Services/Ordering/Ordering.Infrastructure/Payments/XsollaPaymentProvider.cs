@@ -27,11 +27,11 @@ public class XsollaPaymentProvider : IPaymentProvider
         _merchantId = merchantId;
         _apiKey = apiKey;
         _projectId = projectId;
-        _baseUrl = mode.ToLowerInvariant() == "live"
+        _baseUrl = string.Equals(mode, "live", StringComparison.OrdinalIgnoreCase)
             ? "https://api.xsolla.com"
             : "https://api.xsolla.com";
         _webhookSecret = webhookSecret;
-        _returnUrl = returnUrl ?? "https://GameShop.local/order/complete";
+        _returnUrl = returnUrl ?? "https://example.invalid/order/complete";
         _httpClient = new HttpClient();
         _httpClient.DefaultRequestHeaders.Add("X-Secret-Id", _merchantId);
         _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_apiKey}");
@@ -177,8 +177,10 @@ public class XsollaPaymentProvider : IPaymentProvider
         }
 
         var provided = authorizationHeader[SignaturePrefix.Length..].Trim();
+#pragma warning disable CA5350, CA5351 // Required by the documented Xsolla webhook signature protocol.
         var md5Hex = Convert.ToHexString(MD5.HashData(Encoding.UTF8.GetBytes(body + secret)));
         var expected = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(md5Hex)));
+#pragma warning restore CA5350, CA5351
 
         return CryptographicOperations.FixedTimeEquals(
             Encoding.UTF8.GetBytes(expected),

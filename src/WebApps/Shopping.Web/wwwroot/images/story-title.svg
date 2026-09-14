@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 140" width="500" height="140">
+  <defs>
+    <linearGradient id="storyworldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ff3366" />
+      <stop offset="50%" stop-color="#ff66cc" />
+      <stop offset="100%" stop-color="#9933ff" />
+    </linearGradient>
+    <filter id="storyGlow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <g transform="translate(250, 38)">
+    <path d="M 0 -18 C -12 -38, -45 -22, -30 5 C -20 22, 0 38, 0 45 C 0 38, 20 22, 30 5 C 45 -22, 12 -38, 0 -18 Z" fill="url(#storyworldGrad)" filter="url(#storyGlow)"/>
+  </g>
+  <text x="250" y="95" text-anchor="middle" font-family="'Playfair Display', serif" font-weight="900" font-size="56" fill="url(#storyworldGrad)" letter-spacing="6" filter="url(#storyGlow)">GAMESHOP</text>
+  <text x="250" y="122" text-anchor="middle" font-family="sans-serif" font-weight="700" font-size="12" fill="#ffb3d9" letter-spacing="8">INTERACTIVE ROMANCE STORIES</text>
+</svg>

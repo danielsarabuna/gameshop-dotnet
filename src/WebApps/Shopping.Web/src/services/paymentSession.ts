@@ -15,8 +15,8 @@ export interface StoredPaymentResult {
   outcome: PaymentOutcome;
 }
 
-export const PENDING_ORDER_KEY = 'GameShop_pending_order';
-export const PAYMENT_RESULT_KEY = 'GameShop_payment_result';
+export const PENDING_ORDER_KEY = 'gameshop_pending_order';
+export const PAYMENT_RESULT_KEY = 'gameshop_payment_result';
 
 export const cartFingerprint = (lines: CartItem[]) => JSON.stringify(
   lines.map(({ sku, quantity }) => [sku, quantity]).sort(([left], [right]) => String(left).localeCompare(String(right)))

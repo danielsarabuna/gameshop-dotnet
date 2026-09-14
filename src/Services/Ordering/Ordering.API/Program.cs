@@ -1,3 +1,14 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using BuildingBlocks.Auth;
+using BuildingBlocks.Exceptions;
+using Catalog.Grpc;
+using EventBus;
+using EventBus.RabbitMq;
+using Logging;
+using Ordering.API.Consumers;
 using Ordering.Application.Abstractions;
 using Ordering.Application.Orders.CreateOrder;
 using Ordering.Application.Payments;
@@ -5,17 +16,7 @@ using Ordering.Application.PromoCodes;
 using Ordering.Infrastructure.Integrations;
 using Ordering.Infrastructure.Payments;
 using Ordering.Infrastructure.Persistence;
-using Ordering.API.Consumers;
-using BuildingBlocks.Auth;
-using Logging;
-using EventBus;
-using EventBus.RabbitMq;
-using Catalog.Grpc;
-using System.Text.Json.Serialization;
-using System.Text.Json;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using BuildingBlocks.Exceptions;
+using Scalar.AspNetCore;
 using DomainPaymentMethod = Ordering.Domain.Payments.PaymentMethod;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,6 +25,7 @@ builder.Logging.AddWebShopLogging("Ordering");
 builder.Services.AddWebShopTracing(builder.Configuration, "Ordering");
 builder.Services.AddWebShopMetrics(builder.Configuration, "Ordering");
 builder.Services.AddWebShopJwtAuthentication(builder.Configuration);
+builder.Services.AddOpenApi();
 
 var storageMode = builder.Configuration.GetValue<string>("Ordering:Storage");
 if (string.IsNullOrWhiteSpace(storageMode))
@@ -167,6 +169,12 @@ builder.Services.AddCustomExceptionHandler();
 builder.Services.AddHostedService<Ordering.API.Infrastructure.OutboxDispatcherHostedService>();
 
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference();
+}
 
 if (usePostgres)
 {

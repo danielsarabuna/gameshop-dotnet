@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { assertZeroHorizontalScroll, assertNoElementOverlap } from '../utils/layout-helpers';
 import { HeaderPOM } from '../page-objects/header.page';
 
-test.describe('Challenger M4 — Tier 5 Adversarial & Extreme Breakpoint Coverage', () => {
+test.describe('Catalog failures and extreme breakpoints', () => {
   const routes = ['/', '/projects', '/diamonds', '/subscription', '/help', '/about'];
 
   test.describe('1. 2560px 4K Ultra-Wide Viewport Stress Test', () => {

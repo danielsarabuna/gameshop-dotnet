@@ -44,8 +44,8 @@ interface StoredSession {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const SESSION_KEY = 'GameShop_webshop_session';
-const LEGACY_KEYS = ['GameShop_player_session', 'GameShop_webshop_ticket_session'];
+const SESSION_KEY = 'gameshop_webshop_session';
+const LEGACY_KEYS = ['gameshop_player_session', 'gameshop_webshop_ticket_session'];
 
 const readTicketParam = () => {
   const params = new URLSearchParams(window.location.search);

@@ -19,7 +19,7 @@ const TARGET_PAGES = [
   { name: 'About', path: '/about' },
 ];
 
-test.describe('Challenger M2 Stress Suite — Mobile Responsiveness', () => {
+test.describe('Mobile responsiveness audit', () => {
 
   for (const vp of VIEWPORTS) {
     test.describe(`Viewport ${vp.name}`, () => {

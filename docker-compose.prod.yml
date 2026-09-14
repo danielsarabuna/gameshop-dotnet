@@ -5,11 +5,11 @@
 #     the internal `backend` network and is unreachable from the host
 #   - Basket/Ordering validate Keycloak JWTs themselves (Auth__Enabled=true),
 #     so a compromised container cannot impersonate users
-#   - payment provider credentials and the Supabase service key come from
-#     .env.prod (see .env.prod.example) — never commit real values
+#   - payment provider credentials and the Supabase service key come from an
+#     ignored .env.prod file; README.md contains the complete field checklist
 #
 # Secrets matrix (all required unless noted):
-#   SHOP_DOMAIN                      public DNS name, e.g. shop.example.com
+#   SHOP_DOMAIN                      public DNS name, e.g. shop.example.invalid
 #   POSTGRES_PASSWORD / MONGO creds  databases (dev defaults are NOT used here)
 #   KEYCLOAK_ADMIN(_PASSWORD)        realm administration
 #   Payments__YooKassa__*            shopId + secretKey (+ optional TrustedIps)
@@ -175,6 +175,14 @@ services:
       Payments__Xsolla__ProjectId: ${PAYMENTS_XSOLLA_PROJECTID:-}
       Payments__Xsolla__WebhookSecret: ${PAYMENTS_XSOLLA_WEBHOOKSECRET:-}
       Payments__Xsolla__ReturnUrl: https://${SHOP_DOMAIN}/order/complete
+      Payments__PayPal__Enabled: ${PAYMENTS_PAYPAL_ENABLED:-false}
+      Payments__PayPal__ClientId: ${PAYMENTS_PAYPAL_CLIENTID:-}
+      Payments__PayPal__ClientSecret: ${PAYMENTS_PAYPAL_CLIENTSECRET:-}
+      Payments__PayPal__WebhookSecret: ${PAYMENTS_PAYPAL_WEBHOOKSECRET:-}
+      Payments__CorvusPay__Enabled: ${PAYMENTS_CORVUSPAY_ENABLED:-false}
+      Payments__CorvusPay__StoreId: ${PAYMENTS_CORVUSPAY_STOREID:-}
+      Payments__CorvusPay__SecretKey: ${PAYMENTS_CORVUSPAY_SECRETKEY:-}
+      Payments__CorvusPay__WebhookSecret: ${PAYMENTS_CORVUSPAY_WEBHOOKSECRET:-}
       Payments__MockProvider__Enabled: "false"
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
