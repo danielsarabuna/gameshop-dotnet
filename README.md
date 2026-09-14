@@ -1,7 +1,7 @@
 # GameShop
 
-[![CI](https://github.com/danielsarabuna/web-shop/actions/workflows/ci.yml/badge.svg)](https://github.com/danielsarabuna/web-shop/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/danielsarabuna/web-shop/actions/workflows/codeql.yml/badge.svg)](https://github.com/danielsarabuna/web-shop/actions/workflows/codeql.yml)
+[![CI](https://github.com/danielsarabuna/gameshop-dotnet/actions/workflows/ci.yml/badge.svg)](https://github.com/danielsarabuna/gameshop-dotnet/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/danielsarabuna/gameshop-dotnet/actions/workflows/codeql.yml/badge.svg)](https://github.com/danielsarabuna/gameshop-dotnet/actions/workflows/codeql.yml)
 
 GameShop is a backend-first .NET platform for selling in-game currency and subscriptions. It demonstrates service boundaries, authenticated checkout, provider-specific payment processing, transactional outbox delivery, idempotent webhooks, and versioned mobile purchase delivery.
 
