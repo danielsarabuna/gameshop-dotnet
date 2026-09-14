@@ -23,6 +23,7 @@
     <PackageReference Include="AspNetCore.HealthChecks.Redis" />
     <PackageReference Include="AspNetCore.HealthChecks.Npgsql" />
     <PackageReference Include="AspNetCore.HealthChecks.RabbitMQ" />
+    <PackageReference Include="StackExchange.Redis" VersionOverride="3.2.1" />
   </ItemGroup>
 
 </Project>
