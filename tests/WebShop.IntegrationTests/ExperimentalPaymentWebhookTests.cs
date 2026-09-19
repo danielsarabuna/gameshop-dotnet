@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -10,6 +11,36 @@ namespace WebShop.IntegrationTests;
 
 public sealed class ExperimentalPaymentWebhookTests
 {
+    [Fact]
+    public async Task Webhook_body_larger_than_limit_returns_413_before_provider_processing()
+    {
+        var settings = CreateProviderSettings("CorvusPay");
+        var orders = new RecordingOrderRepository();
+        await using var factory = new WebApplicationFactory<global::Ordering.API.Program>()
+            .WithWebHostBuilder(builder =>
+            {
+                builder.UseEnvironment("Development");
+                foreach (var (key, value) in settings)
+                {
+                    builder.UseSetting(key, value);
+                }
+
+                builder.ConfigureServices(services =>
+                {
+                    services.RemoveAll<IOrderRepository>();
+                    services.AddSingleton<IOrderRepository>(orders);
+                });
+            });
+        using var client = factory.CreateClient();
+        using var body = new StringContent(new string('x', 256 * 1024 + 1), Encoding.UTF8, "application/json");
+
+        using var response = await client.PostAsync("/api/v1/webhooks/corvuspay", body);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal(0, orders.Reads);
+        Assert.Equal(0, orders.Writes);
+    }
+
     [Theory]
     [InlineData("corvuspay", "CorvusPay")]
     public async Task Unsupported_verification_returns_501_without_touching_orders(
