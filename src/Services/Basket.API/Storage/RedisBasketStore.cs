@@ -49,7 +49,7 @@ public sealed class RedisBasketStore : IBasketStore
         var basket = JsonSerializer.Deserialize<Basket>(value.ToString(), JsonOptions);
         if (basket is null)
         {
-            _logger.LogWarning("Failed to deserialize basket for user {UserId}.", userId);
+            _logger.LogWarning("Failed to deserialize a basket from the cache.");
             return null;
         }
 
