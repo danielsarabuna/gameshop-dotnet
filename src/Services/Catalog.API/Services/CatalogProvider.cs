@@ -23,10 +23,10 @@ public interface ICatalogProvider
     Task<bool> EnsureAssetDownloadedAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
 
     /// <summary>Opens a validated cached asset, downloading it first when needed.</summary>
-    Task<CatalogAssetStream?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
+    Task<CatalogAssetFile?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct);
 }
 
-public sealed record CatalogAssetStream(Stream Content, DateTimeOffset LastModified);
+public sealed record CatalogAssetFile(Stream Content, DateTimeOffset LastModified);
 
 public sealed class CatalogProvider : ICatalogProvider
 {
@@ -370,7 +370,7 @@ public sealed class CatalogProvider : ICatalogProvider
         }
     }
 
-    public async Task<CatalogAssetStream?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct)
+    public async Task<CatalogAssetFile?> OpenAssetAsync(string region, string store, string gameVersion, string relativePath, CancellationToken ct)
     {
         if (!CatalogAssetPath.TryResolve(_options.AssetCacheDir, region, store, gameVersion, relativePath, out var resolved))
         {
@@ -388,7 +388,7 @@ public sealed class CatalogProvider : ICatalogProvider
             return null;
         }
 
-        return new CatalogAssetStream(File.OpenRead(resolved), new DateTimeOffset(File.GetLastWriteTimeUtc(resolved)));
+        return new CatalogAssetFile(File.OpenRead(resolved), new DateTimeOffset(File.GetLastWriteTimeUtc(resolved)));
     }
 
     private static CatalogItem MapToDomainItem(CatalogItemJsonDto dto, string region, string store, string? resolvedImageUrl, string? defaultLocale)
