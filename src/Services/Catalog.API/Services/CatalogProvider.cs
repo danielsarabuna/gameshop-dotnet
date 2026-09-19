@@ -117,9 +117,7 @@ public sealed class CatalogProvider : ICatalogProvider
             // Supabase returns 400 (not 404) for missing public objects — treat both as absent.
             if (response.StatusCode == HttpStatusCode.NotFound || (int)response.StatusCode == 400)
             {
-                _logger.LogWarning(
-                    "Конфиг каталога не найден для region={Region} store={Store} gameVersion={Version}.",
-                    region, store, gameVersion);
+                _logger.LogWarning("Конфиг каталога не найден.");
                 return null;
             }
 
@@ -130,7 +128,7 @@ public sealed class CatalogProvider : ICatalogProvider
 
             if (!IsValidCatalog(dto))
             {
-                _logger.LogWarning("Конфиг каталога невалиден для region={Region} store={Store} gameVersion={Version}.", region, store, gameVersion);
+                _logger.LogWarning("Конфиг каталога невалиден.");
                 return null;
             }
 
@@ -147,13 +145,13 @@ public sealed class CatalogProvider : ICatalogProvider
 
             _store.SetConfig(region, store, LatestVersionCacheKey, config);
             _logger.LogInformation(
-                "Каталог загружен с Supabase для {Region}/{Store}/{Version}: {ItemCount} офферов, {ProviderCount} провайдеров.",
-                region, store, gameVersion, domainItems.Count, providers.Count);
+                "Каталог загружен с Supabase: {ItemCount} офферов, {ProviderCount} провайдеров.",
+                domainItems.Count, providers.Count);
             return config;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Не удалось загрузить каталог по адресу {Url}", url);
+            _logger.LogWarning(ex, "Не удалось загрузить каталог.");
         }
 
         return null;
@@ -178,7 +176,7 @@ public sealed class CatalogProvider : ICatalogProvider
                 using var response = await _http.SendAsync(request, ct);
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Не удалось получить список конфигов каталога для {Region}/{Store}: HTTP {StatusCode}.", region, store, (int)response.StatusCode);
+                    _logger.LogWarning("Не удалось получить список конфигов каталога: HTTP {StatusCode}.", (int)response.StatusCode);
                     return null;
                 }
 
@@ -198,7 +196,7 @@ public sealed class CatalogProvider : ICatalogProvider
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Не удалось получить список конфигов каталога для {Region}/{Store}.", region, store);
+                _logger.LogWarning(ex, "Не удалось получить список конфигов каталога.");
                 return null;
             }
         }
@@ -338,21 +336,9 @@ public sealed class CatalogProvider : ICatalogProvider
             return false;
         }
 
-        var cleanRel = relativePath.TrimStart('/');
-        var subDir = Path.GetDirectoryName(cleanRel) ?? "";
-        var localDir = Path.Combine(_options.AssetCacheDir, region, store, gameVersion, subDir);
-        var localPath = Path.Combine(_options.AssetCacheDir, region, store, gameVersion, cleanRel);
-
-        // Path-traversal guard: the resolved path must stay inside the cache root.
-        var root = Path.GetFullPath(_options.AssetCacheDir);
-        if (!root.EndsWith(Path.DirectorySeparatorChar))
+        if (!CatalogAssetPath.TryResolve(_options.AssetCacheDir, region, store, gameVersion, relativePath, out var resolved))
         {
-            root += Path.DirectorySeparatorChar;
-        }
-        var resolved = Path.GetFullPath(localPath);
-        if (!resolved.StartsWith(root, StringComparison.Ordinal))
-        {
-            _logger.LogWarning("Путь ассета выходит за пределы кэша: {Path}", resolved);
+            _logger.LogWarning("Отклонён небезопасный путь ассета.");
             return false;
         }
 
@@ -361,19 +347,20 @@ public sealed class CatalogProvider : ICatalogProvider
             return true; // already cached on disk
         }
 
+        var cleanRel = string.Join('/', relativePath.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         var sourceUrl = $"{_options.SupabaseBaseUrl.TrimEnd('/')}/storage/v1/object/public/{_options.Bucket}/{region}/{store}/{cleanRel}";
-        Directory.CreateDirectory(localDir);
+        Directory.CreateDirectory(Path.GetDirectoryName(resolved)!);
 
         try
         {
             var bytes = await _http.GetByteArrayAsync(sourceUrl, ct);
             await File.WriteAllBytesAsync(resolved, bytes, ct);
-            _logger.LogDebug("Ассет закэширован: {Path} ({Bytes} байт)", resolved, bytes.Length);
+            _logger.LogDebug("Ассет закэширован: {Bytes} байт", bytes.Length);
             return true;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Не удалось скачать ассет {Url}", sourceUrl);
+            _logger.LogWarning(ex, "Не удалось скачать ассет.");
             return false;
         }
     }
