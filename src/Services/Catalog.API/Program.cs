@@ -170,26 +170,17 @@ app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, string? region, st
 });
 
 // Стриминг закэшированных ассетов (картинки алмазов/подписок, скачанные с Supabase)
-app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (string region, string store, string version, string file, HttpResponse response, RemoteCatalogOptions options, ICatalogProvider provider, CancellationToken ct) =>
+app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (string region, string store, string version, string file, HttpResponse response, ICatalogProvider provider, CancellationToken ct) =>
 {
-    if (!CatalogAssetPath.TryResolve(options.AssetCacheDir, region, store, version, file, out var path))
+    var asset = await provider.OpenAssetAsync(region, store, version, file, ct);
+    if (asset is null)
     {
         return Results.NotFound();
     }
 
-    if (!File.Exists(path))
-    {
-        var downloaded = await provider.EnsureAssetDownloadedAsync(region, store, version, file, ct);
-        if (!downloaded || !File.Exists(path))
-        {
-            return Results.NotFound();
-        }
-    }
-
     // Path is versioned → safe to cache aggressively on the client/CDN.
     response.Headers.CacheControl = "public, max-age=86400, immutable";
-    return Results.File(path, contentType: GuessContentType(file),
-        lastModified: File.GetLastWriteTimeUtc(path));
+    return Results.Stream(asset.Content, contentType: GuessContentType(file), lastModified: asset.LastModified);
 });
 
 app.MapPost("/api/v1/catalog/cache-invalidation", async (
