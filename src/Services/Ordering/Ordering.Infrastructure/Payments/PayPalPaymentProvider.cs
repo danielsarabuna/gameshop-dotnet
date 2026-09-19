@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -96,11 +97,10 @@ public class PayPalPaymentProvider : IPaymentProvider
         string Header(string name) => envelope.Headers.TryGetValue(name, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value : throw new UnauthorizedAccessException($"Missing {name} header.");
 
-        using var payload = JsonDocument.Parse(envelope.Body);
         await EnsureAccessTokenAsync(cancellationToken);
         var verification = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/v1/notifications/verify-webhook-signature")
         {
-            Content = JsonContent.Create(new { auth_algo = Header("PayPal-Auth-Algo"), cert_url = Header("PayPal-Cert-Url"), transmission_id = Header("PayPal-Transmission-Id"), transmission_sig = Header("PayPal-Transmission-Sig"), transmission_time = Header("PayPal-Transmission-Time"), webhook_id = _webhookSecret, webhook_event = payload.RootElement })
+            Content = CreateVerificationContent(envelope.Body, Header)
         };
         verification.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
         using var response = await _httpClient.SendAsync(verification, cancellationToken);
@@ -108,6 +108,7 @@ public class PayPalPaymentProvider : IPaymentProvider
         if (!response.IsSuccessStatusCode || !verified.TryGetProperty("verification_status", out var status) || !string.Equals(status.GetString(), "SUCCESS", StringComparison.Ordinal))
             throw new CryptographicException("PayPal webhook signature verification failed.");
 
+        using var payload = JsonDocument.Parse(envelope.Body);
         var root = payload.RootElement;
         if (!string.Equals(root.GetProperty("event_type").GetString(), "PAYMENT.CAPTURE.COMPLETED", StringComparison.Ordinal))
             return null;
@@ -116,6 +117,29 @@ public class PayPalPaymentProvider : IPaymentProvider
             throw new InvalidOperationException("PayPal webhook is missing resource.custom_id order reference.");
         var amount = resource.GetProperty("amount");
         return new WebhookResult(orderId, Guid.NewGuid(), root.GetProperty("id").GetString()!, "succeeded", decimal.Parse(amount.GetProperty("value").GetString()!, CultureInfo.InvariantCulture), amount.GetProperty("currency_code").GetString());
+    }
+
+    private HttpContent CreateVerificationContent(string rawBody, Func<string, string> header)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+            writer.WriteString("auth_algo", header("PayPal-Auth-Algo"));
+            writer.WriteString("cert_url", header("PayPal-Cert-Url"));
+            writer.WriteString("transmission_id", header("PayPal-Transmission-Id"));
+            writer.WriteString("transmission_sig", header("PayPal-Transmission-Sig"));
+            writer.WriteString("transmission_time", header("PayPal-Transmission-Time"));
+            writer.WriteString("webhook_id", _webhookSecret);
+            writer.WritePropertyName("webhook_event");
+            writer.WriteRawValue(rawBody, skipInputValidation: true);
+            writer.WriteEndObject();
+        }
+
+        return new ByteArrayContent(buffer.WrittenSpan.ToArray())
+        {
+            Headers = { ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json") }
+        };
     }
 
     private async Task EnsureAccessTokenAsync(CancellationToken cancellationToken)
