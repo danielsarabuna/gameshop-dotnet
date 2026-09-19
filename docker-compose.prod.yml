@@ -185,6 +185,7 @@ services:
       Payments__PayPal__ClientId: ${PAYMENTS_PAYPAL_CLIENTID:-}
       Payments__PayPal__ClientSecret: ${PAYMENTS_PAYPAL_CLIENTSECRET:-}
       Payments__PayPal__WebhookSecret: ${PAYMENTS_PAYPAL_WEBHOOKSECRET:-}
+      Payments__PayPal__Mode: ${PAYMENTS_PAYPAL_MODE:-live}
       Payments__CorvusPay__Enabled: ${PAYMENTS_CORVUSPAY_ENABLED:-false}
       Payments__CorvusPay__StoreId: ${PAYMENTS_CORVUSPAY_STOREID:-}
       Payments__CorvusPay__SecretKey: ${PAYMENTS_CORVUSPAY_SECRETKEY:-}

@@ -48,6 +48,7 @@ public class PaymentProviderAccessor : IPaymentProviderAccessor
         if (configuration.GetValue<bool>("Payments:PayPal:Enabled") &&
             !string.IsNullOrEmpty(payPalClientId) &&
             !string.IsNullOrEmpty(payPalClientSecret) &&
+            !string.IsNullOrEmpty(payPalWebhookSecret) &&
             payPalClientId != "placeholder" &&
             payPalClientSecret != "placeholder")
         {

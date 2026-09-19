@@ -172,6 +172,7 @@ PAYMENTS_PAYPAL_ENABLED=false
 PAYMENTS_PAYPAL_CLIENTID=
 PAYMENTS_PAYPAL_CLIENTSECRET=
 PAYMENTS_PAYPAL_WEBHOOKSECRET=
+PAYMENTS_PAYPAL_MODE=live
 PAYMENTS_CORVUSPAY_ENABLED=false
 PAYMENTS_CORVUSPAY_STOREID=
 PAYMENTS_CORVUSPAY_SECRETKEY=
@@ -279,7 +280,7 @@ CI publishes Cobertura reports and enforces a 30% aggregate line-coverage no-reg
 | Stripe | Supported | Hosted checkout and signed webhooks |
 | YooKassa | Supported | Redirect checkout and source verification |
 | Xsolla | Supported | Hosted checkout and provider-protocol signature verification |
-| PayPal | Experimental | Disabled by default; requires `Payments:PayPal:Enabled=true`; webhook verification returns `501` and cannot update an order |
+| PayPal | Optional | Disabled by default; requires client credentials, webhook ID and explicit `PAYMENTS_PAYPAL_MODE=live` in production; webhook signatures are verified through PayPal |
 | CorvusPay | Experimental | Disabled by default; requires `Payments:CorvusPay:Enabled=true`; webhook verification returns `501` and cannot update an order |
 
 An experimental provider is not returned by `/api/v1/payment-methods` unless both its explicit opt-in flag and credentials are configured.
@@ -289,7 +290,7 @@ An experimental provider is not returned by `/api/v1/payment-methods` unless bot
 - There is no hosted demo; the repository homepage intentionally remains unset.
 - The full catalog and mobile purchase-delivery path requires a Supabase project and schema migrations.
 - The default local profile uses a null event bus; use the full profile to exercise Redis/RabbitMQ infrastructure.
-- PayPal and CorvusPay are checkout prototypes only and are deliberately not production-ready.
+- CorvusPay remains a checkout prototype and is not production-ready.
 - Coverage is an initial no-regression baseline, not a claim of exhaustive behavioral coverage.
 
 ## Local-only documentation
