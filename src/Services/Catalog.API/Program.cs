@@ -172,13 +172,7 @@ app.MapGet("/api/v1/catalog/items/{id:guid}", async (Guid id, string? region, st
 // Стриминг закэшированных ассетов (картинки алмазов/подписок, скачанные с Supabase)
 app.MapGet("/api/v1/catalog/assets/{region}/{store}/{version}/{*file}", async (string region, string store, string version, string file, HttpResponse response, RemoteCatalogOptions options, ICatalogProvider provider, CancellationToken ct) =>
 {
-    var root = Path.GetFullPath(options.AssetCacheDir);
-    if (!root.EndsWith(Path.DirectorySeparatorChar))
-    {
-        root += Path.DirectorySeparatorChar;
-    }
-    var path = Path.GetFullPath(Path.Combine(root, region, store, version, file));
-    if (!path.StartsWith(root, StringComparison.Ordinal))
+    if (!CatalogAssetPath.TryResolve(options.AssetCacheDir, region, store, version, file, out var path))
     {
         return Results.NotFound();
     }

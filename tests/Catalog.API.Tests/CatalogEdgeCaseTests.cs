@@ -48,6 +48,26 @@ public class CatalogEdgeCaseTests
     }
 
     [Fact]
+    public async Task Provider_Unsafe_Path_Segment_In_EnsureAssetDownloadedAsync_ReturnsFalse()
+    {
+        using var tmp = new TempAssetDir();
+        var provider = new CatalogProvider(
+            new HttpClient(),
+            new InMemoryCatalogStore(),
+            new RemoteCatalogOptions
+            {
+                SupabaseBaseUrl = "https://mock.supabase.co",
+                Bucket = "dev",
+                AssetCacheDir = tmp.Path
+            },
+            NullLogger<CatalogProvider>.Instance);
+
+        var result = await provider.EnsureAssetDownloadedAsync("../russia", "ru_store", "0.0.36", "diamonds_60.png", CancellationToken.None);
+
+        Assert.False(result);
+    }
+
+    [Fact]
     public async Task Provider_MissingAssetOnSupabase_EnsureAssetDownloadedAsync_ReturnsFalse()
     {
         using var tmp = new TempAssetDir();
