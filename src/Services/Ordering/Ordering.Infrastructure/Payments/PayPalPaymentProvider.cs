@@ -35,6 +35,7 @@ public class PayPalPaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
         await EnsureAccessTokenAsync(cancellationToken);
@@ -60,6 +61,7 @@ public class PayPalPaymentProvider : IPaymentProvider
         {
             Content = JsonContent.Create(orderRequest)
         };
+        request.Headers.Add("PayPal-Request-Id", idempotencyKey);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _accessToken);
 
         var response = await _httpClient.SendAsync(request, cancellationToken);

@@ -22,7 +22,10 @@ public interface IOutboxDispatcherStore
     Task AckAsync(OutboxMessage message, CancellationToken cancellationToken);
 
     /// <summary>Returns a failed message to the queue after <paramref name="retryIn"/> backoff.</summary>
-    Task RetryAsync(OutboxMessage message, TimeSpan retryIn, CancellationToken cancellationToken);
+    Task RetryAsync(OutboxMessage message, TimeSpan retryIn, string error, CancellationToken cancellationToken);
+
+    /// <summary>Moves a poison message to the dead-letter state for manual inspection/replay.</summary>
+    Task DeadLetterAsync(OutboxMessage message, string error, CancellationToken cancellationToken);
 }
 
 /// <summary>

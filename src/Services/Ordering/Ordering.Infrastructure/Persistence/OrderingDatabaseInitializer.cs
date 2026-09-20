@@ -52,6 +52,19 @@ public sealed class OrderingDatabaseInitializer
 
                            ALTER TABLE payments ADD COLUMN IF NOT EXISTS checkout_url text NULL;
 
+                           WITH ranked AS (
+                               SELECT p.id,
+                                      row_number() OVER (
+                                          PARTITION BY p.order_id, p.provider
+                                          ORDER BY (o.payment_id = p.id::text) DESC, p.created_at_utc DESC, p.id DESC
+                                      ) AS row_number
+                               FROM payments p
+                               LEFT JOIN orders o ON o.id = p.order_id
+                           )
+                           DELETE FROM payments p
+                           USING ranked r
+                           WHERE p.id = r.id AND r.row_number > 1;
+
                            CREATE TABLE IF NOT EXISTS webhook_events (
                                provider text NOT NULL,
                                event_id text NOT NULL,
@@ -69,10 +82,18 @@ public sealed class OrderingDatabaseInitializer
                                processed_at_utc timestamptz NULL
                            );
 
+                           ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS locked_until_utc timestamptz NULL;
+                           ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS locked_by text NULL;
+                           ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS dead_lettered_at_utc timestamptz NULL;
+                           ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS last_error text NULL;
+
                            CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders (created_at_utc);
-                           CREATE INDEX IF NOT EXISTS idx_payments_order_provider ON payments (order_id, provider);
-                           CREATE INDEX IF NOT EXISTS ix_outbox_pending
-                               ON outbox_events (next_attempt_at) WHERE processed_at_utc IS NULL;
+                           DROP INDEX IF EXISTS idx_payments_order_provider;
+                           CREATE UNIQUE INDEX IF NOT EXISTS ux_payments_order_provider ON payments (order_id, provider);
+                           DROP INDEX IF EXISTS ix_outbox_pending;
+                           CREATE INDEX ix_outbox_pending
+                               ON outbox_events (next_attempt_at)
+                               WHERE processed_at_utc IS NULL AND dead_lettered_at_utc IS NULL;
 
                            CREATE TABLE IF NOT EXISTS promo_codes (
                                code text PRIMARY KEY,
@@ -86,6 +107,18 @@ public sealed class OrderingDatabaseInitializer
                                used_count int NOT NULL DEFAULT 0,
                                product_ids jsonb NULL
                            );
+
+                           CREATE TABLE IF NOT EXISTS promo_redemptions (
+                               order_id uuid PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+                               code text NOT NULL REFERENCES promo_codes(code),
+                               status int NOT NULL DEFAULT 0,
+                               reserved_at_utc timestamptz NOT NULL DEFAULT now(),
+                               consumed_at_utc timestamptz NULL,
+                               released_at_utc timestamptz NULL
+                           );
+
+                           CREATE INDEX IF NOT EXISTS ix_promo_redemptions_code_status
+                               ON promo_redemptions (code, status);
                            """;
 
         await using var connection = new NpgsqlConnection(_connectionString);

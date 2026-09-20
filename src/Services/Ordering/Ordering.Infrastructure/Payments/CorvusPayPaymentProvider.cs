@@ -32,6 +32,7 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         decimal amount,
         string currency,
         Guid orderId,
+        string idempotencyKey,
         CancellationToken cancellationToken)
     {
         var requestBody = new
@@ -48,6 +49,7 @@ public class CorvusPayPaymentProvider : IPaymentProvider
         {
             Content = JsonContent.Create(requestBody)
         };
+        request.Headers.Add("Idempotency-Key", idempotencyKey);
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_storeId}:{_secretKey}")));
 

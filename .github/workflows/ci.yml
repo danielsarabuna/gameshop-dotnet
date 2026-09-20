@@ -93,7 +93,14 @@ jobs:
   docker-build:
     runs-on: ubuntu-latest
     env:
-      SHOP_DOMAIN: shop.example.invalid
+      SHOP_DOMAIN: localhost
+      POSTGRES_USER: webshop
+      POSTGRES_PASSWORD: ci-postgres-password
+      POSTGRES_DB: ordering
+      RABBITMQ_USER: webshop
+      RABBITMQ_PASSWORD: ci-rabbitmq-password
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: ci-keycloak-password
       SUPABASE_URL: https://example.invalid
       SUPABASE_SERVICE_ROLE_KEY: build-only
       CATALOG_CACHE_INVALIDATION_SECRET: build-only
@@ -116,6 +123,23 @@ jobs:
                     | $root.services[$name].healthcheck.test
                       == ["CMD", "curl", "-fsS", "http://localhost:8080/health"]))'
       - run: docker compose build web apigateway catalog-api basket-api ordering-api
+      - name: Generate production smoke-test ticket keys
+        run: |
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out /tmp/game-ticket-private.pem
+          openssl pkey -in /tmp/game-ticket-private.pem -pubout -out /tmp/game-ticket-public.pem
+          echo "GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64=$(base64 -w0 /tmp/game-ticket-private.pem)" >> "$GITHUB_ENV"
+          echo "GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64=$(base64 -w0 /tmp/game-ticket-public.pem)" >> "$GITHUB_ENV"
+      - name: Start production topology and smoke test Caddy to Gateway to Ordering
+        run: |
+          docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 240
+          curl --insecure --fail --show-error --silent --retry 20 --retry-all-errors \
+            https://localhost/api/v1/payment-methods | jq -e 'type == "array"'
+      - name: Show production logs after failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml logs --no-color --tail=200
+      - name: Stop production topology
+        if: always()
+        run: docker compose -f docker-compose.prod.yml down -v --remove-orphans
 
   security:
     runs-on: ubuntu-latest

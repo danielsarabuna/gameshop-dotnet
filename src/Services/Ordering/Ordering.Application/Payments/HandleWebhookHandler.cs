@@ -13,19 +13,16 @@ public sealed class HandleWebhookHandler
 
     private readonly IOrderRepository _orders;
     private readonly IPaymentStore _payments;
-    private readonly IWebhookIdempotencyStore _idempotency;
-    private readonly IPromoCodeStore _promoCodes;
+    private readonly IPaymentWebhookStore _webhooks;
 
     public HandleWebhookHandler(
         IOrderRepository orders,
         IPaymentStore payments,
-        IWebhookIdempotencyStore idempotency,
-        IPromoCodeStore promoCodes)
+        IPaymentWebhookStore webhooks)
     {
         _orders = orders;
         _payments = payments;
-        _idempotency = idempotency;
-        _promoCodes = promoCodes;
+        _webhooks = webhooks;
     }
 
     public async Task<bool> HandleAsync(PaymentMethod provider, PaymentWebhookRequest request, CancellationToken cancellationToken)
@@ -35,28 +32,7 @@ public sealed class HandleWebhookHandler
             throw new ArgumentException("EventId is required.", nameof(request));
         }
 
-        if (!_idempotency.TryBegin(provider.ToString(), request.EventId.Trim()))
-        {
-            return false;
-        }
-
-        try
-        {
-            return await ProcessAsync(provider, request, cancellationToken);
-        }
-        catch (ArgumentException)
-        {
-            // Permanent business rejection (unknown order/status, amount mismatch):
-            // consume the slot and answer 400 so the provider stops retrying.
-            throw;
-        }
-        catch
-        {
-            // Transient failure — the effect was NOT durably applied. Release the slot
-            // so the provider's retry is not swallowed as a duplicate.
-            _idempotency.Release(provider.ToString(), request.EventId.Trim());
-            throw;
-        }
+        return await ProcessAsync(provider, request, cancellationToken);
     }
 
     private async Task<bool> ProcessAsync(PaymentMethod provider, PaymentWebhookRequest request, CancellationToken cancellationToken)
@@ -85,61 +61,45 @@ public sealed class HandleWebhookHandler
                     nameof(request));
             }
 
-            var wasPaid = order.Status == OrderStatus.Paid;
-            if (!wasPaid)
+            var outbox = new List<OutboxMessage>();
+            if (order.Status != OrderStatus.Paid)
             {
-                // The authoritative payment id is the one already recorded for this order+provider.
                 var effectivePaymentId = payment?.Id ?? paymentId;
                 order.SetPaymentMethod(provider);
                 order.MarkPaid(effectivePaymentId.ToString("D"), DateTimeOffset.UtcNow);
-
-                // Atomic: order state + both deferred side effects land together or not at all.
-                // The dispatcher later publishes OrderCompleted to RabbitMQ and delivers to Supabase.
-                await _orders.UpdateWithOutboxAsync(order,
-                [
+                outbox.AddRange([
                     new OutboxMessage(Guid.NewGuid(), OutboxMessageTypes.OrderCompleted,
                         JsonSerializer.Serialize(BuildCompletedEvent(order), PayloadOptions)),
                     new OutboxMessage(Guid.NewGuid(), OutboxMessageTypes.SupabaseOrderPaid,
                         JsonSerializer.Serialize(ToDelivery(order), PayloadOptions)),
-                ], cancellationToken);
-
-                var storedPayment = await EnsurePaymentAsync(payment, order, provider, paymentId, cancellationToken);
-                var updatedPayment = storedPayment with { Status = PaymentStatus.Succeeded, CompletedAtUtc = DateTimeOffset.UtcNow };
-                await _payments.UpdateAsync(updatedPayment, cancellationToken);
-
-                if (!string.IsNullOrWhiteSpace(order.PromoCode))
-                {
-                    await _promoCodes.TryConsumeAsync(order.PromoCode, cancellationToken);
-                }
+                ]);
             }
-            else
+
+            var updatedPayment = EnsurePayment(payment, order, provider, paymentId) with
             {
-                // Duplicate success notification for an already-paid order — acknowledge.
-                var storedPayment = await EnsurePaymentAsync(payment, order, provider, paymentId, cancellationToken);
-                var updatedPayment = storedPayment with { Status = PaymentStatus.Succeeded, CompletedAtUtc = DateTimeOffset.UtcNow };
-                await _payments.UpdateAsync(updatedPayment, cancellationToken);
-            }
-
-            return true;
+                Status = PaymentStatus.Succeeded,
+                CompletedAtUtc = DateTimeOffset.UtcNow
+            };
+            return await CommitAsync(provider, request.EventId, true, order, updatedPayment, outbox, cancellationToken);
         }
 
         if (status is "failed" or "canceled" or "cancelled" or "error")
         {
             if (order.Status == OrderStatus.Paid)
             {
-                // Never regress a paid order because of a late failure notification.
-                return true;
+                var paidPayment = EnsurePayment(payment, order, provider, paymentId) with
+                {
+                    Status = PaymentStatus.Succeeded,
+                    CompletedAtUtc = payment?.CompletedAtUtc ?? order.PaidAtUtc ?? DateTimeOffset.UtcNow
+                };
+                return await CommitAsync(provider, request.EventId, false, order, paidPayment, [], cancellationToken);
             }
 
             order.SetPaymentMethod(provider);
             order.MarkFailed("payment_failed");
-            await _orders.UpdateWithOutboxAsync(order, [], cancellationToken);
-
-            var storedPayment = await EnsurePaymentAsync(payment, order, provider, paymentId, cancellationToken);
+            var storedPayment = EnsurePayment(payment, order, provider, paymentId);
             var updatedPayment = storedPayment with { Status = PaymentStatus.Failed, CompletedAtUtc = DateTimeOffset.UtcNow };
-            await _payments.UpdateAsync(updatedPayment, cancellationToken);
-
-            return true;
+            return await CommitAsync(provider, request.EventId, false, order, updatedPayment, [], cancellationToken);
         }
 
         throw new ArgumentException("Unknown payment status.", nameof(request));
@@ -172,19 +132,37 @@ public sealed class HandleWebhookHandler
             Items: order.Items.Select(i => new SupabaseOrderItem(
                 i.ProductId, i.Title, i.Type.ToString(), i.Quantity, i.UnitPrice, i.Metadata)).ToList());
 
-    private async Task<Payment> EnsurePaymentAsync(
+    private Task<bool> CommitAsync(
+        PaymentMethod provider,
+        string eventId,
+        bool succeeded,
+        Order order,
+        Payment payment,
+        IReadOnlyList<OutboxMessage> outbox,
+        CancellationToken cancellationToken)
+        => CommitCoreAsync(new PaymentWebhookCommit(
+            provider.ToString(),
+            eventId.Trim(),
+            succeeded,
+            order,
+            payment,
+            outbox), cancellationToken);
+
+    private async Task<bool> CommitCoreAsync(PaymentWebhookCommit command, CancellationToken cancellationToken)
+        => await _webhooks.CommitAsync(command, cancellationToken) == PaymentWebhookCommitResult.Applied;
+
+    private static Payment EnsurePayment(
         Payment? existing,
         Order order,
         PaymentMethod provider,
-        Guid fallbackPaymentId,
-        CancellationToken cancellationToken)
+        Guid fallbackPaymentId)
     {
         if (existing is not null)
         {
             return existing;
         }
 
-        var created = new Payment(
+        return new Payment(
             Id: fallbackPaymentId,
             OrderId: order.Id,
             Provider: provider,
@@ -192,7 +170,5 @@ public sealed class HandleWebhookHandler
             ExternalId: null,
             CreatedAtUtc: DateTimeOffset.UtcNow,
             CompletedAtUtc: null);
-        await _payments.AddAsync(created, cancellationToken);
-        return created;
     }
 }
