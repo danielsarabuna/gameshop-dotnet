@@ -3,7 +3,6 @@ using System.Text;
 using EventBus;
 using Ordering.Application.Abstractions;
 using Ordering.Application.Payments;
-using Ordering.Application.PromoCodes;
 using Ordering.Domain.Orders;
 using Ordering.Domain.Payments;
 using Ordering.Domain.Products;
@@ -141,11 +140,11 @@ public sealed class WebhookSecurityTests
                 null,
                 DateTimeOffset.UtcNow);
 
+            var payments = new FakePaymentStore();
             Handler = new HandleWebhookHandler(
                 new FakeOrderRepository(this),
-                new FakePaymentStore(),
-                new FakeWebhookIdempotencyStore(),
-                new FakePromoCodeStore());
+                payments,
+                new FakePaymentWebhookStore(payments));
         }
 
         private sealed class FakeOrderRepository(Harness harness) : IOrderRepository
@@ -182,6 +181,13 @@ public sealed class WebhookSecurityTests
             return Task.CompletedTask;
         }
 
+        public Task<PaymentReservation> GetOrAddAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            var created = _payment is null;
+            _payment ??= payment;
+            return Task.FromResult(new PaymentReservation(_payment, created));
+        }
+
         public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
         {
             _payment = payment;
@@ -189,17 +195,14 @@ public sealed class WebhookSecurityTests
         }
     }
 
-    private sealed class FakeWebhookIdempotencyStore : IWebhookIdempotencyStore
+    private sealed class FakePaymentWebhookStore(FakePaymentStore payments) : IPaymentWebhookStore
     {
-        public bool TryBegin(string provider, string eventId) => true;
-
-        public void Release(string provider, string eventId) { }
-    }
-
-    private sealed class FakePromoCodeStore : IPromoCodeStore
-    {
-        public Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken) => Task.FromResult<PromoCode?>(null);
-
-        public Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken) => Task.FromResult(true);
+        public async Task<PaymentWebhookCommitResult> CommitAsync(
+            PaymentWebhookCommit command,
+            CancellationToken cancellationToken)
+        {
+            await payments.UpdateAsync(command.Payment, cancellationToken);
+            return PaymentWebhookCommitResult.Applied;
+        }
     }
 }

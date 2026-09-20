@@ -50,11 +50,14 @@ public sealed class InMemoryOrderRepository : IOrderRepository, IOutboxDispatche
 
     public Task AckAsync(OutboxMessage message, CancellationToken cancellationToken) => Task.CompletedTask;
 
-    public Task RetryAsync(OutboxMessage message, TimeSpan retryIn, CancellationToken cancellationToken)
+    public Task RetryAsync(OutboxMessage message, TimeSpan retryIn, string error, CancellationToken cancellationToken)
     {
         // In-memory queue has no delayed redelivery; re-enqueue with an incremented attempt
         // counter so the dispatcher's poison threshold still applies (dev-only mode).
         _outbox.Enqueue(message with { Attempts = message.Attempts + 1 });
         return Task.CompletedTask;
     }
+
+    public Task DeadLetterAsync(OutboxMessage message, string error, CancellationToken cancellationToken)
+        => Task.CompletedTask;
 }

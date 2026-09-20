@@ -37,11 +37,7 @@ public sealed class PostgresPaymentStore : IPaymentStore
             return null;
         }
 
-        var createdAt = new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAtUtc, DateTimeKind.Utc));
-        var completedAt = row.CompletedAtUtc.HasValue
-            ? new DateTimeOffset(DateTime.SpecifyKind(row.CompletedAtUtc.Value, DateTimeKind.Utc))
-            : (DateTimeOffset?)null;
-        return new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, createdAt, completedAt, row.CheckoutUrl);
+        return Map(row);
     }
 
     public async Task AddAsync(Payment payment, CancellationToken cancellationToken)
@@ -66,6 +62,36 @@ public sealed class PostgresPaymentStore : IPaymentStore
             payment.CompletedAtUtc,
             payment.CheckoutUrl
         }, cancellationToken: cancellationToken));
+    }
+
+    public async Task<PaymentReservation> GetOrAddAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        const string sql = """
+                           INSERT INTO payments
+                               (id, order_id, provider, status, external_id, created_at_utc, completed_at_utc, checkout_url)
+                           VALUES
+                               (@Id, @OrderId, @Provider, @Status, @ExternalId, @CreatedAtUtc, @CompletedAtUtc, @CheckoutUrl)
+                           ON CONFLICT (order_id, provider) DO UPDATE
+                           SET order_id = EXCLUDED.order_id
+                           RETURNING id, order_id, provider, status, external_id, created_at_utc,
+                                     completed_at_utc, checkout_url, (xmax = 0) AS created;
+                           """;
+
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        var row = await connection.QuerySingleAsync<PaymentReservationRow>(new CommandDefinition(sql, new
+        {
+            payment.Id,
+            payment.OrderId,
+            Provider = (int)payment.Provider,
+            Status = (int)payment.Status,
+            payment.ExternalId,
+            payment.CreatedAtUtc,
+            payment.CompletedAtUtc,
+            payment.CheckoutUrl
+        }, cancellationToken: cancellationToken));
+
+        return new PaymentReservation(Map(row), row.Created);
     }
 
     public async Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
@@ -100,4 +126,27 @@ public sealed class PostgresPaymentStore : IPaymentStore
         DateTime CreatedAtUtc,
         DateTime? CompletedAtUtc,
         string? CheckoutUrl);
+
+    private sealed record PaymentReservationRow(
+        Guid Id,
+        Guid OrderId,
+        int Provider,
+        int Status,
+        string? ExternalId,
+        DateTime CreatedAtUtc,
+        DateTime? CompletedAtUtc,
+        string? CheckoutUrl,
+        bool Created);
+
+    private static Payment Map(PaymentRow row)
+    {
+        var createdAt = new DateTimeOffset(DateTime.SpecifyKind(row.CreatedAtUtc, DateTimeKind.Utc));
+        var completedAt = row.CompletedAtUtc.HasValue
+            ? new DateTimeOffset(DateTime.SpecifyKind(row.CompletedAtUtc.Value, DateTimeKind.Utc))
+            : (DateTimeOffset?)null;
+        return new Payment(row.Id, row.OrderId, (PaymentMethod)row.Provider, (PaymentStatus)row.Status, row.ExternalId, createdAt, completedAt, row.CheckoutUrl);
+    }
+
+    private static Payment Map(PaymentReservationRow row)
+        => Map(new PaymentRow(row.Id, row.OrderId, row.Provider, row.Status, row.ExternalId, row.CreatedAtUtc, row.CompletedAtUtc, row.CheckoutUrl));
 }

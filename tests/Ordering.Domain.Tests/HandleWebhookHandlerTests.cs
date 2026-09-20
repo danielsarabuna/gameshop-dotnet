@@ -1,7 +1,6 @@
 using EventBus;
 using Ordering.Application.Abstractions;
 using Ordering.Application.Payments;
-using Ordering.Application.PromoCodes;
 using Ordering.Domain.Orders;
 using Ordering.Domain.Payments;
 using Ordering.Domain.Products;
@@ -41,8 +40,7 @@ public sealed class HandleWebhookHandlerTests
         var handler = new HandleWebhookHandler(
             orders,
             payments,
-            new FakeWebhookIdempotencyStore(),
-            new FakePromoCodeStore());
+            new FakePaymentWebhookStore(payments));
 
         var processed = await handler.HandleAsync(
             PaymentMethod.Stripe,
@@ -72,11 +70,12 @@ public sealed class HandleWebhookHandlerTests
             DateTimeOffset.UtcNow);
 
         var orders = new FakeOrderRepository(order);
+        var payments = new FakePaymentStore(null);
+        var webhooks = new FakePaymentWebhookStore(payments);
         var handler = new HandleWebhookHandler(
             orders,
-            new FakePaymentStore(null),
-            new FakeWebhookIdempotencyStore(),
-            new FakePromoCodeStore());
+            payments,
+            webhooks);
 
         var processed = await handler.HandleAsync(
             PaymentMethod.YooKassa,
@@ -84,13 +83,13 @@ public sealed class HandleWebhookHandlerTests
             CancellationToken.None);
 
         Assert.True(processed);
-        Assert.Equal(2, orders.Outbox.Count);
-        Assert.Contains(orders.Outbox, m => m.Type == "order_completed.v1");
-        Assert.Contains(orders.Outbox, m => m.Type == "supabase.order_paid.v1");
+        Assert.Equal(2, webhooks.LastCommand!.Outbox.Count);
+        Assert.Contains(webhooks.LastCommand.Outbox, m => m.Type == "order_completed.v1");
+        Assert.Contains(webhooks.LastCommand.Outbox, m => m.Type == "supabase.order_paid.v1");
     }
 
     [Fact]
-    public async Task Transient_failure_releases_idempotency_slot_so_provider_retry_is_not_swallowed()
+    public async Task Transient_commit_failure_allows_provider_retry()
     {
         var orderId = Guid.NewGuid();
         var order = new Order(
@@ -103,22 +102,20 @@ public sealed class HandleWebhookHandlerTests
             null,
             DateTimeOffset.UtcNow);
 
-        var idempotency = new FakeWebhookIdempotencyStore();
-        var orders = new FlakyOrderRepository(order, failuresBeforeSuccess: 1);
+        var orders = new FakeOrderRepository(order);
+        var payments = new FakePaymentStore(null);
+        var webhooks = new FakePaymentWebhookStore(payments, failuresBeforeSuccess: 1);
         var handler = new HandleWebhookHandler(
             orders,
-            new FakePaymentStore(null),
-            idempotency,
-            new FakePromoCodeStore());
+            payments,
+            webhooks);
 
         // First attempt: repository fails transiently AFTER the slot was reserved.
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.HandleAsync(
             PaymentMethod.Stripe,
             new PaymentWebhookRequest("evt_transient", orderId, Guid.NewGuid(), "succeeded"),
             CancellationToken.None));
-        Assert.Contains("Stripe:evt_transient", idempotency.Released);
-
-        // Retry (provider redelivers): now succeeds — the slot was freed.
+        // Retry (provider redelivers): the transactional store now succeeds.
         var processed = await handler.HandleAsync(
             PaymentMethod.Stripe,
             new PaymentWebhookRequest("evt_transient", orderId, Guid.NewGuid(), "succeeded"),
@@ -127,7 +124,7 @@ public sealed class HandleWebhookHandlerTests
     }
 
     [Fact]
-    public async Task Business_rejection_keeps_idempotency_slot()
+    public async Task Business_rejection_does_not_start_transactional_commit()
     {
         var orderId = Guid.NewGuid();
         var order = new Order(
@@ -140,43 +137,19 @@ public sealed class HandleWebhookHandlerTests
             null,
             DateTimeOffset.UtcNow);
 
-        var idempotency = new FakeWebhookIdempotencyStore();
+        var payments = new FakePaymentStore(null);
+        var webhooks = new FakePaymentWebhookStore(payments);
         var handler = new HandleWebhookHandler(
             new FakeOrderRepository(order),
-            new FakePaymentStore(null),
-            idempotency,
-            new FakePromoCodeStore());
+            payments,
+            webhooks);
 
         await Assert.ThrowsAsync<ArgumentException>(() => handler.HandleAsync(
             PaymentMethod.Stripe,
             new PaymentWebhookRequest("evt_mismatch", orderId, Guid.NewGuid(), "succeeded", Amount: 1.00m, Currency: "EUR"),
             CancellationToken.None));
 
-        Assert.Empty(idempotency.Released);
-    }
-
-    /// <summary>Repository whose GetAsync fails N times before succeeding (simulates a transient outage).</summary>
-    private sealed class FlakyOrderRepository(Order order, int failuresBeforeSuccess) : IOrderRepository
-    {
-        private int _remainingFailures = failuresBeforeSuccess;
-
-        public Task AddAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task<Order?> GetAsync(Guid id, CancellationToken cancellationToken)
-        {
-            if (_remainingFailures > 0)
-            {
-                Interlocked.Decrement(ref _remainingFailures);
-                throw new InvalidOperationException("db momentarily unavailable");
-            }
-
-            return Task.FromResult(id == order.Id ? order : null);
-        }
-
-        public Task UpdateAsync(Order order, CancellationToken cancellationToken) => Task.CompletedTask;
-
-        public Task UpdateWithOutboxAsync(Order order, IReadOnlyList<OutboxMessage> outbox, CancellationToken cancellationToken)
-            => Task.CompletedTask;
+        Assert.Null(webhooks.LastCommand);
     }
 
     private sealed class FakeOrderRepository : IOrderRepository
@@ -230,6 +203,13 @@ public sealed class HandleWebhookHandlerTests
             return Task.CompletedTask;
         }
 
+        public Task<PaymentReservation> GetOrAddAsync(Payment payment, CancellationToken cancellationToken)
+        {
+            var created = _payment is null;
+            _payment ??= payment;
+            return Task.FromResult(new PaymentReservation(_payment, created));
+        }
+
         public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
         {
             _payment = payment;
@@ -238,19 +218,24 @@ public sealed class HandleWebhookHandlerTests
         }
     }
 
-    private sealed class FakeWebhookIdempotencyStore : IWebhookIdempotencyStore
+    private sealed class FakePaymentWebhookStore(
+        FakePaymentStore payments,
+        int failuresBeforeSuccess = 0) : IPaymentWebhookStore
     {
-        public HashSet<string> Released { get; } = [];
+        private int _remainingFailures = failuresBeforeSuccess;
+        public PaymentWebhookCommit? LastCommand { get; private set; }
 
-        public bool TryBegin(string provider, string eventId) => true;
+        public async Task<PaymentWebhookCommitResult> CommitAsync(PaymentWebhookCommit command, CancellationToken cancellationToken)
+        {
+            if (_remainingFailures > 0)
+            {
+                Interlocked.Decrement(ref _remainingFailures);
+                throw new InvalidOperationException("db momentarily unavailable");
+            }
 
-        public void Release(string provider, string eventId) => Released.Add($"{provider}:{eventId}");
-    }
-
-    private sealed class FakePromoCodeStore : IPromoCodeStore
-    {
-        public Task<PromoCode?> GetAsync(string code, CancellationToken cancellationToken) => Task.FromResult<PromoCode?>(null);
-
-        public Task<bool> TryConsumeAsync(string code, CancellationToken cancellationToken) => Task.FromResult(true);
+            LastCommand = command;
+            await payments.UpdateAsync(command.Payment, cancellationToken);
+            return PaymentWebhookCommitResult.Applied;
+        }
     }
 }

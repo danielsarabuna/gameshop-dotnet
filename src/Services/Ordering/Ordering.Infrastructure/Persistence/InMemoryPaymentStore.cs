@@ -20,6 +20,12 @@ public sealed class InMemoryPaymentStore : IPaymentStore
         return Task.CompletedTask;
     }
 
+    public Task<PaymentReservation> GetOrAddAsync(Payment payment, CancellationToken cancellationToken)
+    {
+        var stored = _payments.GetOrAdd(Key(payment.OrderId, payment.Provider), payment);
+        return Task.FromResult(new PaymentReservation(stored, ReferenceEquals(stored, payment)));
+    }
+
     public Task UpdateAsync(Payment payment, CancellationToken cancellationToken)
     {
         _payments.AddOrUpdate(Key(payment.OrderId, payment.Provider), payment, (_, _) => payment);
@@ -28,4 +34,3 @@ public sealed class InMemoryPaymentStore : IPaymentStore
 
     private static string Key(Guid orderId, PaymentMethod provider) => $"{orderId:D}:{provider}";
 }
-
