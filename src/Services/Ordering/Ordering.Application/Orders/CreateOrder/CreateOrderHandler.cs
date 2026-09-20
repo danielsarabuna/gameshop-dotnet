@@ -150,7 +150,7 @@ public sealed class CreateOrderHandler
             throw new ArgumentException("Promo code is not applicable to selected items.", nameof(code));
         }
 
-        return promo.Type switch
+        var discount = promo.Type switch
         {
             PromoCodes.DiscountType.Percent => eligibleSubtotal * (promo.Value / 100m),
             PromoCodes.DiscountType.FixedAmount => string.Equals(promo.Currency, currency, StringComparison.OrdinalIgnoreCase)
@@ -158,5 +158,6 @@ public sealed class CreateOrderHandler
                 : throw new ArgumentException("Promo code is not applicable for this currency.", nameof(code)),
             _ => 0m
         };
+        return decimal.Round(discount, 2, MidpointRounding.AwayFromZero);
     }
 }
