@@ -19,6 +19,7 @@ public class PayPalPaymentProvider : IPaymentProvider
     private readonly HttpClient _httpClient;
     private readonly string? _webhookSecret;
     private string? _accessToken;
+    private DateTimeOffset _accessTokenExpiresAtUtc;
 
     public DomainPaymentMethod Provider => DomainPaymentMethod.PayPal;
 
@@ -144,7 +145,7 @@ public class PayPalPaymentProvider : IPaymentProvider
 
     private async Task EnsureAccessTokenAsync(CancellationToken cancellationToken)
     {
-        if (!string.IsNullOrEmpty(_accessToken))
+        if (!string.IsNullOrEmpty(_accessToken) && DateTimeOffset.UtcNow < _accessTokenExpiresAtUtc)
             return;
 
         var credentials = Convert.ToBase64String(
@@ -167,7 +168,11 @@ public class PayPalPaymentProvider : IPaymentProvider
             throw new InvalidOperationException($"PayPal token fetch failed: {content}");
         }
 
-        var doc = JsonDocument.Parse(content);
+        using var doc = JsonDocument.Parse(content);
         _accessToken = doc.RootElement.GetProperty("access_token").GetString();
+        var expiresInSeconds = doc.RootElement.TryGetProperty("expires_in", out var expiresIn)
+            ? expiresIn.GetInt32()
+            : 300;
+        _accessTokenExpiresAtUtc = DateTimeOffset.UtcNow.AddSeconds(Math.Max(1, expiresInSeconds - 60));
     }
 }

@@ -41,6 +41,7 @@ public sealed class PaymentProviderAccessorTests
             [$"Payments:{provider}:Enabled"] = enabled.ToString(),
             ["Payments:PayPal:ClientId"] = "portfolio-client",
             ["Payments:PayPal:ClientSecret"] = "portfolio-secret",
+            ["Payments:PayPal:WebhookSecret"] = "portfolio-webhook-id",
             ["Payments:PayPal:Mode"] = "sandbox",
             ["Payments:CorvusPay:StoreId"] = "portfolio-store",
             ["Payments:CorvusPay:SecretKey"] = "portfolio-secret",

@@ -344,6 +344,18 @@ static async Task<IResult> HandleWebhook(
     IPaymentProviderAccessor accessor,
     CancellationToken cancellationToken)
 {
+    const long maxWebhookBodyBytes = 256 * 1024;
+    if (httpContext.Request.ContentLength > maxWebhookBodyBytes)
+    {
+        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+    }
+
+    var maxBodySize = httpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+    if (maxBodySize is { IsReadOnly: false })
+    {
+        maxBodySize.MaxRequestBodySize = maxWebhookBodyBytes;
+    }
+
     if (!TryParseProvider(provider, out var method))
     {
         return Results.BadRequest(new { error = "Unknown provider." });
