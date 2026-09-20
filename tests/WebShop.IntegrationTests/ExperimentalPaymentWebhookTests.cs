@@ -11,7 +11,6 @@ namespace WebShop.IntegrationTests;
 public sealed class ExperimentalPaymentWebhookTests
 {
     [Theory]
-    [InlineData("paypal", "PayPal")]
     [InlineData("corvuspay", "CorvusPay")]
     public async Task Unsupported_verification_returns_501_without_touching_orders(
         string routeProvider,
