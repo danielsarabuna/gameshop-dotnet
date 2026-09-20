@@ -85,22 +85,21 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Docker
       ASPNETCORE_URLS: http://+:8080
-      Catalog__Storage: Mongo
-      Catalog__Mongo__ConnectionString: mongodb://mongodb:27017
+      Kestrel__HttpPort: "8080"
+      Kestrel__GrpcPort: "8081"
       Catalog__Remote__Bucket: ${CATALOG_BUCKET:-prod}
-      Catalog__Remote__SupabaseBaseUrl: ${SUPABASE_URL}
+      Catalog__Remote__SupabaseBaseUrl: ${SUPABASE_URL:?set SUPABASE_URL in .env.prod}
       Catalog__CacheInvalidation__SharedSecret: ${CATALOG_CACHE_INVALIDATION_SECRET:?set CATALOG_CACHE_INVALIDATION_SECRET in .env.prod}
+      Supabase__Url: ${SUPABASE_URL:?set SUPABASE_URL in .env.prod}
+      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?set SUPABASE_SERVICE_ROLE_KEY in .env.prod}
       GameTicketJwt__PrivateKeyPemBase64: ${GAME_TICKET_JWT_PRIVATE_KEY_PEM_BASE64}
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 10
-    depends_on:
-      mongodb:
-        condition: service_healthy
     networks:
       - backend
 
@@ -127,7 +126,7 @@ services:
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -161,8 +160,8 @@ services:
       Auth__ValidIssuers__0: https://${SHOP_DOMAIN}/realms/webshop
       Auth__RequireHttpsMetadata: "false"
       GameTicketJwt__PublicKeyPemBase64: ${GAME_TICKET_JWT_PUBLIC_KEY_PEM_BASE64}
-      Supabase__Url: ${SUPABASE_URL}
-      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY}
+      Supabase__Url: ${SUPABASE_URL:?set SUPABASE_URL in .env.prod}
+      Supabase__ServiceRoleKey: ${SUPABASE_SERVICE_ROLE_KEY:?set SUPABASE_SERVICE_ROLE_KEY in .env.prod}
       Payments__YooKassa__ShopId: ${PAYMENTS_YOOKASSA_SHOPID:-}
       Payments__YooKassa__SecretKey: ${PAYMENTS_YOOKASSA_SECRETKEY:-}
       Payments__YooKassa__ReturnUrl: https://${SHOP_DOMAIN}/order/complete
@@ -187,7 +186,7 @@ services:
       Otel__Enabled: "true"
       Otel__Endpoint: http://jaeger:4317
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8080/health >/dev/null 2>&1 || exit 1"]
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -202,19 +201,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    networks:
-      - backend
-
-  mongodb:
-    image: mongo:7
-    restart: unless-stopped
-    volumes:
-      - mongo_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
     networks:
       - backend
 
@@ -292,7 +278,6 @@ services:
 volumes:
   caddy_data:
   caddy_config:
-  mongo_data:
   postgres_data:
   rabbitmq_data:
 
