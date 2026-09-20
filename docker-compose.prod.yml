@@ -41,6 +41,9 @@ services:
       context: .
       dockerfile: src/WebApps/Shopping.Web/Dockerfile
     restart: unless-stopped
+    depends_on:
+      apigateway:
+        condition: service_healthy
     networks:
       - frontend
 
