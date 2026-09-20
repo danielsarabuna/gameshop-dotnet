@@ -72,6 +72,20 @@ public sealed class OrderingDatabaseInitializer
                                PRIMARY KEY (provider, event_id)
                            );
 
+                           CREATE TABLE IF NOT EXISTS payment_reconciliation_cases (
+                               provider text NOT NULL,
+                               event_id text NOT NULL,
+                               order_id uuid NOT NULL REFERENCES orders(id),
+                               payment_id uuid NOT NULL,
+                               reason text NOT NULL,
+                               created_at_utc timestamptz NOT NULL DEFAULT now(),
+                               resolved_at_utc timestamptz NULL,
+                               PRIMARY KEY (provider, event_id)
+                           );
+                           CREATE INDEX IF NOT EXISTS ix_payment_reconciliation_cases_open
+                               ON payment_reconciliation_cases (created_at_utc)
+                               WHERE resolved_at_utc IS NULL;
+
                            CREATE TABLE IF NOT EXISTS outbox_events (
                                id uuid PRIMARY KEY,
                                type text NOT NULL,

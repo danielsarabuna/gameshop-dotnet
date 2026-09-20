@@ -47,17 +47,27 @@ public sealed class PostgresPaymentWebhookStore : IPaymentWebhookStore
             return PaymentWebhookCommitResult.Duplicate;
         }
 
-        var currentStatus = await connection.ExecuteScalarAsync<int?>(new CommandDefinition(
-            "SELECT status FROM orders WHERE id = @Id FOR UPDATE;",
+        var orderState = await connection.QuerySingleOrDefaultAsync<OrderState>(new CommandDefinition(
+            "SELECT status, failure_reason AS FailureReason FROM orders WHERE id = @Id FOR UPDATE;",
             new { command.Order.Id },
             transaction,
             cancellationToken: cancellationToken));
-        if (currentStatus is null)
+        if (orderState is null)
         {
             throw new ArgumentException("Order not found.", nameof(command));
         }
 
-        var alreadyPaid = currentStatus == (int)OrderStatus.Paid;
+        if (command.Succeeded && orderState.Status == (int)OrderStatus.Failed)
+        {
+            // A provider can report a completed charge after checkout expiry. Keep the
+            // released promo and failed order intact, but persist the charge for finance.
+            await UpsertPaymentAsync(connection, transaction, command, cancellationToken);
+            await InsertReconciliationCaseAsync(connection, transaction, command, cancellationToken);
+            await transaction.CommitAsync(cancellationToken);
+            return PaymentWebhookCommitResult.ReconciliationRequired;
+        }
+
+        var alreadyPaid = orderState.Status == (int)OrderStatus.Paid;
         if (!alreadyPaid)
         {
             if (command.Succeeded)
@@ -91,6 +101,25 @@ public sealed class PostgresPaymentWebhookStore : IPaymentWebhookStore
         await transaction.CommitAsync(cancellationToken);
         return PaymentWebhookCommitResult.Applied;
     }
+
+    private static Task InsertReconciliationCaseAsync(
+        NpgsqlConnection connection,
+        NpgsqlTransaction transaction,
+        PaymentWebhookCommit command,
+        CancellationToken cancellationToken)
+        => connection.ExecuteAsync(new CommandDefinition(
+            """
+            INSERT INTO payment_reconciliation_cases (provider, event_id, order_id, payment_id, reason)
+            VALUES (@Provider, @EventId, @OrderId, @PaymentId, 'late_success_after_failed_order')
+            ON CONFLICT (provider, event_id) DO NOTHING;
+            """,
+            new
+            {
+                command.Provider,
+                command.EventId,
+                OrderId = command.Order.Id,
+                PaymentId = command.Payment.Id
+            }, transaction, cancellationToken: cancellationToken));
 
     private static async Task ConsumePromoReservationAsync(
         NpgsqlConnection connection,
@@ -252,4 +281,6 @@ public sealed class PostgresPaymentWebhookStore : IPaymentWebhookStore
             transaction,
             cancellationToken: cancellationToken));
     }
+
+    private sealed record OrderState(int Status, string? FailureReason);
 }
