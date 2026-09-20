@@ -1,5 +1,7 @@
+using System.Buffers;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using BuildingBlocks.Auth;
@@ -196,6 +198,20 @@ app.UseWebShopSecurityHeaders();
 app.UseWebShopRequestLogging();
 app.UseCors();
 app.UseWebShopAuth();
+app.Use((httpContext, next) =>
+{
+    if (httpContext.Request.Path.StartsWithSegments("/api/v1/webhooks", StringComparison.OrdinalIgnoreCase)
+        || httpContext.Request.Path.StartsWithSegments("/webhooks", StringComparison.OrdinalIgnoreCase))
+    {
+        var maxBodySize = httpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
+        if (maxBodySize is { IsReadOnly: false })
+        {
+            maxBodySize.MaxRequestBodySize = WebhookRequestLimits.MaxBodyBytes;
+        }
+    }
+
+    return next(httpContext);
+});
 
 app.MapWebShopHealth();
 app.MapWebShopMetrics();
@@ -344,18 +360,6 @@ static async Task<IResult> HandleWebhook(
     IPaymentProviderAccessor accessor,
     CancellationToken cancellationToken)
 {
-    const long maxWebhookBodyBytes = 256 * 1024;
-    if (httpContext.Request.ContentLength > maxWebhookBodyBytes)
-    {
-        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
-    }
-
-    var maxBodySize = httpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>();
-    if (maxBodySize is { IsReadOnly: false })
-    {
-        maxBodySize.MaxRequestBodySize = maxWebhookBodyBytes;
-    }
-
     if (!TryParseProvider(provider, out var method))
     {
         return Results.BadRequest(new { error = "Unknown provider." });
@@ -372,8 +376,11 @@ static async Task<IResult> HandleWebhook(
         return Results.Json(new { error = "Provider not configured." }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 
-    using var reader = new StreamReader(httpContext.Request.Body);
-    var body = await reader.ReadToEndAsync(cancellationToken);
+    var body = await ReadWebhookBodyAsync(httpContext.Request, cancellationToken);
+    if (body is null)
+    {
+        return Results.StatusCode(StatusCodes.Status413PayloadTooLarge);
+    }
 
     var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     foreach (var (key, values) in httpContext.Request.Headers)
@@ -432,6 +439,43 @@ static async Task<IResult> HandleWebhook(
     catch (ArgumentException ex)
     {
         return Results.BadRequest(new { error = ex.Message });
+    }
+}
+
+static async Task<string?> ReadWebhookBodyAsync(HttpRequest request, CancellationToken cancellationToken)
+{
+    var bytes = new ArrayBufferWriter<byte>();
+    long length = 0;
+
+    try
+    {
+        while (true)
+        {
+            var result = await request.BodyReader.ReadAsync(cancellationToken);
+            var buffer = result.Buffer;
+
+            foreach (var segment in buffer)
+            {
+                length += segment.Length;
+                if (length > WebhookRequestLimits.MaxBodyBytes)
+                {
+                    request.BodyReader.AdvanceTo(buffer.End);
+                    return null;
+                }
+
+                bytes.Write(segment.Span);
+            }
+
+            request.BodyReader.AdvanceTo(buffer.End);
+            if (result.IsCompleted)
+            {
+                return Encoding.UTF8.GetString(bytes.WrittenSpan);
+            }
+        }
+    }
+    catch (BadHttpRequestException)
+    {
+        return null;
     }
 }
 
@@ -506,6 +550,11 @@ static CatalogScope GetCatalogScope(HttpContext context)
 namespace Ordering.API
 {
     public sealed class Program;
+}
+
+static class WebhookRequestLimits
+{
+    public const long MaxBodyBytes = 256 * 1024;
 }
 
 public sealed record MockPaymentCompletionRequest(string? Status);
