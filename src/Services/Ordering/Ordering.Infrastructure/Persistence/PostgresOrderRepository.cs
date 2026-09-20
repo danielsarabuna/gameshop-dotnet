@@ -18,10 +18,13 @@ public sealed class PostgresOrderRepository : IOrderRepository
     };
 
     private readonly string _connectionString;
+    private readonly TimeSpan _promoReservationTtl;
 
     public PostgresOrderRepository(IConfiguration configuration, IHostEnvironment environment)
     {
         _connectionString = PostgresConnectionFactory.GetConnectionString(configuration, environment);
+        _promoReservationTtl = TimeSpan.FromMinutes(Math.Clamp(
+            configuration.GetValue("PromoCodes:ReservationTtlMinutes", 30), 1, 24 * 60));
     }
 
     public async Task AddAsync(Order order, CancellationToken cancellationToken)
@@ -81,10 +84,15 @@ public sealed class PostgresOrderRepository : IOrderRepository
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 """
-                INSERT INTO promo_redemptions (order_id, code, status, reserved_at_utc)
-                VALUES (@OrderId, @Code, 0, now());
+                INSERT INTO promo_redemptions (order_id, code, status, reserved_at_utc, expires_at_utc)
+                VALUES (@OrderId, @Code, 0, now(), @ExpiresAtUtc);
                 """,
-                new { OrderId = order.Id, Code = order.PromoCode },
+                new
+                {
+                    OrderId = order.Id,
+                    Code = order.PromoCode,
+                    ExpiresAtUtc = DateTimeOffset.UtcNow.Add(_promoReservationTtl)
+                },
                 transaction,
                 cancellationToken: cancellationToken));
         }

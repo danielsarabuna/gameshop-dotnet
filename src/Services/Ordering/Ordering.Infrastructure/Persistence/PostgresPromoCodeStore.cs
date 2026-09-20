@@ -13,7 +13,7 @@ namespace Ordering.Infrastructure.Persistence;
 /// Postgres promo code store. Consume is a conditional UPDATE (atomic), so usage limits hold
 /// across restarts and concurrent instances.
 /// </summary>
-public sealed class PostgresPromoCodeStore : IPromoCodeStore
+public sealed class PostgresPromoCodeStore : IPromoCodeStore, IPromoReservationMaintenanceStore
 {
     private const string GetSql = """
                                   SELECT code, type, value, currency, is_active, starts_at_utc, expires_at_utc,
@@ -92,6 +92,56 @@ public sealed class PostgresPromoCodeStore : IPromoCodeStore
         return rows > 0;
     }
 
+    public async Task<int> ReleaseExpiredAsync(CancellationToken cancellationToken)
+    {
+        await using var connection = new NpgsqlConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = await connection.BeginTransactionAsync(cancellationToken);
+
+        var reservations = (await connection.QueryAsync<ExpiredReservation>(new CommandDefinition(
+            """
+            SELECT redemption.order_id AS OrderId, redemption.code AS Code
+            FROM promo_redemptions redemption
+            JOIN orders "order" ON "order".id = redemption.order_id
+            WHERE redemption.status = 0
+              AND redemption.expires_at_utc <= now()
+              AND "order".status = 0
+            ORDER BY redemption.expires_at_utc
+            FOR UPDATE OF redemption, "order" SKIP LOCKED
+            LIMIT 100;
+            """,
+            transaction: transaction,
+            cancellationToken: cancellationToken))).ToArray();
+        if (reservations.Length == 0)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return 0;
+        }
+
+        var orderIds = reservations.Select(reservation => reservation.OrderId).ToArray();
+        await connection.ExecuteAsync(new CommandDefinition(
+            """
+            UPDATE promo_redemptions
+            SET status = 2, released_at_utc = now()
+            WHERE order_id = ANY(@OrderIds) AND status = 0;
+
+            UPDATE orders
+            SET status = 2, failure_reason = 'payment_reservation_expired'
+            WHERE id = ANY(@OrderIds) AND status = 0;
+            """,
+            new { OrderIds = orderIds }, transaction, cancellationToken: cancellationToken));
+
+        foreach (var group in reservations.GroupBy(reservation => reservation.Code))
+        {
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE promo_codes SET used_count = GREATEST(0, used_count - @Count) WHERE code = @Code;",
+                new { Code = group.Key, Count = group.Count() }, transaction, cancellationToken: cancellationToken));
+        }
+
+        await transaction.CommitAsync(cancellationToken);
+        return reservations.Length;
+    }
+
     private static PromoCode Map(PromoRow row)
         => new(
             Code: row.Code,
@@ -118,4 +168,6 @@ public sealed class PostgresPromoCodeStore : IPromoCodeStore
         int MaxUses,
         int UsedCount,
         string? ProductIds);
+
+    private sealed record ExpiredReservation(Guid OrderId, string Code);
 }
